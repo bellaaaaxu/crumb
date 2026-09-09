@@ -69,11 +69,13 @@ demo** in the counter panel puts it back.
 ## How it is put together
 
 ```
-index.html            markup, ~130 lines
+index.html            markup
 assets/style.css      one light theme, no dark variant — a single warm world on purpose
 assets/sprites.js     39 sprites, 3x5 digits and capitals, canvas drawing helpers
 assets/app.js         demo state, the ledger, animations
 assets/signature.svg  footer signature, same pixel grid as everything else
+assets/og.png         social preview card
+scripts/make-og.mjs   builds that card from the sprite table — not needed to serve the site
 ```
 
 The ledger is append-only, the way the original is: a balance is `sum(amount)` over the entries and
