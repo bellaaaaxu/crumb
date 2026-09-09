@@ -839,6 +839,69 @@
     else say('Grant a card on the counter and watch the phone.');
   }
 
+  /* ---------------------------------------------------------------- scroll reveals
+   *
+   * Deliberately the page's own vocabulary rather than a generic fade: the
+   * cabinet's pastries drop into their slots with the same keyframes collected
+   * ones use in the phone, and the cards rise the way the balance tile does.
+   *
+   * Nothing is hidden until this function decides to hide it, so a browser
+   * without IntersectionObserver, or a reader who has asked for less motion,
+   * gets the whole section rendered plainly instead of a blank strip. */
+
+  function revealOnScroll(trigger, nodes, showClass, stagger) {
+    if (!trigger || !nodes.length) return;
+
+    nodes.forEach(function (n) { n.classList.add('reveal-armed'); });
+
+    var played = false;
+    var play = function () {
+      if (played) return;
+      played = true;
+      nodes.forEach(function (n, i) {
+        n.style.animationDelay = (i * stagger) + 'ms';
+        n.classList.add(showClass);
+      });
+    };
+
+    /* Whether the observer is alive, not how long we have waited.
+     *
+     * A plain timer is the wrong test: the tour at the top of the page runs for
+     * seventeen seconds, so most readers are still up there when any sensible
+     * deadline expires. Unarming then would leave the section visible until they
+     * scrolled to it, at which point the observer would fire and yank it back to
+     * invisible to animate in — a flash far worse than no animation.
+     *
+     * An IntersectionObserver always delivers one callback shortly after
+     * observe(), intersecting or not. That callback is the proof it works. No
+     * callback means it is broken, and only then do we drop the hidden state. */
+    var alive = false;
+
+    var io = new IntersectionObserver(function (entries) {
+      alive = true;
+      for (var i = 0; i < entries.length; i += 1) {
+        if (entries[i].isIntersecting) { io.disconnect(); play(); return; }
+      }
+    }, { rootMargin: '0px 0px -12% 0px' });
+    io.observe(trigger);
+
+    window.setTimeout(function () {
+      if (alive || played) return;
+      io.disconnect();
+      played = true;
+      nodes.forEach(function (n) { n.classList.remove('reveal-armed'); });
+    }, 1500);
+  }
+
+  function setUpReveals() {
+    if (reduced() || !('IntersectionObserver' in window)) return;
+    var pick = function (sel) { return Array.prototype.slice.call(document.querySelectorAll(sel)); };
+
+    revealOnScroll($('how'), pick('.how .section-head').concat(pick('.how .card')), 'rise', 90);
+    revealOnScroll($('cabinet-section'), pick('.cabinet .section-head'), 'rise', 0);
+    revealOnScroll($('cabinet'), pick('#cabinet .slot'), 'pop', 20);
+  }
+
   /* ---------------------------------------------------------------- wiring */
 
   renderWordmark();
@@ -848,6 +911,7 @@
 
   renderAll({ dropFrom: 0 });
   renderSteps();
+  setUpReveals();
 
   if (state.tookControl) {
     endTour(true);

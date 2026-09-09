@@ -527,6 +527,17 @@ body.autoplay .reset { cursor: default; }
 
 .particle { position: fixed; z-index: 40; pointer-events: none; border-radius: 1px; }
 
+/* ------------------------------------------------------------------ scroll reveals
+
+   The hidden state is applied only by a class JS adds, never in the resting
+   stylesheet. No script, no IntersectionObserver, an observer that never
+   fires — in every one of those cases the section is simply visible, which is
+   the failure everyone can live with. */
+
+.reveal-armed { opacity: 0; }
+.card.rise { animation: tileSlide 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.2) both; }
+.section-head.rise { animation: tileSlide 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.2) both; }
+
 /* ------------------------------------------------------------------ how it works */
 
 .how { padding: 44px 0 8px; }
