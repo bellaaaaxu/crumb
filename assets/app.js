@@ -406,6 +406,42 @@
     });
   }
 
+  /* What the counter handed out, newest first, across everyone. Only gift cards
+   * count — an opening balance is also positive but nobody granted it. */
+  var RECENT_GRANTS = 3;
+
+  function renderRecent() {
+    var rows = [];
+    PEOPLE.forEach(function (p) {
+      var person = state.people[p.id];
+      person.entries.forEach(function (e) {
+        if (e.kind === 'gift') rows.push({ name: person.name, cents: e.cents, at: e.at });
+      });
+    });
+    rows.sort(function (a, b) { return new Date(b.at) - new Date(a.at); });
+
+    var list = $('recent-list');
+    list.textContent = '';
+
+    if (!rows.length) {
+      var empty = document.createElement('p');
+      empty.className = 'recent-empty';
+      empty.textContent = 'Nothing handed out yet.';
+      list.appendChild(empty);
+      return;
+    }
+
+    rows.slice(0, RECENT_GRANTS).forEach(function (r) {
+      var row = document.createElement('div');
+      row.className = 'recent-row';
+      row.innerHTML =
+        '<span class="recent-amt num">+$' + money(r.cents) + '</span>' +
+        '<span>' + r.name + '</span>' +
+        '<span class="recent-when">' + whenLabel(r.at) + '</span>';
+      list.appendChild(row);
+    });
+  }
+
   function renderSteps() {
     Array.prototype.forEach.call($('steps').children, function (li) {
       li.classList.toggle('done', Boolean(state.steps[li.dataset.step]));
@@ -431,6 +467,7 @@
     renderLog();
     renderDaily();
     renderPeople();
+    renderRecent();
   }
 
   /* ---------------------------------------------------------------- oven intro */

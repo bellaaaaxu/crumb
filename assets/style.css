@@ -265,6 +265,19 @@ body.autoplay .reset { cursor: default; }
 .grant:active { transform: translateY(3px); border-bottom-width: 1px; }
 .grant:disabled { opacity: 0.5; cursor: not-allowed; }
 
+/* The manager side keeps its own record of what it handed out. It also fills
+   the room the box gained when it was matched to the phone's height. */
+.recent { margin-top: 20px; }
+.recent-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 0; font-size: 13px;
+  border-top: 1px dashed var(--line);
+}
+.recent-row:first-child { border-top: none; }
+.recent-amt { font-weight: 800; color: var(--plus); min-width: 60px; }
+.recent-when { margin-left: auto; font-size: 12px; color: var(--ink-soft); }
+.recent-empty { padding: 7px 0; font-size: 13px; color: var(--ink-soft); }
+
 .nudge {
   margin-top: auto; padding-top: 14px;
   border-top: 2px dashed var(--line);
