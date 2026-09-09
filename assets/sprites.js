@@ -1,5 +1,5 @@
 /* Crumb — pixel art data and canvas helpers. No dependencies, no external fonts.
- * Every sprite below is hand-drawn on a 12x12 grid; digits and capitals on 3x5.
+ * Every sprite below is character-grid data on a 12x12 grid; digits and capitals on 3x5.
  * Generated from the source project's sprite table — do not hand-edit. */
 
 const Pixel = (function () {

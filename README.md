@@ -6,7 +6,7 @@
 
 A Hong Kong-style bakery hands its staff gift cards for good work and for holidays. Crumb is the
 page they check the balance on — and the reason they keep checking it. Every $50 of gift cards
-*received* adds a hand-drawn pastry to a shelf that never empties, no matter how much you spend.
+*received* adds a pastry to a shelf that never empties, no matter how much you spend.
 
 This repository is an interactive demo of that idea, laid out like a store listing. **It plays
 itself** — a scripted tour runs the whole story on load, and one touch anywhere hands you the
@@ -32,8 +32,9 @@ reviews anywhere on this page.
 
 ## The art
 
-All 39 pastries are drawn by hand on a 12×12 grid, and the balance digits and the `CRUMB` wordmark
-on a 3×5 grid — all of it in [`assets/sprites.js`](assets/sprites.js) as plain character rows:
+All 39 pastries live in the source as character grids, 12×12 each; the balance digits and the
+`CRUMB` wordmark on a 3×5 grid. All of it is in [`assets/sprites.js`](assets/sprites.js) as plain
+rows of text:
 
 ```js
 laopo: { palette: { X: '#5C3A1D', b: '#E0A73C', a: '#F3D488', s: '#8A5A22' }, rows: [
@@ -43,8 +44,9 @@ laopo: { palette: { X: '#5C3A1D', b: '#E0A73C', a: '#F3D488', s: '#8A5A22' }, ro
   ...
 ```
 
-No icon library, no pixel font, no image files, nothing fetched from a CDN. The signature in the
-footer is drawn the same way, on the same grid, in [`assets/signature.svg`](assets/signature.svg).
+No icon library, no pixel font, no image files, nothing fetched from a CDN. The footer signature is
+the same kind of data — plain rectangles on the same grid, derived from a handwritten original — in
+[`assets/signature.svg`](assets/signature.svg).
 
 Colour is the only thing a sprite carries; every drawing is centred by measuring its own content
 bounds, so a flat one (prawn cracker) and a round one (mooncake) sit level in the same slot.
@@ -77,9 +79,17 @@ than needing a second counter to keep in sync.
 
 ## About this demo
 
-Built from an internal tool I designed and shipped for a bakery's staff. The names, staff numbers,
-balances and history on this page are invented; the pastries, the reward rule and the interface are
-the real thing. Nothing here connects to any employer's data.
+Built from an internal tool I designed and shipped for a bakery's staff, in daily use by about
+thirty people.
+
+**How it was built.** I wrote the specifications, chose and reviewed what came back, and validated
+every release before rollout — including the pixel art, which I directed and selected rather than
+placed cell by cell. I don't write the code by hand. That is how I work on every system I own, and
+it is worth saying plainly: the judgment on display here is in the data model, the controls and the
+decisions about what to show, not in the typing.
+
+The names, staff numbers, balances and history on this page are invented. The reward rule, the
+ledger design and the interface are the real thing. Nothing here connects to any employer's data.
 
 ---
 
