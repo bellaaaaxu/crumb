@@ -130,9 +130,16 @@ canvas { display: block; image-rendering: pixelated; }
    inside the phone's width instead of dictating it. */
 .phone-col { display: flex; flex-direction: column; gap: 10px; width: 400px; }
 
-.preview-bar { display: flex; align-items: center; gap: 10px; padding: 0 4px; }
-.preview-label {
-  font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-soft);
+/* Both columns open with this bar, so their boxes start on the same line.
+   The counter used to carry its heading inside the box while the phone had a
+   label above it, which set the two panels 28px apart at the top. */
+.panel-bar {
+  display: flex; align-items: center; gap: 10px;
+  height: 18px; padding: 0 4px;
+}
+.panel-label {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--ink-soft);
 }
 .scene-dots { display: flex; gap: 5px; margin-left: auto; }
 .scene-dots i {
@@ -190,17 +197,20 @@ body.autoplay .reset { cursor: default; }
   padding-bottom: 20px;
 }
 
+/* Sticky lives on the column, not the box, so the label rides along with it.
+   It also needs to: a sticky box inside a content-height wrapper has no room
+   to move, whereas the column is the grid item and gets the full row height. */
+.counter-col {
+  display: flex; flex-direction: column; gap: 10px;
+  position: sticky;
+  top: 24px;
+}
+
 .counter {
   background: var(--paper);
   border: 2px solid var(--line);
   border-radius: var(--radius-tile);
   padding: 22px 22px 20px;
-  position: sticky;
-  top: 24px;
-}
-.counter h2 {
-  font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase;
-  color: var(--wood); margin-bottom: 4px;
 }
 .counter .sub { font-size: 13px; color: var(--ink-soft); margin-bottom: 18px; }
 
@@ -553,7 +563,7 @@ body.autoplay .reset { cursor: default; }
 
 @media (max-width: 900px) {
   .stage { grid-template-columns: minmax(0, 1fr); }
-  .counter { position: static; order: 2; }
+  .counter-col { position: static; order: 2; width: 100%; max-width: 400px; margin: 0 auto; }
   .phone-col { order: 1; width: 100%; max-width: 400px; margin: 0 auto; }
   .phone-frame { width: 100%; }
   .listing { padding-top: 30px; }

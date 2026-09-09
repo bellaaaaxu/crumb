@@ -40,8 +40,13 @@
 
   <section class="stage" aria-label="Interactive demo">
 
-    <div class="counter" id="counter">
-      <h2>The counter</h2>
+    <div class="counter-col">
+
+      <div class="panel-bar">
+        <h2 class="panel-label">The counter</h2>
+      </div>
+
+      <div class="counter" id="counter">
       <p class="sub">Where a manager adds gift cards. Staff can never add their own.</p>
 
       <p class="field-label" id="who-label">Pick a person</p>
@@ -63,12 +68,14 @@
         </ol>
         <button class="reset" type="button" id="reset">Reset the demo</button>
       </div>
+      </div>
+
     </div>
 
     <div class="phone-col">
 
-      <div class="preview-bar">
-        <span class="preview-label">Preview</span>
+      <div class="panel-bar">
+        <h2 class="panel-label">Preview</h2>
         <span class="scene-dots" id="scene-dots" aria-hidden="true"></span>
       </div>
 
