@@ -4,9 +4,13 @@
 
 → **[Open the live demo](https://bellaaaaxu.github.io/crumb/)**
 
-A Hong Kong-style bakery hands its staff gift cards for good work and for holidays. Crumb is the
-page they check the balance on — and the reason they keep checking it. Every $50 of gift cards
-*received* adds a pastry to a shelf that never empties, no matter how much you spend.
+A Hong Kong-style bakery hands out gift cards — to customers, and to staff at holidays. A $50 card
+doesn't spend well on a $3 bun, so staff trade theirs in for a credit they draw down instead. Crumb
+is where they check it.
+
+It is also where the benefit becomes visible. Every $50 *received* unlocks a pastry on a shelf that
+never empties, no matter how much you spend — so a year of good shifts and holidays is something
+you can look at, not just a number that goes up and down.
 
 This repository is an interactive demo of that idea, laid out like a store listing. **It plays
 itself** — a scripted tour runs the whole story on load, and one touch anywhere hands you the
