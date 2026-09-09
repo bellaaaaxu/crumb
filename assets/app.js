@@ -679,9 +679,14 @@
 
   /* ---------------------------------------------------------------- page chrome */
 
+  /* Drawn rather than typed: an arrow glyph would come from whatever font the
+   * browser had, and be the one shape on the page that isn't on the grid. */
+  var CHEVRON = { palette: { X: '#8a6a4c' }, rows: ['X.....X', 'XX...XX', '.XX.XX.', '..XXX..'] };
+
   function renderWordmark() {
     Pixel.drawText($('wordmark'), 'CRUMB', 7, '#4a2f1b');
     Pixel.drawSprite($('app-icon'), Pixel.SPRITES.laopo, 7, 0);
+    Pixel.drawSprite($('more-arrow'), CHEVRON, 3, 0);
   }
 
   function renderCardIcons() {

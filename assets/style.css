@@ -38,6 +38,11 @@
   -webkit-tap-highlight-color: transparent;
 }
 
+/* For the jump link below the demo. Scoped off the phone's own scroller, which
+   should keep snapping to the top instantly when the person on screen changes. */
+html { scroll-behavior: smooth; }
+.phone-scroll { scroll-behavior: auto; }
+
 body {
   background: var(--bg);
   background-image:
@@ -536,6 +541,28 @@ body.autoplay .reset { cursor: default; }
 .card.rise { animation: tileSlide 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.2) both; }
 .section-head.rise { animation: tileSlide 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.2) both; }
 
+/* ------------------------------------------------------------------ read on
+
+   The demo fills the first screen and the sections below it start with small
+   centred type, so it was easy to reach the bottom of the phone and assume the
+   page ended there. This names what is next rather than just saying "scroll" —
+   the point is not that there is more, it is what the more is. */
+
+.more {
+  display: flex; flex-direction: column; align-items: center; gap: 7px;
+  padding: 4px 0 30px;
+  text-decoration: none;
+  font-size: 12px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--ink-soft);
+  transition: color 0.16s;
+}
+.more:hover { color: var(--wood); }
+.more canvas { animation: nudgeDown 2s ease-in-out infinite; }
+@keyframes nudgeDown {
+  0%, 100% { transform: translateY(0) }
+  50% { transform: translateY(4px) }
+}
+
 /* ------------------------------------------------------------------ how it works */
 
 .how { padding: 44px 0 8px; }
@@ -618,5 +645,13 @@ body.autoplay .reset { cursor: default; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  /* iteration-count matters as much as duration: squashing a looping animation
+     to 0.01ms without it leaves it cycling hundreds of times a second, which is
+     worse than the motion it was meant to remove. */
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  html { scroll-behavior: auto; }
 }
