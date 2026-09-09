@@ -110,7 +110,7 @@
     PEOPLE.forEach(function (p) {
       people[p.id] = { id: p.id, name: p.name, tenure: p.tenure, entries: makeEntries(p.seed) };
     });
-    return { active: '118', people: people, steps: {}, nextId: 1000 };
+    return { active: '118', people: people, steps: {}, nextId: 1000, tookControl: false };
   }
 
   var state;
@@ -412,8 +412,12 @@
     });
   }
 
+  /* The scripted tour uses the same code paths a person does, so without this
+   * guard it would tick off the visitor's checklist before they touched anything. */
+  var autoplaying = false;
+
   function markStep(name) {
-    if (state.steps[name]) return;
+    if (autoplaying || state.steps[name]) return;
     state.steps[name] = true;
     renderSteps();
     save();
@@ -590,6 +594,7 @@
     };
 
     var keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'C', '0', '⌫'];
+    var buttons = {};
     keys.forEach(function (k) {
       var b = document.createElement('button');
       b.type = 'button';
@@ -601,25 +606,37 @@
         else if (typed.length < 5) typed = (typed + k).replace(/^0+/, '');
         paint();
       });
+      buttons[k] = b;
       $('keys').appendChild(b);
     });
 
     var close = function () { scrim.remove(); };
+    var submit = function () {
+      var err = spend(valueCents());
+      if (err) { $('sheet-err').textContent = err; return false; }
+      close();
+      return true;
+    };
     scrim.addEventListener('click', function (e) { if (e.target === scrim) close(); });
     $('sheet-cancel').addEventListener('click', close);
-    $('sheet-ok').addEventListener('click', function () {
-      var err = spend(valueCents());
-      if (err) { $('sheet-err').textContent = err; return; }
-      close();
-    });
+    $('sheet-ok').addEventListener('click', submit);
     paint();
+
+    /* Handed back so the scripted demo can press the real keys rather than
+     * mime the result — what plays is the app running, not a re-enactment. */
+    return {
+      press: function (k) { if (buttons[k]) buttons[k].click(); },
+      confirm: submit,
+      close: close,
+      isOpen: function () { return document.body.contains(scrim); },
+    };
   }
 
   /* ---------------------------------------------------------------- page chrome */
 
   function renderWordmark() {
-    var c = $('wordmark');
-    Pixel.drawText(c, 'CRUMB', 11, '#4a2f1b');
+    Pixel.drawText($('wordmark'), 'CRUMB', 7, '#4a2f1b');
+    Pixel.drawSprite($('app-icon'), Pixel.SPRITES.laopo, 7, 0);
   }
 
   function renderCardIcons() {
@@ -647,6 +664,132 @@
     });
   }
 
+  function resetDemo(opts) {
+    var o = opts || {};
+    var keepControl = state.tookControl;
+    state = freshState();
+    state.tookControl = keepControl;
+    logOpen = false;
+    lastBalance = null;
+    save();
+    renderAll({ dropFrom: 0 });
+    renderSteps();
+    if (o.intro) ovenIntro();
+    if (!o.silent) toast('Demo reset');
+  }
+
+  /* ---------------------------------------------------------------- the tour
+   *
+   * A scripted run of the whole story, so someone who touches nothing still sees
+   * it. It presses the same buttons and calls the same functions a person would
+   * — nothing here is a re-enactment, it is the app being driven.
+   *
+   * One real click anywhere in the demo takes it over (event.isTrusted tells a
+   * person's click apart from the tour's own). */
+
+  var SCENE_COUNT = 5;
+  var timers = [];
+  var sheet = null;
+
+  function later(ms, fn) { timers.push(window.setTimeout(fn, ms)); }
+  function clearLater() { timers.forEach(window.clearTimeout); timers = []; }
+
+  function setDots(i) {
+    var box = $('scene-dots');
+    if (box.children.length !== SCENE_COUNT) {
+      box.textContent = '';
+      for (var n = 0; n < SCENE_COUNT; n += 1) box.appendChild(document.createElement('i'));
+    }
+    Array.prototype.forEach.call(box.children, function (dot, n) {
+      dot.classList.toggle('on', n === i);
+    });
+  }
+
+  function say(html, scene) {
+    var el = $('caption');
+    el.innerHTML = html;
+    el.classList.remove('swap');
+    void el.offsetWidth;
+    el.classList.add('swap');
+    if (scene !== undefined) setDots(scene);
+  }
+
+  function press(el, ms) {
+    if (!el) return;
+    el.classList.add('pressed');
+    later(ms || 300, function () { el.classList.remove('pressed'); });
+  }
+
+  function runTour(firstRun) {
+    if (!autoplaying) return;
+    clearLater();
+    resetDemo({ silent: true, intro: firstRun });
+
+    say('<b>Sam</b> is six months in. Six pastries on the shelf, $84.25 to spend.', 0);
+
+    later(2600, function () {
+      say('A manager hands over a $50 gift card.', 1);
+      press(document.querySelector('[data-grant="50"]'), 500);
+    });
+
+    later(3300, function () {
+      var coming = Pixel.NAMES[Pixel.forSlot(current().id, collectedCount(current()))].en;
+      grant(50);
+      say('<b>' + coming + '</b> comes out of the oven.', 1);
+    });
+
+    later(6600, function () {
+      say('She takes lunch. The cashier prices it; she keys it in herself.', 2);
+      sheet = openSheet();
+    });
+    ['1', '2', '5', '0'].forEach(function (k, n) {
+      later(7400 + n * 320, function () { if (sheet && sheet.isOpen()) sheet.press(k); });
+    });
+    later(9100, function () { if (sheet && sheet.isOpen()) sheet.confirm(); });
+
+    later(10900, function () {
+      say('The balance drops. <b>The shelf does not.</b> It counts cards received, never money held.', 3);
+      $('slots').classList.remove('pulse');
+      void $('slots').offsetWidth;
+      $('slots').classList.add('pulse');
+    });
+
+    later(13800, function () {
+      say('<b>Alex</b>, two years in: nineteen pastries — and not one of them the same as Sam’s.', 4);
+      press(document.querySelectorAll('.person')[2], 600);
+      switchTo('377');
+    });
+
+    later(17600, function () { runTour(false); });
+  }
+
+  function startTour() {
+    if (reduced()) { endTour(true); return; }
+    autoplaying = true;
+    document.body.classList.add('autoplay');
+    $('take-control').textContent = 'Take control';
+    $('get-note').textContent = 'Playing on its own';
+    runTour(true);
+  }
+
+  function endTour(quiet) {
+    autoplaying = false;
+    clearLater();
+    if (sheet && sheet.isOpen()) sheet.close();
+    sheet = null;
+    document.body.classList.remove('autoplay');
+    Array.prototype.forEach.call(document.querySelectorAll('.pressed'), function (el) {
+      el.classList.remove('pressed');
+    });
+    state.tookControl = true;
+    save();
+    $('take-control').textContent = 'Replay the tour';
+    $('get-note').textContent = 'You’re driving';
+    setDots(-1);
+    if (!quiet) say('Yours now — grant a card, spend it, switch person.');
+    else say('Grant a card on the counter and watch the phone.');
+  }
+
   /* ---------------------------------------------------------------- wiring */
 
   renderWordmark();
@@ -656,7 +799,28 @@
 
   renderAll({ dropFrom: 0 });
   renderSteps();
-  ovenIntro();
+
+  if (state.tookControl) {
+    endTour(true);
+    ovenIntro();
+  } else {
+    startTour();
+  }
+
+  /* Touching the demo anywhere takes it over, and that first press still lands on
+   * whatever it hit — hence the capture phase.
+   *
+   * pointerdown, not click, is what tells a person apart from the tour: the tour
+   * drives with element.click(), which emits no pointer events at all. So the
+   * event type alone is the test, and nothing else needs checking. */
+  $('phone').closest('.stage').addEventListener('pointerdown', function () {
+    if (autoplaying) endTour(false);
+  }, true);
+
+  $('take-control').addEventListener('click', function () {
+    if (autoplaying) endTour(false);
+    else startTour();
+  });
 
   Array.prototype.forEach.call(document.querySelectorAll('[data-grant]'), function (btn) {
     btn.addEventListener('click', function () { grant(parseInt(btn.dataset.grant, 10)); });
@@ -684,16 +848,7 @@
     crumbs(c.x, c.y);
   });
 
-  $('reset').addEventListener('click', function () {
-    state = freshState();
-    logOpen = false;
-    lastBalance = null;
-    save();
-    renderAll({ dropFrom: 0 });
-    renderSteps();
-    ovenIntro();
-    toast('Demo reset');
-  });
+  $('reset').addEventListener('click', function () { resetDemo({ intro: true }); });
 
   document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape') {

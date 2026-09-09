@@ -12,20 +12,35 @@
 
 <div class="wrap">
 
-  <header class="page-head">
+  <header class="listing">
     <h1 class="sr-only">Crumb — staff credit, with something to collect</h1>
-    <canvas id="wordmark" aria-hidden="true"></canvas>
-    <p class="tagline">Staff credit, with something to collect</p>
-    <p class="lede">
-      A Hong Kong-style bakery hands its staff gift cards for good work and holidays. This is the
-      app they check the balance on — and the reason they keep checking it. Everything below is
-      live: grant a card on the counter, watch the phone.
-    </p>
+
+    <div class="listing-top">
+      <div class="app-icon"><canvas id="app-icon" aria-hidden="true"></canvas></div>
+      <div class="listing-id">
+        <canvas id="wordmark" aria-hidden="true"></canvas>
+        <p class="tagline">Staff credit, with something to collect</p>
+        <p class="category">Internal tool &middot; Bakery operations &middot; Shipped 2026</p>
+      </div>
+      <div class="listing-cta">
+        <button class="get" type="button" id="take-control">Take control</button>
+        <span class="get-note" id="get-note">Playing on its own</span>
+      </div>
+    </div>
+
+    <!-- The shape of an App Store stats row, filled with things that are actually true.
+         No invented ratings: fabricated social proof is the one thing this page can't afford. -->
+    <dl class="stats">
+      <div><dt>Pastries</dt><dd>39</dd><dd class="fine">drawn by hand</dd></div>
+      <div><dt>Taps to spend</dt><dd>3</dd><dd class="fine">balance, button, confirm</dd></div>
+      <div><dt>Logins</dt><dd>0</dd><dd class="fine">on purpose</dd></div>
+      <div><dt>Dependencies</dt><dd>0</dd><dd class="fine">no build step</dd></div>
+    </dl>
   </header>
 
   <section class="stage" aria-label="Interactive demo">
 
-    <div class="counter">
+    <div class="counter" id="counter">
       <h2>The counter</h2>
       <p class="sub">Where a manager adds gift cards. Staff can never add their own.</p>
 
@@ -50,7 +65,14 @@
       </div>
     </div>
 
-    <div class="phone-frame">
+    <div class="phone-col">
+
+      <div class="preview-bar">
+        <span class="preview-label">Preview</span>
+        <span class="scene-dots" id="scene-dots" aria-hidden="true"></span>
+      </div>
+
+      <div class="phone-frame">
       <div class="phone" id="phone">
 
         <div class="home-head">
@@ -93,6 +115,10 @@
         <p class="daily" id="daily"></p>
 
       </div>
+      </div>
+
+      <p class="caption" id="caption" role="status"></p>
+
     </div>
 
   </section>

@@ -8,8 +8,12 @@ A Hong Kong-style bakery hands its staff gift cards for good work and for holida
 page they check the balance on — and the reason they keep checking it. Every $50 of gift cards
 *received* adds a hand-drawn pastry to a shelf that never empties, no matter how much you spend.
 
-This repository is an interactive demo of that idea. The whole page is live: grant a card on the
-counter, watch the phone. No sign-in, no backend, nothing to install.
+This repository is an interactive demo of that idea, laid out like a store listing. **It plays
+itself** — a scripted tour runs the whole story on load, and one touch anywhere hands you the
+controls. No sign-in, no backend, nothing to install.
+
+The tour is not a recording. It presses the same buttons and calls the same functions a person
+does, so what plays is the app being driven rather than a re-enactment of it.
 
 ---
 
@@ -21,6 +25,10 @@ counter, watch the phone. No sign-in, no backend, nothing to install.
 | **The threshold is hidden** | The caption names what is coming — never how far away it is. Staff cannot make a gift card arrive faster, so a progress bar would only be noise. Hidden, it reads as a gift rather than an accounting statement. |
 | **No two shelves match** | The order is seeded from the staff number, so the same balance looks different on every phone. It became something people compared on shift, which was the point. |
 | **Three taps, no menus** | Look at the balance, press one button, confirm an amount. There is no login, no settings page, no navigation. |
+
+The store-listing header borrows the shape of an app page but not its habits: the figures in the
+stats row are things that are actually true about the build. There are no invented ratings or
+reviews anywhere on this page.
 
 ## The art
 
