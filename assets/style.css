@@ -38,8 +38,14 @@ body {
     repeating-linear-gradient(0deg, rgba(122, 74, 38, 0.025) 0 2px, transparent 2px 24px),
     repeating-linear-gradient(90deg, rgba(122, 74, 38, 0.025) 0 2px, transparent 2px 24px);
   color: var(--ink);
-  font-family: ui-rounded, 'SF Pro Rounded', -apple-system, BlinkMacSystemFont, 'PingFang TC',
-    'Heiti TC', 'Microsoft JhengHei', sans-serif;
+  /* Font fallback is per character, so the Latin faces must come before the CJK
+     ones. Without a Windows Latin face in the list the whole page landed on
+     Microsoft JhengHei, where a curly apostrophe is a full-width glyph — four
+     times the width of a straight one — and "You're" rendered as "You' re".
+     The CJK faces stay at the end for the Chinese pastry names. */
+  font-family: ui-rounded, 'SF Pro Rounded', -apple-system, BlinkMacSystemFont,
+    'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+    'PingFang TC', 'Heiti TC', 'Microsoft JhengHei', sans-serif;
   line-height: 1.6;
   min-height: 100dvh;
   overflow-x: hidden;
