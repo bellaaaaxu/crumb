@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Crumb — staff credit, with something to collect</title>
+<meta name="description" content="An interactive demo of a staff perk-credit app for a Hong Kong-style bakery: every gift card received grows a collection of hand-drawn pixel pastries.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><rect width='12' height='12' fill='%23F2E7CE'/><rect x='4' y='1' width='4' height='10' fill='%23E0A73C'/><rect x='1' y='4' width='10' height='4' fill='%23E0A73C'/><rect x='3' y='3' width='6' height='6' fill='%23F3D488'/></svg>">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<div class="wrap">
+
+  <header class="page-head">
+    <h1 class="sr-only">Crumb — staff credit, with something to collect</h1>
+    <canvas id="wordmark" aria-hidden="true"></canvas>
+    <p class="tagline">Staff credit, with something to collect</p>
+    <p class="lede">
+      A Hong Kong-style bakery hands its staff gift cards for good work and holidays. This is the
+      app they check the balance on — and the reason they keep checking it. Everything below is
+      live: grant a card on the counter, watch the phone.
+    </p>
+  </header>
+
+  <section class="stage" aria-label="Interactive demo">
+
+    <div class="counter">
+      <h2>The counter</h2>
+      <p class="sub">Where a manager adds gift cards. Staff can never add their own.</p>
+
+      <p class="field-label" id="who-label">Pick a person</p>
+      <div class="people" role="group" aria-labelledby="who-label" id="people"></div>
+
+      <p class="field-label">Grant a gift card</p>
+      <div class="grant-row">
+        <button class="grant" type="button" data-grant="25">$25</button>
+        <button class="grant" type="button" data-grant="50">$50</button>
+        <button class="grant" type="button" data-grant="100">$100</button>
+      </div>
+
+      <div class="nudge">
+        <b>Try it in this order</b>
+        <ol id="steps">
+          <li data-step="grant">Grant a card &mdash; watch a pastry come out of the oven</li>
+          <li data-step="spend">Then spend some &mdash; the balance drops, the collection stays</li>
+          <li data-step="switch">Switch to someone else &mdash; different pastries, same rule</li>
+        </ol>
+        <button class="reset" type="button" id="reset">Reset the demo</button>
+      </div>
+    </div>
+
+    <div class="phone-frame">
+      <div class="phone" id="phone">
+
+        <div class="home-head">
+          <div class="head-brand">
+            <button class="pastry-egg" type="button" id="mascot" aria-label="Mascot: wife cake">
+              <canvas id="mascot-canvas" aria-hidden="true"></canvas>
+            </button>
+            <span>CRUMB</span>
+          </div>
+        </div>
+
+        <div class="tile" id="tile">
+          <div class="tile-holder">
+            <span class="nm" id="holder-name">&nbsp;</span>
+            <span class="num" id="holder-id">&nbsp;</span>
+          </div>
+          <div class="tile-label">Employee credit</div>
+          <div class="big-number" id="big-number">
+            <canvas id="balance" aria-hidden="true"></canvas>
+            <span class="sr-only" id="balance-text"></span>
+          </div>
+          <div class="slots" id="slots"></div>
+          <div class="oven-caption" id="oven-caption"></div>
+        </div>
+
+        <div class="actions">
+          <button class="act" type="button" id="spend">&#127838; I took some bread</button>
+        </div>
+        <p class="actions-hint">&#127873; Got a gift card? A manager adds it for you</p>
+
+        <div class="quest" id="quest">
+          <button class="quest-head" type="button" id="quest-toggle">
+            <span class="dot"></span>
+            <span class="title" id="quest-title">Quest log &middot; Recent</span>
+            <span class="toggle" id="quest-toggle-label">See all<span class="chev">&#8964;</span></span>
+          </button>
+          <div class="quest-scroller" id="quest-list"></div>
+        </div>
+
+        <p class="daily" id="daily"></p>
+
+      </div>
+    </div>
+
+  </section>
+
+  <section class="how">
+    <div class="section-head">
+      <h2>How the collection works</h2>
+      <p>Three rules. All three are deliberate, and two of them are the interesting ones.</p>
+    </div>
+    <div class="cards">
+      <div class="card">
+        <div class="icons" id="icons-keep"></div>
+        <h3>It only ever grows</h3>
+        <p>
+          The tray counts gift cards <em>received</em>, not money held. Spend your whole balance and
+          your pastries stay. A good-service card from last spring is still on the shelf.
+        </p>
+        <span class="rule">$50 received = 1 pastry</span>
+      </div>
+      <div class="card">
+        <div class="icons" id="icons-hide"></div>
+        <h3>The threshold is hidden</h3>
+        <p>
+          It names what&rsquo;s coming &mdash; never how far away it is. Staff can&rsquo;t speed up
+          getting a card, so a progress bar would only be noise. Hidden, it stays a gift instead of
+          an accounting statement.
+        </p>
+        <span class="rule">&ldquo;Egg Tart is in the oven&rdquo;</span>
+      </div>
+      <div class="card">
+        <div class="icons" id="icons-vary"></div>
+        <h3>Nobody&rsquo;s shelf matches</h3>
+        <p>
+          The order is seeded from the staff number, so the same balance looks different on every
+          phone. It turned into something people compare on shift &mdash; which was the point.
+        </p>
+        <span class="rule">33 in rotation, 6 held back</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="cabinet">
+    <div class="section-head">
+      <h2>The pastry cabinet</h2>
+      <p>
+        All 39 drawn by hand on a 12&times;12 grid &mdash; no icon library, no pixel font, nothing
+        loaded from anywhere. Hover or tap one for its name.
+      </p>
+    </div>
+    <div class="case" id="cabinet"></div>
+    <p class="legend">
+      <span><i></i> In rotation &mdash; 33</span>
+      <span><i class="limited"></i> Held back for seasonal use &mdash; 6</span>
+    </p>
+  </section>
+
+  <footer class="page-foot">
+    <img src="assets/signature.svg" alt="Bella" width="168">
+    <p class="credit">
+      Designed &amp; built by Bella Xu &middot; 2026 &middot;
+      <a href="https://github.com/bellaaaaxu">github.com/bellaaaaxu</a><br>
+      Names, numbers and history on this page are invented for the demo.
+    </p>
+  </footer>
+
+</div>
+
+<script src="assets/sprites.js"></script>
+<script src="assets/app.js"></script>
+</body>
+</html>
