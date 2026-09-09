@@ -203,14 +203,12 @@ body.autoplay .reset { cursor: default; }
   padding-bottom: 20px;
 }
 
-/* Sticky lives on the column, not the box, so the label rides along with it.
-   It also needs to: a sticky box inside a content-height wrapper has no room
-   to move, whereas the column is the grid item and gets the full row height. */
-.counter-col {
-  display: flex; flex-direction: column; gap: 10px;
-  position: sticky;
-  top: 24px;
-}
+/* Not sticky, deliberately. Once this column was matched to the phone's height
+   the two were within 83px of each other, so it stuck for about 60px of scroll
+   and then let go — long enough to feel the panel freeze and lurch back into
+   motion, far too short to keep anything usefully in view. Alignment and
+   stickiness pull against each other here, and alignment is worth more. */
+.counter-col { display: flex; flex-direction: column; gap: 10px; }
 
 /* Same height as the phone frame, so both panels close on the same line.
    The controls sit at the top and the guidance is pushed to the bottom by
@@ -600,7 +598,7 @@ body.autoplay .reset { cursor: default; }
 
 @media (max-width: 900px) {
   .stage { grid-template-columns: minmax(0, 1fr); }
-  .counter-col { position: static; order: 2; width: 100%; max-width: 400px; margin: 0 auto; }
+  .counter-col { order: 2; width: 100%; max-width: 400px; margin: 0 auto; }
   .phone-col { order: 1; width: 100%; max-width: 400px; margin: 0 auto; }
   .phone-frame { width: 100%; }
   /* Stacked, there is nothing to line up with, so let the box be its own size
