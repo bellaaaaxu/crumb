@@ -510,6 +510,13 @@
     save();
   }
 
+  /* The screen is a fixed height, so a tall shelf can push the log out of sight.
+   * Whoever we land on, start them at the top: balance and tray first. */
+  function scrollPhoneTop() {
+    var box = $('phone-scroll');
+    if (box) box.scrollTop = 0;
+  }
+
   function switchTo(id) {
     if (id === state.active) return;
     state.active = id;
@@ -517,6 +524,7 @@
     lastBalance = null;
     save();
     renderAll({ dropFrom: 0 });
+    scrollPhoneTop();
     ovenIntro();
     markStep('switch');
   }
@@ -674,6 +682,7 @@
     save();
     renderAll({ dropFrom: 0 });
     renderSteps();
+    scrollPhoneTop();
     if (o.intro) ovenIntro();
     if (!o.silent) toast('Demo reset');
   }

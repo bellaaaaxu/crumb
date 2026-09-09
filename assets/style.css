@@ -136,7 +136,7 @@ canvas { display: block; image-rendering: pixelated; }
   font-size: 14px; color: var(--wood); text-align: center;
 }
 .caption b { color: var(--ink); }
-.caption.swap { animation: capIn 0.32s ease both; }
+.caption.swap { animation: capIn 0.32s ease; }
 @keyframes capIn { from { opacity: 0; transform: translateY(5px) } to { opacity: 1; transform: none } }
 
 /* While the demo drives itself the counter is visibly along for the ride:
@@ -242,14 +242,25 @@ body.autoplay .reset { cursor: default; }
   padding: 12px;
   box-shadow: 0 14px 34px rgba(92, 58, 29, 0.18);
 }
+/* A screen, not a growing box. Robin has one row of slots and Alex has four, so
+   a phone sized to its contents would resize every time the tour changes person
+   — shoving everything below it up and down. Real hardware has a fixed screen
+   and scrolls inside it, which is both steadier and more honest. */
 .phone {
   position: relative;
   background: var(--bg);
   border-radius: 24px;
-  padding: 18px 16px 22px;
-  min-height: 620px;
+  height: 700px;
   overflow: hidden;
 }
+.phone-scroll {
+  height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 18px 16px 22px;
+  scrollbar-width: none;
+}
+.phone-scroll::-webkit-scrollbar { display: none; }
 
 .home-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
 .head-brand { display: flex; align-items: center; gap: 8px; font-weight: 800; letter-spacing: 0.08em; color: var(--wood); }
@@ -265,12 +276,19 @@ body.autoplay .reset { cursor: default; }
 .pastry-egg canvas.regrow { animation: regrow 0.4s ease; }
 @keyframes regrow { from { transform: scale(0.7); opacity: 0.5 } to { transform: scale(1); opacity: 1 } }
 
+/* Entrance animations below deliberately do NOT use animation-fill-mode: both.
+   Holding the opening keyframe means an animation that never runs — a frozen
+   timeline in a background tab, an old engine, motion switched off at the OS —
+   leaves the element invisible or parked off screen. Without the fill, the
+   resting styles apply and the worst case is simply no animation. The one
+   exception is .slot.pop, which needs the fill to sit still through its
+   stagger delay; see there. */
 .tile {
   background: var(--tile);
   border-radius: var(--radius-tile);
   border: 2px solid var(--line);
   padding: 16px 16px 18px;
-  animation: tileSlide 0.42s cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+  animation: tileSlide 0.42s cubic-bezier(0.2, 0.9, 0.3, 1.2);
 }
 @keyframes tileSlide { from { opacity: 0; transform: translateY(14px) } to { opacity: 1; transform: none } }
 
@@ -301,6 +319,9 @@ body.autoplay .reset { cursor: default; }
   border-radius: 10px;
 }
 .slot.filled { cursor: pointer; }
+/* The one place the fill earns its keep: pastries drop in staggered, and each
+   waits out an animation-delay first. Without the fill they would sit there at
+   full size and then snap back to the start of the drop when their turn came. */
 .slot.pop { animation: slotPop 0.42s cubic-bezier(0.2, 1.4, 0.4, 1) both; }
 @keyframes slotPop {
   0% { transform: translateY(-16px) scale(0.4); opacity: 0 }
@@ -314,7 +335,7 @@ body.autoplay .reset { cursor: default; }
   font-size: 11px; line-height: 1.35; white-space: nowrap;
   padding: 5px 9px; border-radius: 8px;
   z-index: 4; pointer-events: none;
-  animation: nameIn 0.16s ease both;
+  animation: nameIn 0.16s ease;
 }
 .pastry-name .en { display: block; opacity: 0.72; font-size: 10px; }
 @keyframes nameIn { from { opacity: 0; transform: translate(-50%, 4px) } to { opacity: 1; transform: translate(-50%, 0) } }
@@ -391,7 +412,7 @@ body.autoplay .reset { cursor: default; }
   transition: opacity 0.4s;
 }
 .oven.leaving { opacity: 0; pointer-events: none; }
-.oven canvas { animation: ovenPop 0.5s cubic-bezier(0.2, 1.5, 0.4, 1) both; }
+.oven canvas { animation: ovenPop 0.5s cubic-bezier(0.2, 1.5, 0.4, 1); }
 @keyframes ovenPop { from { transform: translateY(18px) scale(0.5); opacity: 0 } to { transform: none; opacity: 1 } }
 .oven-text { font-size: 17px; font-weight: 800; color: var(--wood); }
 .oven-sub { font-size: 12px; color: var(--ink-soft); }
@@ -406,7 +427,7 @@ body.autoplay .reset { cursor: default; }
   background: var(--tile);
   border-radius: var(--radius-tile) var(--radius-tile) 0 0;
   padding: 18px 16px 20px;
-  animation: sheetUp 0.26s cubic-bezier(0.2, 0.9, 0.3, 1.1) both;
+  animation: sheetUp 0.26s cubic-bezier(0.2, 0.9, 0.3, 1.1);
 }
 @keyframes sheetUp { from { transform: translateY(100%) } to { transform: none } }
 .sheet h3 { font-size: 15px; margin-bottom: 2px; }
@@ -439,7 +460,7 @@ body.autoplay .reset { cursor: default; }
   transform: translateX(-50%);
   background: var(--wood-deep); color: #fff8e6;
   font-size: 13px; padding: 10px 16px; border-radius: 12px;
-  animation: nameIn 0.2s ease both;
+  animation: nameIn 0.2s ease;
   max-width: calc(100% - 32px); text-align: center;
 }
 .toast.error { background: var(--minus); }
