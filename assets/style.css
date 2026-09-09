@@ -122,7 +122,13 @@ canvas { display: block; image-rendering: pixelated; }
 
 /* ------------------------------------------------------------------ preview column */
 
-.phone-col { display: flex; flex-direction: column; gap: 10px; }
+/* A definite width, because the stage's right column is `auto` and would
+   otherwise be sized by the caption's max-content — one long sentence on a
+   single line. A wordy scene stretched this column to 527px, overhanging the
+   phone by 127px and squeezing the counter beside it, and the whole layout
+   shifted sideways every time the caption changed. Now the caption wraps
+   inside the phone's width instead of dictating it. */
+.phone-col { display: flex; flex-direction: column; gap: 10px; width: 400px; }
 
 .preview-bar { display: flex; align-items: center; gap: 10px; padding: 0 4px; }
 .preview-label {
@@ -136,13 +142,25 @@ canvas { display: block; image-rendering: pixelated; }
 }
 .scene-dots i.on { background: var(--gold-deep); transform: scale(1.3); }
 
+/* The box is always two lines tall so a change of scene never resizes it, and
+   the sentence is centred inside rather than pinned to the top — otherwise a
+   one-line caption rides high and every scene sits at a different height.
+   The centring is done on an inner span, NOT on .caption directly: every child
+   element of a flex or grid container becomes its own item, so centring the <p>
+   would tear the bold phrase out of the sentence onto a line of its own.
+   text-wrap: balance evens out a two-liner; ignored where unsupported. */
 .caption {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   min-height: 3.2em;
+  margin-top: 8px;
   padding: 0 6px;
   font-size: 14px; color: var(--wood); text-align: center;
 }
+.caption > span { text-wrap: balance; }
 .caption b { color: var(--ink); }
-.caption.swap { animation: capIn 0.32s ease; }
+.caption > span.swap { animation: capIn 0.32s ease; }
 @keyframes capIn { from { opacity: 0; transform: translateY(5px) } to { opacity: 1; transform: none } }
 
 /* While the demo drives itself the counter is visibly along for the ride:

@@ -714,8 +714,11 @@
     });
   }
 
+  /* Writes into the inner span, never into .caption itself — .caption is the
+   * flex box that centres it, and a bold phrase placed directly in there would
+   * become its own flex item and break onto its own line. */
   function say(html, scene) {
-    var el = $('caption');
+    var el = $('caption-text');
     el.innerHTML = html;
     el.classList.remove('swap');
     void el.offsetWidth;
