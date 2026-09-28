@@ -66,13 +66,15 @@ function changeLanguage(code) {
   rememberLocale(code);
   setLocale(code);
   render();
+  // The page was rebuilt in the new language; keep the keyboard where it was.
+  document.querySelector('.language select')?.focus();
 }
 
 function languagePicker() {
   const id = uid('language');
   return el('div', { attrs: { class: 'language' } }, [
     el('label', { text: t('nav.language'), attrs: { for: id } }),
-    el('select', { attrs: { id }, on: { change: event => changeLanguage(event.target.value) } },
+    el('select', { attrs: { id, class: 'language-select' }, on: { change: event => changeLanguage(event.target.value) } },
       LANGUAGES.map(language => el('option', {
         text: language.label, attrs: { value: language.value, selected: language.value === getLocale() },
       }))),
@@ -182,7 +184,29 @@ function footer() {
       ? el('a', { text: t('foot.contact'), attrs: { href: contact, ...external(contact) } })
       : el('span', { text: t('foot.noContact') }),
     el('a', { text: t('foot.feedback'), attrs: { href: feedback, ...external(feedback) } }),
-    el('span', { text: t('foot.about'), attrs: { class: 'muted' } }),
+    el('span', { text: t('foot.about', { version: state.session.version ?? '' }), attrs: { class: 'muted' } }),
+  ]);
+}
+
+/* Changes are accepted only from the address Crumb was set up with (PUBLIC_ORIGIN). Opened
+ * anywhere else — 127.0.0.1 instead of localhost, say — every change would fail, so say where to go. */
+function wrongAddress() {
+  const { origin } = state.session;
+  if (!origin || origin === window.location.origin) return null;
+  // The address comes from the server's own configuration; only a plain web origin becomes a link.
+  let target = null;
+  try {
+    const url = new URL(origin);
+    if (url.protocol === 'https:' || url.protocol === 'http:') target = url.origin;
+  } catch {
+    target = null;
+  }
+  return el('main', { attrs: { id: 'main', class: 'auth', tabindex: '-1' } }, [
+    el('div', { attrs: { class: 'auth-card' } }, [
+      el('h1', { text: t('origin.title'), attrs: { class: 'page-title' } }),
+      el('p', { text: t('origin.explain', { origin }) }),
+      target ? el('p', {}, [el('a', { text: t('origin.open', { origin }), attrs: { href: target, class: 'btn btn-primary' } })]) : null,
+    ]),
   ]);
 }
 
@@ -191,6 +215,12 @@ function render() {
   const ctx = context(state.generation);
   closeAllDialogs();
   const { session } = state;
+  const elsewhere = wrongAddress();
+  if (elsewhere) {
+    root.replaceChildren(elsewhere);
+    document.title = t('origin.title');
+    return undefined;
+  }
   if (!session.initialized) return renderAuth(root, ctx, 'setup');
   if (state.link) return renderAuth(root, ctx, state.link.kind);
   if (!session.user) return renderAuth(root, ctx, 'login');
@@ -205,6 +235,9 @@ function render() {
   const main = el('main', { attrs: { id: 'main', class: 'page', tabindex: '-1' } });
   root.replaceChildren(skipLink(), header(section), main, footer());
   document.title = `${t(`title.${section}`)} · ${session.org.name}`;
+  // The old page (and whatever had focus in it) is gone. Start keyboard and
+  // screen-reader users at the new content, not back at the top of the document.
+  main.focus({ preventScroll: true });
   if (section === 'me') renderMember(main, ctx);
   else if (section === 'team') renderAdmin(main, ctx, sub);
   else renderSettings(main, ctx);

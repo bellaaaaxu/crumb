@@ -2,7 +2,7 @@
  * history. Everything here is read from the server for the signed-in person
  * only; there is nothing about anyone else on this page. */
 
-import { keyFor, newKey, request, settleKey } from '../api.js';
+import { keyFor, request, settleKey } from '../api.js';
 import { button, el, formError, openDialog, toast, uid } from '../dom.js';
 import { formatDate, getLocale, t } from '../i18n.js';
 import { formatUnits } from '../format.js';
@@ -24,7 +24,7 @@ export function card(titleText, children, { className = '', titleId = uid('card'
 }
 
 /* A "Show more" button that fetches the next page and appends its rows. */
-export function pager(list, page, pathFor, toRow) {
+export function pager(ctx, list, page, pathFor, toRow) {
   let cursor = page.nextCursor;
   const more = button(t('common.showMore'), {
     kind: 'quiet',
@@ -36,8 +36,8 @@ export function pager(list, page, pathFor, toRow) {
           list.append(...next.items.map(toRow).filter(Boolean));
           cursor = next.nextCursor;
           if (!cursor) more.remove();
-        } catch {
-          toast(t('error.generic'), { tone: 'error' });
+        } catch (failure) {
+          ctx.fail(failure); // a lost session goes back to sign-in instead of a vague toast
         } finally {
           more.disabled = false;
         }
@@ -97,8 +97,10 @@ function shelfCard(me) {
   ], { className: 'shelf-card' });
 }
 
+/* The request key belongs to this benefit at this price until the server answers, so
+ * confirming again after a lost answer — even from a reopened dialog — is the same request. */
 function confirmRedeem(ctx, me, reward, money) {
-  const key = newKey();
+  const action = `redeem:${reward.id}:${reward.costUnits}`;
   const error = formError();
   const confirm = button(t('redeem.confirm'), { kind: 'primary', type: 'submit' });
   let dialog;
@@ -111,11 +113,13 @@ function confirmRedeem(ctx, me, reward, money) {
         error.clear();
         confirm.disabled = true;
         try {
-          await request('/api/redemptions', { method: 'POST', body: { rewardId: reward.id, expectedCostUnits: reward.costUnits }, key });
+          await request('/api/redemptions', { method: 'POST', body: { rewardId: reward.id, expectedCostUnits: reward.costUnits }, key: keyFor(action) });
+          settleKey(action);
           dialog.close();
           toast(t('redeem.sent', { name: reward.name }));
           ctx.render();
         } catch (failure) {
+          if (failure.status && failure.status !== 503) settleKey(action);
           confirm.disabled = false;
           if (failure.code === 'PRICE_CHANGED') {
             // Nothing was reserved. Show the new price rather than asking again at the old one.
@@ -174,14 +178,17 @@ async function cancelRequest(ctx, item) {
 
 function requestRow(ctx, item, money) {
   const status = item.refunded ? 'refunded' : item.status;
+  const titleId = uid('request');
   return el('li', { attrs: { class: 'row' } }, [
     el('div', { attrs: { class: 'row-main' } }, [
-      el('p', { text: item.rewardName, attrs: { class: 'row-title' } }),
+      el('p', { text: item.rewardName, attrs: { class: 'row-title', id: titleId } }),
       el('p', { text: `${money(item.costUnits)} · ${formatDate(item.createdAt)}`, attrs: { class: 'muted small' } }),
       item.status === 'rejected' && item.reason ? el('p', { text: item.reason, attrs: { class: 'row-note' } }) : null,
     ]),
     badge(status),
-    item.status === 'pending' ? button(t('me.cancelRequest'), { on: { click: () => cancelRequest(ctx, item) } }) : null,
+    item.status === 'pending'
+      ? button(t('me.cancelRequest'), { attrs: { 'aria-describedby': titleId }, on: { click: () => cancelRequest(ctx, item) } })
+      : null,
   ]);
 }
 
@@ -191,7 +198,7 @@ function requestsCard(ctx, page, money) {
   const list = el('ul', { attrs: { class: 'rows' } }, page.items.map(toRow));
   return card(t('me.requests'), [
     list,
-    pager(list, page, cursor => `/api/me/redemptions?limit=10&cursor=${encodeURIComponent(cursor)}`, toRow),
+    pager(ctx, list, page, cursor => `/api/me/redemptions?limit=10&cursor=${encodeURIComponent(cursor)}`, toRow),
   ], { className: 'requests-card' });
 }
 
@@ -218,13 +225,13 @@ function historyRow(item, money) {
   ]);
 }
 
-function historyCard(page, money) {
+function historyCard(ctx, page, money) {
   if (!page.items.length) return card(t('me.history'), [el('p', { text: t('me.noHistory'), attrs: { class: 'muted' } })], { className: 'history-card' });
   const toRow = item => historyRow(item, money);
   const list = el('ul', { attrs: { class: 'rows' } }, page.items.map(toRow));
   return card(t('me.history'), [
     list,
-    pager(list, page, cursor => `/api/me/ledger?limit=10&cursor=${encodeURIComponent(cursor)}`, toRow),
+    pager(ctx, list, page, cursor => `/api/me/ledger?limit=10&cursor=${encodeURIComponent(cursor)}`, toRow),
   ], { className: 'history-card' });
 }
 
@@ -255,7 +262,7 @@ export async function renderMember(main, ctx) {
       shelfCard(me),
       benefitsCard(ctx, me, rewards.items, money),
       requestsCard(ctx, requests, money),
-      historyCard(history, money),
+      historyCard(ctx, history, money),
     ]),
   ].filter(Boolean));
 }

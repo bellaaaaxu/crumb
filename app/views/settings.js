@@ -41,9 +41,21 @@ function settingsForm(ctx, org) {
   mode.disabled = org.locks.mode;
   currency.control.disabled = org.locks.mode;
   threshold.control.disabled = org.locks.threshold;
-  const showCurrency = () => { currency.wrapper.hidden = mode.value !== 'credit'; };
-  for (const input of mode.inputs) input.addEventListener('change', showCurrency);
-  showCurrency();
+  // Switching between credit and points changes what the threshold means, so it
+  // follows the choice (a default for the other unit, the saved value when switching
+  // back) until the owner types their own.
+  let thresholdEdited = false;
+  threshold.control.addEventListener('input', () => { thresholdEdited = true; });
+  const applyMode = () => {
+    const credit = mode.value === 'credit';
+    currency.wrapper.hidden = !credit;
+    threshold.control.setAttribute('inputmode', credit ? 'decimal' : 'numeric');
+    threshold.wrapper.querySelector('.field-hint').textContent = t(credit ? 'setup.thresholdCredit' : 'setup.thresholdPoints');
+    if (!thresholdEdited && !org.locks.threshold)
+      threshold.control.value = mode.value === org.mode ? unitsToInput(org.thresholdUnits, org.mode) : (credit ? '50.00' : '100');
+  };
+  for (const input of mode.inputs) input.addEventListener('change', applyMode);
+  applyMode();
 
   const error = formError();
   const save = button(t('settings.save'), { kind: 'primary', type: 'submit' });
@@ -94,7 +106,10 @@ function settingsForm(ctx, org) {
     name.wrapper, welcome.wrapper, locale.wrapper,
     el('h2', { text: t('settings.rewardsTitle'), attrs: { class: 'card-title' } }),
     unitLabel.wrapper, mode.fieldset, currency.wrapper, threshold.wrapper,
-    org.locks.mode || org.locks.threshold ? el('p', { text: t('settings.locked'), attrs: { class: 'notice' } }) : null,
+    // Benefits alone fix the unit; a recorded reward also fixes the threshold.
+    org.locks.threshold || org.locks.mode
+      ? el('p', { text: t(org.locks.threshold ? 'settings.locked' : 'settings.lockedByBenefits'), attrs: { class: 'notice' } })
+      : null,
     el('h2', { text: t('settings.linksTitle'), attrs: { class: 'card-title' } }),
     adminContact.wrapper, feedbackUrl.wrapper,
     error.node,

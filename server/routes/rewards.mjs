@@ -4,6 +4,7 @@ import { grant, revokeGrant } from '../ledger.mjs';
 import { listRewards, saveReward } from '../rewards.mjs';
 import { refundRedemption, requestRedemption, resolveRedemption } from '../redemptions.mjs';
 import { MANAGERS, requireActor, requireRole } from '../permissions.mjs';
+import { assertIdempotencyKey } from '../idempotency.mjs';
 import { parseUnits } from '../units.mjs';
 import { amount, invalid, isUuid, oneOf, readObject } from '../validate.mjs';
 import { readQuery } from './read-models.mjs';
@@ -52,7 +53,10 @@ export function rewardRoutes({ db, clock }) {
 
   router.post('/admin/rewards', (req, res) => {
     requireRole(req.actor, MANAGERS);
-    res.status(201).json(saveReward(db, req.actor, rewardInput(req, { editing: false }), clock));
+    const input = rewardInput(req, { editing: false });
+    // Required, as for every other create: a retried "add" must not leave two benefits.
+    const key = assertIdempotencyKey(idempotencyKey(req));
+    res.status(201).json(saveReward(db, req.actor, input, clock, { key }));
   });
 
   router.patch('/admin/rewards/:id', (req, res) => {

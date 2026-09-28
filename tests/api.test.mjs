@@ -15,7 +15,7 @@ async function team(t, { mode = 'credit' } = {}) {
 }
 
 async function giveCoffee(owner, amount = '12.50', mode = 'credit') {
-  const created = await owner.request('POST', '/api/admin/rewards', { name: 'Coffee', description: 'One drink', amount, mode, active: true });
+  const created = await owner.request('POST', '/api/admin/rewards', { name: 'Coffee', description: 'One drink', amount, mode, active: true }, key());
   assert.equal(created.status, 201);
   return created.body;
 }
@@ -282,6 +282,21 @@ test('amounts carry the unit they were typed in; requests carry the price the me
   assert.equal(unpriced.body.error.field, 'expectedCostUnits');
   assert.equal(server.db.prepare('SELECT count(*) AS n FROM redemptions').get().n, 0);
   assert.equal((await member.request('POST', '/api/redemptions', { rewardId: coffee.id, expectedCostUnits: 200 }, key())).status, 201);
+});
+
+test('adding a benefit again with the same key does not create a second one', async t => {
+  const { owner, server } = await team(t);
+  const body = { name: 'Coffee', description: 'One drink', amount: '3.00', mode: 'credit', active: true };
+  const addKey = key();
+  const first = await owner.request('POST', '/api/admin/rewards', body, addKey);
+  const retry = await owner.request('POST', '/api/admin/rewards', body, addKey);
+  assert.equal(first.status, 201);
+  assert.deepEqual(retry.body, first.body);
+  assert.equal((await owner.request('POST', '/api/admin/rewards', { ...body, name: 'Tea' }, addKey)).body.error.code, 'IDEMPOTENCY_CONFLICT');
+  const keyless = await owner.request('POST', '/api/admin/rewards', body);
+  assert.equal(keyless.status, 422);
+  assert.equal(keyless.body.error.code, 'IDEMPOTENCY_KEY_REQUIRED');
+  assert.equal(server.db.prepare('SELECT count(*) AS n FROM rewards').get().n, 1);
 });
 
 test('signed-out visitors get 401 from every data endpoint', async t => {

@@ -73,7 +73,8 @@ export async function provision(browser, { mode = 'points', memberName = 'Mina P
   if (setup.status !== 201) throw new Error(`setup failed: ${JSON.stringify(setup.body)}`);
   api.csrf = setup.body.csrfToken;
   const coffee = await api.request('POST', '/api/admin/rewards',
-    { name: 'Coffee', description: 'Any drink from the counter', amount: MODES[mode].coffee, mode, active: true });
+    { name: 'Coffee', description: 'Any drink from the counter', amount: MODES[mode].coffee, mode, active: true },
+    { 'idempotency-key': 'e2e-fixture-coffee-benefit' });
   const invite = await api.request('POST', '/api/admin/invitations',
     { username: memberUsername, displayName: memberName, role: 'member' });
   const joiner = client(crumb.origin);

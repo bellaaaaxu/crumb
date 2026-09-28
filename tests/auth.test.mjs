@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { loginBuckets } from '../server/auth.mjs';
 import { hashPassword, verifyPassword } from '../server/passwords.mjs';
 import { PASSWORD, client, orgInput, rawGet, setupOrganization, startServer } from './helpers.mjs';
@@ -93,6 +94,10 @@ test('the anonymous view of the organization is minimal', async t => {
   const visitor = client(server.base);
   const session = await visitor.bootstrap();
   assert.deepEqual(session.body.org, { name: 'Test Team', locale: 'en', hasLogo: false });
+  // The version (for bug reports) and the address changes must come from (for the wrong-address notice).
+  const { version } = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
+  assert.equal(session.body.version, version);
+  assert.equal(session.body.origin, server.config.publicOrigin);
 });
 
 test('login rotates the session and logout ends it', async t => {

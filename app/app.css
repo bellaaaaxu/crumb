@@ -234,8 +234,10 @@ a { color: var(--wood); text-underline-offset: 3px; }
 .field input[type='file'] { max-width: 100%; font-size: 0.9rem; }
 .field textarea { resize: vertical; min-height: 4.5em; }
 .field [aria-invalid='true'] { border-color: var(--minus); }
-/* Locked settings must look locked, not merely a shade lighter. */
-.field input:disabled, .field select:disabled, .field textarea:disabled {
+/* Locked settings must look locked, not merely a shade lighter. (As specific as the
+ * text-input rule above, or a disabled text field would keep its normal look.) */
+.field input:not([type='checkbox']):not([type='radio']):not([type='file']):disabled,
+.field select:disabled, .field textarea:disabled {
   background: var(--paper); color: var(--ink-soft); border-style: dashed; cursor: not-allowed;
 }
 .field-error { color: var(--minus); font-size: 0.875rem; font-weight: 700; }

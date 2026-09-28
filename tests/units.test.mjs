@@ -5,7 +5,8 @@ import { amountToUnits } from '../app/format.js';
 
 test('the browser check agrees with the server on every amount', () => {
   const samples = ['12.50', '12.5', '0.01', '0', '0.00', '1.001', '-1', '1e2', 'Infinity', '', '.5', '5.', ' 5',
-    '10000000000.00', '10000000000.01', '1000000000000', '1000000000001', '100', '０', '9'.repeat(33), '007'];
+    '10000000000.00', '10000000000.01', '1000000000000', '1000000000001', '100', '０', '9'.repeat(33), '007',
+    '12,50', '12,5', '1,000', ',5', '5,', '1.000,50', '1,000.50'];
   for (const mode of ['credit', 'points']) {
     for (const sample of samples) {
       let server = null;
@@ -71,4 +72,14 @@ test('formatting shows the organization unit and never computes with floats', ()
   assert.equal(formatUnits(100, stars, 'en'), '100 stars');
   assert.equal(formatUnits(1234567, stars, 'en'), '1,234,567 stars');
   assert.equal(formatUnits(-40, stars, 'en'), '-40 stars');
+});
+
+test('a comma works as the decimal mark, since some phone keypads have no dot', () => {
+  assert.equal(parseUnits('12,50', 'credit'), 1250);
+  assert.equal(parseUnits('0,5', 'credit'), 50);
+  assert.equal(amountToUnits('12,50', 'credit'), 1250);
+  // Never a thousands separator: "1,000" is refused rather than read as 1.00 or 1000.
+  for (const value of ['1,000', '1,000.50', '1.000,50', '12,', ',5'])
+    assert.throws(() => parseUnits(value, 'credit'), error => error.code === 'INVALID_AMOUNT', value);
+  assert.throws(() => parseUnits('12,50', 'points'), error => error.code === 'INVALID_AMOUNT');
 });

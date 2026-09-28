@@ -13,10 +13,11 @@ export const MAX_UNITS = 1_000_000_000_000;
 export function parseUnits(value, mode) {
   if (!['credit', 'points'].includes(mode))
     throw new AppError(422, 'INVALID_MODE', 'Select credit or points.');
-  const pattern = mode === 'credit' ? /^\d+(?:\.\d{1,2})?$/ : /^\d+$/;
+  // A comma is accepted as the decimal mark (some phone keypads have no dot), never as a thousands separator.
+  const pattern = mode === 'credit' ? /^\d+(?:[.,]\d{1,2})?$/ : /^\d+$/;
   if (typeof value !== 'string' || value.length > 32 || !pattern.test(value))
     throw new AppError(422, 'INVALID_AMOUNT', 'Enter a valid positive amount.');
-  const [whole, fraction = ''] = value.split('.');
+  const [whole, fraction = ''] = value.split(/[.,]/);
   const units = mode === 'credit'
     ? BigInt(whole) * 100n + BigInt(fraction.padEnd(2, '0')) : BigInt(whole);
   if (units < 1n || units > BigInt(MAX_UNITS))

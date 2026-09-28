@@ -4,6 +4,7 @@ import { writeTransaction } from './db.mjs';
 import { writeAudit } from './audit.mjs';
 import { MANAGERS, freshActor, requireRole } from './permissions.mjs';
 import { assertSameMode, assertUnits } from './units.mjs';
+import { withIdempotency } from './idempotency.mjs';
 import { bool, id, oneOf, readObject, text } from './validate.mjs';
 
 export const rewardView = row => ({
@@ -36,8 +37,10 @@ export function listRewards(db, { includeInactive = false } = {}) {
  * Creates a benefit, or edits one when `id` is given (fields left out stay
  * as they are). Editing never changes requests already made: those keep the
  * name and price they were made with. `mode` is the unit a price was read in.
+ * A new benefit is created at most once per `key` (the API always sends one);
+ * an edit needs none, since saving the same values twice changes nothing.
  */
-export function saveReward(db, actor, input, clock = () => Date.now()) {
+export function saveReward(db, actor, input, clock = () => Date.now(), { key } = {}) {
   requireRole(actor, MANAGERS);
   const editing = input !== null && typeof input === 'object' && input.id !== undefined;
   const fields = readObject(input, {
@@ -48,19 +51,27 @@ export function saveReward(db, actor, input, clock = () => Date.now()) {
     mode: oneOf(['credit', 'points'], { optional: true }),
     active: bool({ optional: editing }),
   });
-  return writeTransaction(db, () => {
-    const current = freshActor(db, actor, MANAGERS);
+  const create = current => {
     assertSameMode(db, fields.mode);
     const at = new Date(clock()).toISOString();
-    if (!editing) {
-      const row = { id: randomUUID(), name: fields.name, description: fields.description ?? '', cost_units: fields.costUnits,
-        active: fields.active ? 1 : 0, created_at: at, updated_at: at };
-      db.prepare(`INSERT INTO rewards (id, name, description, cost_units, active, created_at, updated_at)
-                  VALUES (@id, @name, @description, @cost_units, @active, @created_at, @updated_at)`).run(row);
-      writeAudit(db, { actorId: current.id, action: 'reward.create', targetId: row.id,
-        detail: { name: row.name, costUnits: row.cost_units, active: fields.active } }, at);
-      return rewardView(row);
-    }
+    const row = { id: randomUUID(), name: fields.name, description: fields.description ?? '', cost_units: fields.costUnits,
+      active: fields.active ? 1 : 0, created_at: at, updated_at: at };
+    db.prepare(`INSERT INTO rewards (id, name, description, cost_units, active, created_at, updated_at)
+                VALUES (@id, @name, @description, @cost_units, @active, @created_at, @updated_at)`).run(row);
+    writeAudit(db, { actorId: current.id, action: 'reward.create', targetId: row.id,
+      detail: { name: row.name, costUnits: row.cost_units, active: fields.active } }, at);
+    return rewardView(row);
+  };
+  if (!editing && key !== undefined) {
+    const { name, description = '', costUnits, mode, active } = fields;
+    return withIdempotency(db, actor, 'reward.create', key, { name, description, costUnits, mode, active },
+      current => ({ status: 201, body: create(current) }), { clock, authorize: () => freshActor(db, actor, MANAGERS) }).body;
+  }
+  return writeTransaction(db, () => {
+    const current = freshActor(db, actor, MANAGERS);
+    if (!editing) return create(current);
+    assertSameMode(db, fields.mode);
+    const at = new Date(clock()).toISOString();
     const existing = db.prepare('SELECT * FROM rewards WHERE id = ?').get(fields.id);
     if (!existing) throw new AppError(404, 'REWARD_NOT_FOUND', 'That benefit does not exist.');
     const next = {

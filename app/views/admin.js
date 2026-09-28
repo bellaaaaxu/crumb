@@ -1,8 +1,8 @@
 /* Team management for owners and admins. The server re-checks every permission;
  * hiding a button here is a courtesy, not the control. */
 
-import { keyFor, newKey, request, requestAll, settleKey } from '../api.js';
-import { button, copyText, el, field, formError, openDialog, toast } from '../dom.js';
+import { keyFor, request, requestAll, settleKey } from '../api.js';
+import { button, copyText, el, field, formError, openDialog, radios, toast, uid } from '../dom.js';
 import { formatDate, formatDateTime, getLocale, has, t } from '../i18n.js';
 import { amountToUnits, formatUnits, unitsToInput } from '../format.js';
 import { badge, card, historyTitle, loading, pager, signedAmount } from './member.js';
@@ -28,14 +28,15 @@ function pageHead(title, actions = []) {
 }
 
 /**
- * A dialog for one change: its idempotency key lives as long as the dialog,
- * so "try again" after a dropped connection repeats the same request, and a
- * request that did reach the server is never recorded twice. Focus starts on
- * the first field, or on Cancel when there is nothing to fill in — never on a
- * destructive button.
+ * A dialog for one change. Its idempotency key belongs to `action()` — what
+ * is done, to what, with which values — and is kept until the server gives a
+ * definite answer. So sending the same thing again after a dropped
+ * connection repeats the same request, even after the dialog was closed and
+ * opened again, and a request that did reach the server is never recorded
+ * twice. Focus starts on the first field, or on Cancel when there is nothing
+ * to fill in — never on a destructive button.
  */
-function actionDialog(ctx, { title, intro = [], fields = [], extra = [], submitLabel, danger = false, validate, send, done }) {
-  const key = newKey();
+function actionDialog(ctx, { title, intro = [], fields = [], extra = [], submitLabel, danger = false, validate, action, send, done }) {
   const error = formError();
   const submit = button(submitLabel, { kind: danger ? 'danger' : 'primary', type: 'submit' });
   const opened = {};
@@ -48,12 +49,15 @@ function actionDialog(ctx, { title, intro = [], fields = [], extra = [], submitL
         error.clear();
         for (const item of fields) item.setError();
         if (validate && !validate()) return;
+        const id = action();
         submit.disabled = true;
         try {
-          const result = await send(key);
+          const result = await send(keyFor(id));
+          settleKey(id);
           opened.close();
           done(result);
         } catch (failure) {
+          if (failure.status && failure.status !== 503) settleKey(id);
           submit.disabled = false;
           ctx.fail(failure, error);
         }
@@ -125,6 +129,7 @@ async function openGrant(ctx, done) {
       }
       return true;
     },
+    action: () => `grant:${member.control.value}:${amountToUnits(amount.control.value.trim(), org.mode)}:${message.control.value.trim()}`,
     send: key => request('/api/admin/grants', {
       method: 'POST', key, body: { userId: member.control.value, amount: amount.control.value.trim(), mode: org.mode, reason: message.control.value },
     }),
@@ -194,6 +199,33 @@ function linkPanel(label, url, note) {
   return panel;
 }
 
+function changeRole(ctx, person, refresh) {
+  const choice = radios({
+    legend: t('members.role'), name: 'role', value: person.role,
+    options: ['member', 'admin', 'owner'].map(value => ({ value, label: t(`role.${value}`), detail: t(`members.roleDetail.${value}`) })),
+  });
+  const same = formError();
+  actionDialog(ctx, {
+    title: t('members.roleTitle', { name: person.displayName }),
+    extra: [choice.fieldset, same.node],
+    submitLabel: t('members.changeRole'),
+    validate() {
+      same.clear();
+      if (choice.value !== person.role) return true;
+      same.show(t('members.roleSame'));
+      return false;
+    },
+    action: () => `role:${person.id}:${choice.value}`,
+    send: key => request(`/api/admin/members/${person.id}`, { method: 'PATCH', body: { role: choice.value }, key }),
+    done(updated) {
+      const changed = t('members.roleChanged', { name: person.displayName, role: t(`role.${updated.role}`) });
+      // The server ends links made for the old role; someone who has not joined needs a new one.
+      toast(updated.status === 'invited' ? `${changed} ${t('members.roleNewLink')}` : changed);
+      refresh();
+    },
+  });
+}
+
 function memberRow(ctx, person, money, refresh, showLink) {
   const self = person.id === ctx.user.id;
   const manageable = !self && (ctx.user.role === 'owner' || person.role === 'member');
@@ -227,6 +259,7 @@ function memberRow(ctx, person, money, refresh, showLink) {
           intro: [t('members.deactivateExplain')],
           submitLabel: t('members.deactivate'),
           danger: true,
+          action: () => `deactivate:${person.id}`,
           send: key => request(`/api/admin/members/${person.id}`, { method: 'PATCH', body: { active: false }, key }),
           done() {
             toast(t('members.deactivated', { name: person.displayName }));
@@ -247,22 +280,15 @@ function memberRow(ctx, person, money, refresh, showLink) {
       },
     }));
   }
-  let roleControl = el('p', { text: t(`role.${person.role}`), attrs: { class: 'role' } });
+  // A role changes only through a dialog with a clear confirm: a picker that saved on every
+  // arrow key could turn a member into an owner by accident.
   if (ctx.user.role === 'owner' && !self) {
-    const select = field({
-      label: t('members.roleFor', { name: person.displayName }), name: 'role', value: person.role,
-      options: ['member', 'admin', 'owner'].map(value => ({ value, label: t(`role.${value}`) })),
-    });
-    select.wrapper.classList.add('inline-field');
-    select.control.addEventListener('change', () => oneTap(ctx, `role:${person.id}:${select.control.value}`,
-      { method: 'PATCH', path: memberPath, body: { role: select.control.value } }, () => {
-        toast(t('members.roleChanged', { name: person.displayName, role: t(`role.${select.control.value}`) }));
-        refresh();
-      }).then(ok => {
-        if (!ok) select.control.value = person.role;
-      }));
-    roleControl = select.wrapper;
+    actions.unshift(button(t('members.changeRole'), {
+      attrs: { 'aria-label': t('members.changeRoleNamed', { name: person.displayName }) },
+      on: { click: () => changeRole(ctx, person, refresh) },
+    }));
   }
+  const roleControl = el('p', { text: t(`role.${person.role}`), attrs: { class: 'role' } });
   return el('li', { attrs: { class: 'row member-row' } }, [
     el('div', { attrs: { class: 'row-main' } }, [
       el('p', { text: self ? t('members.youLabel', { name: person.displayName }) : person.displayName, attrs: { class: 'row-title' } }),
@@ -394,12 +420,17 @@ async function benefits(container, ctx) {
         error.clear();
         for (const item of draft.fields) item.setError();
         if (!draft.validate()) return;
+        const body = draft.body();
+        // Same benefit, same key: adding it again after a lost answer does not create a second one.
+        const action = `benefit:${JSON.stringify(body)}`;
         add.disabled = true;
         try {
-          const reward = await request('/api/admin/rewards', { method: 'POST', body: draft.body() });
+          const reward = await request('/api/admin/rewards', { method: 'POST', body, key: keyFor(action) });
+          settleKey(action);
           toast(t('benefits.added', { name: reward.name }));
           ctx.render();
         } catch (failure) {
+          if (failure.status && failure.status !== 503) settleKey(action);
           add.disabled = false;
           ctx.fail(failure, error);
         }
@@ -427,6 +458,8 @@ async function benefits(container, ctx) {
               extra: [edit.openWrapper],
               submitLabel: t('common.save'),
               validate: edit.validate,
+              // Saving the same values twice leaves the same benefit, so an edit needs no request key.
+              action: () => `benefit-edit:${reward.id}`,
               send: () => request(`/api/admin/rewards/${reward.id}`, { method: 'PATCH', body: edit.body() }),
               done(saved) {
                 toast(t('benefits.saved', { name: saved.name }));
@@ -480,6 +513,7 @@ async function redemptions(container, ctx) {
       fields: [reason],
       submitLabel: t('redemptions.declineSubmit'),
       danger: true,
+      action: () => `reject:${item.id}:${reason.control.value.trim()}`,
       send: key => request(`/api/admin/redemptions/${item.id}/reject`, { method: 'POST', key, body: { reason: reason.control.value } }),
       done() {
         toast(t('redemptions.declined', { reward: item.rewardName }));
@@ -487,6 +521,18 @@ async function redemptions(container, ctx) {
       },
     });
   };
+  // For a request the member withdrew in person: it ends as "cancelled", not "declined".
+  const cancel = item => actionDialog(ctx, {
+    title: t('redemptions.cancelTitle', { reward: item.rewardName, name: item.member.displayName }),
+    intro: [t('redemptions.cancelExplain', { name: item.member.displayName, amount: money(item.costUnits) })],
+    submitLabel: t('redemptions.cancelSubmit'),
+    action: () => `cancel:${item.id}`,
+    send: key => request(`/api/redemptions/${item.id}/cancel`, { method: 'POST', key }),
+    done() {
+      toast(t('redemptions.cancelled', { reward: item.rewardName }));
+      ctx.render();
+    },
+  });
   const refund = item => {
     const reason = field({ label: t('common.reason'), name: 'reason', multiline: true, attrs: { maxlength: 500 } });
     actionDialog(ctx, {
@@ -500,6 +546,7 @@ async function redemptions(container, ctx) {
         reason.control.focus();
         return false;
       },
+      action: () => `refund:${item.id}:${reason.control.value.trim()}`,
       send: key => request(`/api/admin/redemptions/${item.id}/refund`, { method: 'POST', key, body: { reason: reason.control.value } }),
       done() {
         toast(t('redemptions.refunded', { reward: item.rewardName }));
@@ -508,25 +555,33 @@ async function redemptions(container, ctx) {
     });
   };
 
-  const line = (item, extra) => el('li', { attrs: { class: 'row' } }, [
-    el('div', { attrs: { class: 'row-main' } }, [
-      el('p', { text: t('redemptions.line', { reward: item.rewardName, name: item.member.displayName }), attrs: { class: 'row-title' } }),
-      el('p', { text: `${money(item.costUnits)} · ${formatDateTime(item.createdAt)}`, attrs: { class: 'muted small' } }),
-      item.reason ? el('p', { text: item.reason, attrs: { class: 'row-note' } }) : null,
-    ]),
-    ...extra,
-  ]);
-  const pendingRows = pending.map(item => line(item, [el('div', { attrs: { class: 'row-actions' } }, [
-    button(t('redemptions.confirm'), { kind: 'primary', on: { click: () => complete(item) } }),
-    button(t('redemptions.decline'), { on: { click: () => decline(item) } }),
+  // Each row's buttons are described by its title, so "Confirm delivery" says which request.
+  const line = (item, actions) => {
+    const titleId = uid('request');
+    const described = actions(titleId);
+    return el('li', { attrs: { class: 'row' } }, [
+      el('div', { attrs: { class: 'row-main' } }, [
+        el('p', { text: t('redemptions.line', { reward: item.rewardName, name: item.member.displayName }), attrs: { class: 'row-title', id: titleId } }),
+        el('p', { text: `${money(item.costUnits)} · ${formatDateTime(item.createdAt)}`, attrs: { class: 'muted small' } }),
+        item.reason ? el('p', { text: item.reason, attrs: { class: 'row-note' } }) : null,
+      ]),
+      ...described,
+    ]);
+  };
+  const about = titleId => ({ 'aria-describedby': titleId });
+  const pendingRows = pending.map(item => line(item, titleId => [el('div', { attrs: { class: 'row-actions' } }, [
+    button(t('redemptions.confirm'), { kind: 'primary', attrs: about(titleId), on: { click: () => complete(item) } }),
+    button(t('redemptions.decline'), { attrs: about(titleId), on: { click: () => decline(item) } }),
+    button(t('redemptions.cancelRequest'), { kind: 'quiet', attrs: about(titleId), on: { click: () => cancel(item) } }),
   ])]));
-  const finishedRow = item => line(item, [
+  const finishedRow = item => line(item, titleId => [
     badge(item.refunded ? 'refunded' : item.status),
     item.status === 'completed' && !item.refunded
-      ? el('div', { attrs: { class: 'row-actions' } }, [button(t('redemptions.refund'), { on: { click: () => refund(item) } })])
+      ? el('div', { attrs: { class: 'row-actions' } }, [button(t('redemptions.refund'), { attrs: about(titleId), on: { click: () => refund(item) } })])
       : null,
   ]);
   const finished = recent.items.filter(item => item.status !== 'pending');
+  // Always on the page, even while empty: "Show more" adds the next page's finished requests to it.
   const finishedList = el('ul', { attrs: { class: 'rows' } }, finished.map(finishedRow));
 
   container.replaceChildren(
@@ -536,8 +591,9 @@ async function redemptions(container, ctx) {
       pendingRows.length ? el('ul', { attrs: { class: 'rows' } }, pendingRows) : el('p', { text: t('team.nothingWaiting'), attrs: { class: 'muted' } }),
     ]),
     card(t('redemptions.recent'), [
-      finished.length ? finishedList : el('p', { text: t('redemptions.noneRecent'), attrs: { class: 'muted' } }),
-      pager(finishedList, recent, cursor => `/api/admin/redemptions?limit=25&cursor=${encodeURIComponent(cursor)}`,
+      finishedList,
+      finished.length || recent.nextCursor ? null : el('p', { text: t('redemptions.noneRecent'), attrs: { class: 'muted' } }),
+      pager(ctx, finishedList, recent, cursor => `/api/admin/redemptions?limit=25&cursor=${encodeURIComponent(cursor)}`,
         item => (item.status === 'pending' ? null : finishedRow(item))),
     ]),
   );
@@ -566,6 +622,7 @@ async function history(container, ctx) {
         reason.control.focus();
         return false;
       },
+      action: () => `revoke:${item.id}:${reason.control.value.trim()}`,
       send: key => request(`/api/admin/grants/${item.id}/revoke`, { method: 'POST', key, body: { reason: reason.control.value } }),
       done() {
         toast(t('revoke.done', { name: item.member.displayName }));
@@ -573,18 +630,23 @@ async function history(container, ctx) {
       },
     });
   };
-  const toRow = item => el('li', { attrs: { class: `row history-${item.kind}` } }, [
-    el('p', { text: signedAmount(item.deltaUnits, money), attrs: { class: `amount ${item.deltaUnits > 0 ? 'plus' : 'minus'}` } }),
-    el('div', { attrs: { class: 'row-main' } }, [
-      el('p', { text: `${item.member.displayName} · ${historyTitle(item)}`, attrs: { class: 'row-title' } }),
-      item.reason ? el('p', { text: item.reason, attrs: { class: 'row-note' } }) : null,
-      el('p', { text: t('history.by', { name: item.actor.displayName, date: formatDateTime(item.createdAt) }), attrs: { class: 'muted small' } }),
-    ]),
-    item.revoked ? badge('revoked') : null,
-    item.kind === 'grant' && !item.revoked
-      ? el('div', { attrs: { class: 'row-actions' } }, [button(t('revoke.open'), { kind: 'quiet', on: { click: () => revoke(item) } })])
-      : null,
-  ]);
+  const toRow = item => {
+    const titleId = uid('entry');
+    return el('li', { attrs: { class: `row history-${item.kind}` } }, [
+      el('p', { text: signedAmount(item.deltaUnits, money), attrs: { class: `amount ${item.deltaUnits > 0 ? 'plus' : 'minus'}` } }),
+      el('div', { attrs: { class: 'row-main' } }, [
+        el('p', { text: `${item.member.displayName} · ${historyTitle(item)}`, attrs: { class: 'row-title', id: titleId } }),
+        item.reason ? el('p', { text: item.reason, attrs: { class: 'row-note' } }) : null,
+        el('p', { text: t('history.by', { name: item.actor.displayName, date: formatDateTime(item.createdAt) }), attrs: { class: 'muted small' } }),
+      ]),
+      item.revoked ? badge('revoked') : null,
+      item.kind === 'grant' && !item.revoked
+        ? el('div', { attrs: { class: 'row-actions' } }, [
+          button(t('revoke.open'), { kind: 'quiet', attrs: { 'aria-describedby': titleId }, on: { click: () => revoke(item) } }),
+        ])
+        : null,
+    ]);
+  };
   const list = el('ul', { attrs: { class: 'rows' } }, page.items.map(toRow));
   container.replaceChildren(
     pageHead(t('team.history'), [
@@ -593,7 +655,7 @@ async function history(container, ctx) {
     el('p', { text: t('history.csvNote'), attrs: { class: 'muted small' } }),
     card(t('history.ledger'), [
       page.items.length ? list : el('p', { text: t('me.noHistory'), attrs: { class: 'muted' } }),
-      pager(list, page, cursor => `/api/admin/ledger?limit=25&cursor=${encodeURIComponent(cursor)}`, toRow),
+      pager(ctx, list, page, cursor => `/api/admin/ledger?limit=25&cursor=${encodeURIComponent(cursor)}`, toRow),
     ]),
   );
 }
@@ -628,7 +690,7 @@ async function activity(container, ctx) {
   container.replaceChildren(
     pageHead(t('team.activity')),
     el('p', { text: t('audit.intro'), attrs: { class: 'muted small' } }),
-    card(t('audit.title'), [list, pager(list, page, cursor => `/api/admin/audit?limit=25&cursor=${encodeURIComponent(cursor)}`, toRow)]),
+    card(t('audit.title'), [list, pager(ctx, list, page, cursor => `/api/admin/audit?limit=25&cursor=${encodeURIComponent(cursor)}`, toRow)]),
   );
 }
 

@@ -83,7 +83,7 @@ async function main() {
       ['Lunch from the kitchen', 'One meal, any day this week.', '14.00'],
       ['Bookstore voucher', 'A card for the shop next door.', '25.00'],
       ['Movie night for two', 'Two tickets at the Rio.', '32.00'],
-    ]) await owner.send('POST', '/api/admin/rewards', { name, description, amount, mode: 'credit', active: true });
+    ]) await owner.change('/api/admin/rewards', { name, description, amount, mode: 'credit', active: true });
 
     const people = {};
     for (const [username, displayName, role] of [

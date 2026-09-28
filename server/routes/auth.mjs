@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import express from 'express';
 import { AppError } from '../errors.mjs';
@@ -14,6 +15,8 @@ import { object, readObject, secret, text, username } from '../validate.mjs';
 import { readQuery } from './read-models.mjs';
 
 const INVALID_CREDENTIALS = () => new AppError(401, 'INVALID_CREDENTIALS', 'That username and password do not match.');
+/* Shown in the footer, so a bug report can say which Crumb it is about. */
+const VERSION = JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8')).version;
 
 /* The setup code is written by scripts/init-secrets.mjs and mounted read-only.
  * A missing or implausibly short file means setup is not available at all. */
@@ -46,6 +49,9 @@ export function authRoutes({ db, config, clock }) {
       csrfToken: session.csrfToken,
       initialized: Boolean(row),
       org: orgView(row, { signedIn: Boolean(session.user) }),
+      version: VERSION,
+      // Changes are only accepted from this address; the page warns when it was opened elsewhere.
+      origin: config.publicOrigin,
     });
   });
 

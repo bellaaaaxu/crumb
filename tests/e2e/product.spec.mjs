@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { PASSWORD, provision, signIn, startCrumb } from './fixtures.mjs';
+import { client, tokenFrom } from '../helpers.mjs';
 
 test('member requests a benefit and owner completes it', async ({browser}) => {
   const fx = await provision(browser,{mode:'points'});
@@ -233,6 +234,157 @@ test('the ledger downloads as CSV from the settings page', async ({ browser }) =
     const text = Buffer.concat(chunks).toString('utf8');
     expect(text.startsWith('﻿')).toBe(true);
     expect(text).toContain('Export me');
+  } finally {
+    await fx.close();
+  }
+});
+
+test('a role changes only after a deliberate confirmation', async ({ browser }) => {
+  const fx = await provision(browser, { mode: 'points' });
+  try {
+    const { ownerPage } = fx;
+    const roleOf = async id => (await fx.api.request('GET', '/api/admin/members')).body.items.find(item => item.id === id).role;
+    await ownerPage.goto(`${fx.origin}/#/team/members`);
+    const dialog = ownerPage.getByRole('dialog');
+    await ownerPage.getByRole('button', { name: 'Change role for Mina Park', exact: true }).click();
+    // Arrow keys move between the choices. Nothing is saved until the button is pressed.
+    await dialog.getByRole('radio', { name: /^Member/ }).focus();
+    await ownerPage.keyboard.press('ArrowDown');
+    await ownerPage.keyboard.press('ArrowDown');
+    await expect(dialog.getByRole('radio', { name: /^Owner/ })).toBeChecked();
+    await ownerPage.keyboard.press('Escape');
+    expect(await roleOf(fx.memberId)).toBe('member');
+
+    await ownerPage.getByRole('button', { name: 'Change role for Mina Park', exact: true }).click();
+    await dialog.getByRole('radio', { name: /^Admin/ }).check();
+    await dialog.getByRole('button', { name: 'Change role', exact: true }).click();
+    await expect(ownerPage.getByRole('status').filter({ hasText: 'Role for Mina Park changed to Admin.' })).toBeVisible();
+    expect(await roleOf(fx.memberId)).toBe('admin');
+
+    // Someone who has not joined yet: the link made for the old role stops working.
+    const invite = await fx.api.request('POST', '/api/admin/invitations', { username: 'sam', displayName: 'Sam Lee', role: 'member' });
+    await ownerPage.reload();
+    await ownerPage.getByRole('button', { name: 'Change role for Sam Lee', exact: true }).click();
+    await dialog.getByRole('radio', { name: /^Admin/ }).check();
+    await dialog.getByRole('button', { name: 'Change role', exact: true }).click();
+    await expect(ownerPage.getByRole('status').filter({ hasText: 'make a new one for them' })).toBeVisible();
+    const joiner = client(fx.origin);
+    await joiner.bootstrap();
+    const used = await joiner.request('POST', '/api/invitations/accept', { token: tokenFrom(invite.body.invitationUrl, 'invite'), password: PASSWORD });
+    expect(used.status).toBe(400);
+  } finally {
+    await fx.close();
+  }
+});
+
+test('sending again after a lost answer records the reward once, even from a reopened dialog', async ({ browser }) => {
+  const fx = await provision(browser, { mode: 'points' });
+  try {
+    const { ownerPage } = fx;
+    // The server records the reward, but its answer never reaches the page.
+    await ownerPage.route('**/api/admin/grants', async route => {
+      await route.fetch();
+      await route.abort('connectionreset');
+    });
+    const give = async () => {
+      await ownerPage.getByRole('button', { name: 'Give recognition', exact: true }).click();
+      await ownerPage.getByLabel('Team member').selectOption(fx.memberId);
+      await ownerPage.getByLabel('Amount').fill('100');
+      await ownerPage.getByLabel('Message').fill('Thanks for the Sunday shift');
+      await ownerPage.getByRole('button', { name: 'Send reward', exact: true }).click();
+    };
+    await give();
+    await expect(ownerPage.getByRole('dialog').getByRole('alert')).toContainText('Could not reach Crumb');
+    await ownerPage.getByRole('dialog').getByRole('button', { name: 'Cancel', exact: true }).click();
+    await ownerPage.unroute('**/api/admin/grants');
+    await give();
+    await expect(ownerPage.getByRole('status').filter({ hasText: 'Sent 100 points to Mina Park.' })).toBeVisible();
+    const ledger = await fx.api.request('GET', `/api/admin/ledger?userId=${fx.memberId}`);
+    expect(ledger.body.items.filter(item => item.kind === 'grant')).toHaveLength(1);
+  } finally {
+    await fx.close();
+  }
+});
+
+test('asking again after a lost answer makes one request, even from a reopened dialog', async ({ browser }) => {
+  const fx = await provision(browser, { mode: 'points' });
+  try {
+    await fx.api.request('POST', '/api/admin/grants', { userId: fx.memberId, amount: '100', mode: fx.mode, reason: 'Thanks' },
+      { 'idempotency-key': 'e2e-lost-answer-grant-0001' });
+    const { memberPage } = fx;
+    await memberPage.reload();
+    await memberPage.route('**/api/redemptions', async route => {
+      await route.fetch();
+      await route.abort('connectionreset');
+    });
+    const ask = async () => {
+      await memberPage.getByRole('button', { name: 'Redeem Coffee', exact: true }).click();
+      await memberPage.getByRole('button', { name: 'Confirm request', exact: true }).click();
+    };
+    await ask();
+    await expect(memberPage.getByRole('dialog').getByRole('alert')).toContainText('Could not reach Crumb');
+    await memberPage.getByRole('dialog').getByRole('button', { name: 'Cancel', exact: true }).click();
+    await memberPage.unroute('**/api/redemptions');
+    await ask();
+    await expect(memberPage.getByText('Awaiting confirmation', { exact: true })).toHaveCount(1);
+    expect((await fx.api.request('GET', '/api/admin/redemptions?status=pending')).body.items).toHaveLength(1);
+  } finally {
+    await fx.close();
+  }
+});
+
+test('an admin can cancel a request the member withdrew in person', async ({ browser }) => {
+  const fx = await provision(browser, { mode: 'points' });
+  try {
+    await fx.api.request('POST', '/api/admin/grants', { userId: fx.memberId, amount: '100', mode: fx.mode, reason: 'Thanks' },
+      { 'idempotency-key': 'e2e-admin-cancel-grant-01' });
+    const { ownerPage, memberPage } = fx;
+    await memberPage.reload();
+    await memberPage.getByRole('button', { name: 'Redeem Coffee', exact: true }).click();
+    await memberPage.getByRole('button', { name: 'Confirm request', exact: true }).click();
+    await expect(memberPage.getByText('Awaiting confirmation', { exact: true })).toBeVisible();
+
+    await ownerPage.goto(`${fx.origin}/#/team/redemptions`);
+    await ownerPage.getByRole('button', { name: 'Cancel request', exact: true }).click();
+    await ownerPage.getByRole('dialog').getByRole('button', { name: 'Cancel request', exact: true }).click();
+    await expect(ownerPage.getByRole('status').filter({ hasText: 'Cancelled Coffee.' })).toBeVisible();
+    await memberPage.reload();
+    await expect(memberPage.getByText('Cancelled', { exact: true })).toBeVisible();
+    await expect(memberPage.getByTestId('available-balance')).toHaveText('100 points');
+  } finally {
+    await fx.close();
+  }
+});
+
+test('opened at another address, the page says where Crumb lives', async ({ browser }) => {
+  const crumb = await startCrumb();
+  const context = await browser.newContext();
+  try {
+    const page = await context.newPage();
+    await page.goto(crumb.origin.replace('127.0.0.1', 'localhost'));
+    await expect(page.getByRole('heading', { name: 'Open Crumb at its own address' })).toBeVisible();
+    await expect(page.getByRole('link', { name: `Open ${crumb.origin}` })).toHaveAttribute('href', crumb.origin);
+  } finally {
+    await context.close();
+    await crumb.close();
+  }
+});
+
+test('settings say which rule is fixed, and why', async ({ browser }) => {
+  const fx = await provision(browser, { mode: 'points' });
+  try {
+    await fx.ownerPage.getByRole('link', { name: 'Settings', exact: true }).click();
+    // The fixture has a priced benefit but no rewards yet: only the unit is fixed.
+    await expect(fx.ownerPage.getByText(/Benefits already have prices in this unit/)).toBeVisible();
+    const threshold = fx.ownerPage.getByLabel('Unlock a collectible every');
+    await expect(threshold).toBeEnabled();
+    // After the first reward the threshold is fixed too, and looks it.
+    await fx.api.request('POST', '/api/admin/grants', { userId: fx.memberId, amount: '100', mode: fx.mode, reason: 'First' },
+      { 'idempotency-key': 'e2e-settings-lock-grant-01' });
+    await fx.ownerPage.reload();
+    await expect(fx.ownerPage.getByText(/Rewards have been recorded/)).toBeVisible();
+    await expect(threshold).toBeDisabled();
+    await expect(threshold).toHaveCSS('border-top-style', 'dashed');
   } finally {
     await fx.close();
   }

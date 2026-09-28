@@ -51,7 +51,7 @@ test('no page scrolls sideways on a phone or a laptop, and nothing trips the CSP
   try {
     const long = `Thank you for ${'staying-late-again-'.repeat(12)}`;
     await fx.api.request('POST', '/api/admin/grants', { userId: fx.memberId, amount: '123456.78', mode: fx.mode, reason: long }, key());
-    await fx.api.request('POST', '/api/admin/rewards', { name: 'A very long benefit name that keeps going', description: 'x'.repeat(200), amount: '99999.99', mode: fx.mode, active: true });
+    await fx.api.request('POST', '/api/admin/rewards', { name: 'A very long benefit name that keeps going', description: 'x'.repeat(200), amount: '99999.99', mode: fx.mode, active: true }, key());
     const ownerProblems = await watch(fx.ownerPage);
     const memberProblems = await watch(fx.memberPage);
     for (const size of [{ width: 390, height: 844 }, { width: 1440, height: 900 }]) {
@@ -168,7 +168,7 @@ test('names and messages that look like HTML are shown as text and never run', a
     let alerts = 0;
     for (const page of [fx.ownerPage, fx.memberPage]) page.on('dialog', dialog => { alerts += 1; dialog.dismiss(); });
     await fx.api.request('POST', '/api/admin/grants', { userId: fx.memberId, amount: '100', mode: fx.mode, reason: '<script>alert("x")</script>' }, key());
-    await fx.api.request('POST', '/api/admin/rewards', { name: '<b>Bold</b> coffee', description: '<iframe src="javascript:alert(1)"></iframe>', amount: '10', mode: fx.mode, active: true });
+    await fx.api.request('POST', '/api/admin/rewards', { name: '<b>Bold</b> coffee', description: '<iframe src="javascript:alert(1)"></iframe>', amount: '10', mode: fx.mode, active: true }, key());
 
     await fx.memberPage.reload();
     await expect(fx.memberPage.getByText('<script>alert("x")</script>')).toBeVisible();
@@ -182,6 +182,19 @@ test('names and messages that look like HTML are shown as text and never run', a
     await expect(fx.ownerPage.getByText('<script>alert("x")</script>')).toBeVisible();
     expect(await fx.ownerPage.locator('main img, main script').count()).toBe(0);
     expect(alerts).toBe(0);
+  } finally {
+    await fx.close();
+  }
+});
+
+test('after moving to another page, focus is on the new content', async ({ browser }) => {
+  const fx = await provision(browser, { mode: 'points' });
+  try {
+    const { ownerPage } = fx;
+    await ownerPage.getByRole('link', { name: 'Members', exact: true }).click();
+    await expect(ownerPage.locator('#main')).toBeFocused();
+    await ownerPage.getByLabel('Language').selectOption('zh-CN');
+    await expect(ownerPage.getByLabel('语言')).toBeFocused();
   } finally {
     await fx.close();
   }
