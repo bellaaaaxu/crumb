@@ -240,7 +240,7 @@ Config 含 `publicOrigin,dataDir,port,secureCookies,setupTokenFile,trustProxy,al
 测试 HTTP helper 增加 `client(base)`，返回 `{request(method,path,body,headers),bootstrap(),csrf}`，保存 cookie，
 request 自动带同源 Origin、CSRF 和 JSON header，返回 `{status,body,headers}`。
 
-- [ ] **2.1 写认证红灯测试。** 验证 setup 凭据缺失失败、有效 setup 成功、第二次 409、并发 setup 只产生一个所有者；验证登录轮换与退出失效。
+- [x] **2.1 写认证红灯测试。** 验证 setup 凭据缺失失败、有效 setup 成功、第二次 409、并发 setup 只产生一个所有者；验证登录轮换与退出失效。
 
 ```js
 test('password hashes are salted and verifiable', async () => {
@@ -258,7 +258,7 @@ test('a member cannot administer the organization', () => {
 
 运行 `node --test tests/auth.test.mjs tests/permissions.test.mjs`，记录红灯。
 
-- [ ] **2.2 实现密码与短期凭据。** 哈希核心使用 Node 官方 async API：
+- [x] **2.2 实现密码与短期凭据。** 哈希核心使用 Node 官方 async API：
 
 ```js
 const derive = promisify(scrypt);
@@ -271,12 +271,12 @@ const encoded = ['scrypt',options.N,options.r,options.p,salt.toString('hex'),key
 完整函数必须包括密码长度验证、有界哈希队列、编码格式验证和固定长度 timingSafeEqual。
 session/token 比较使用哈希值；禁止把上述局部变量拼进日志。
 
-- [ ] **2.3 实现 HTTP 基础和认证。** app 仅公开 `app/` 与特定 `/assets/sprites.js`，不对仓库根目录调用 express.static。
+- [x] **2.3 实现 HTTP 基础和认证。** app 仅公开 `app/` 与特定 `/assets/sprites.js`，不对仓库根目录调用 express.static。
 注册 Helmet、JSON 限额、Origin/CSRF、cookie/session、auth router、404 和通用错误处理。
 setup 先验证文件中随机凭据，哈希密码后在 immediate 事务里重新检查 organization 是否存在，再创建组织及所有者。
 GET session 为匿名建立 CSRF；登录成功返回替换后的 session；初始化完成后凭据不再允许创建账户。
 
-- [ ] **2.4 补齐边界并转绿。** 用可注入 clock 验证 session 过期、15 分钟限额、伪造转发 IP 不绕过限额、
+- [x] **2.4 补齐边界并转绿。** 用可注入 clock 验证 session 过期、15 分钟限额、伪造转发 IP 不绕过限额、
 跨 Origin POST、缺少 CSRF、错误密码统一响应及静态路径遍历。所有浏览器响应 Cache-Control: no-store；
 确认 404/500 不含绝对路径、SQL 或请求 secrets。运行 Task 1–2 测试；提交 `feat: secure organization setup and sessions`。
 
