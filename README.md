@@ -52,7 +52,7 @@ account — there are no leaderboards and no comparisons.
 …and confirm benefits once they have actually been handed over. That is when the amount is
 deducted; declining or cancelling simply releases it.
 
-<img src="assets/screenshots/redemptions.png" width="100%" alt="The Redemptions page: two requests waiting with Confirm delivery and Decline buttons, and a completed request with a Refund button">
+<img src="assets/screenshots/redemptions.png" width="100%" alt="The Redemptions page: two requests waiting, each with Confirm delivery, Decline and Cancel request, and a completed request with a Refund button">
 
 They also invite people with one-time links, reset passwords, deactivate accounts, keep the
 benefits catalog, correct mistakes (a revoke needs a reason and stays visible, marked
