@@ -2,6 +2,7 @@ import express from 'express';
 import { AppError } from '../errors.mjs';
 import { balanceOf } from '../balance.mjs';
 import { collectionOf, nextSpriteKey, theme } from '../collections.mjs';
+import { exportLedger } from '../csv.mjs';
 import { entryView } from '../ledger.mjs';
 import { memberView } from '../members.mjs';
 import { orgView, requireOrg } from '../org.mjs';
@@ -74,7 +75,7 @@ const historyItem = row => ({
   rewardName: row.reward_name ?? null,
 });
 
-export function readModelRoutes({ db }) {
+export function readModelRoutes({ db, clock }) {
   const router = express.Router();
 
   /* Everything a member's own screen needs, read from one snapshot. */
@@ -174,6 +175,16 @@ export function readModelRoutes({ db }) {
       member: { id: row.user_id, displayName: row.member_name, username: row.member_username },
       actor: { id: row.actor_id, displayName: row.actor_name },
     })));
+  });
+
+  router.get('/admin/ledger.csv', (req, res) => {
+    requireRole(req.actor, MANAGERS);
+    readQuery(req.query, []);
+    const csv = exportLedger(db, req.actor, clock);
+    res.set('Content-Type', 'text/csv; charset=utf-8');
+    // A fixed name: nothing from the request or the organization goes into a header.
+    res.set('Content-Disposition', 'attachment; filename="crumb-ledger.csv"');
+    res.send(csv);
   });
 
   router.get('/admin/audit', (req, res) => {

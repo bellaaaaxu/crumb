@@ -489,7 +489,7 @@ body、organization 必须由 route 校验器／数据库读取定义；统一�
 `csvCell(value):string`；`exportLedger(db,actor):string`。Logo 用重编码 PNG BLOB 保存到 organization，
 因此完整数据库备份包含品牌资源，不增加用户提供路径的文件写入。
 
-- [ ] **7.1 写规则锁定、恶意图片和 CSV 红灯。** 初始无账目可改 mode/currency/threshold；首笔账目后任何更改这些字段都 409。
+- [x] **7.1 写规则锁定、恶意图片和 CSV 红灯。** 初始无账目可改 mode/currency/threshold；首笔账目后任何更改这些字段都 409。
 目录已存在时只可改展示设置，阻止积分/额度切换导致目录价格错义；调整解锁门槛仍只限无账目。
 
 ```js
@@ -503,7 +503,7 @@ test('spreadsheet formulas are neutralized and quotes escaped', () => {
 图片测试用 Sharp 在内存生成合法小 PNG，再分别提交 SVG、伪 PNG、超 1 MiB 和超 2048×2048 解码尺寸。
 运行 `node --test tests/org.test.mjs tests/csv.test.mjs` 确认红灯。
 
-- [ ] **7.2 实现设置验证与图片归一化。** name 1–80、welcome≤500、unitLabel 1–24 字符；
+- [x] **7.2 实现设置验证与图片归一化。** name 1–80、welcome≤500、unitLabel 1–24 字符；
 adminContact 只接受有效 HTTPS/mailto，feedbackUrl 只接受 HTTPS；拒绝 javascript/data 等 scheme。
 默认 feedbackUrl 为空，UI 使用真实 GitHub issue 地址，不构造占位表单。
 normalizeLogo 先限制 buffer 长度，再 Sharp 解码 limitInputPixels=4194304，格式只允许 png/jpeg/webp，
@@ -520,12 +520,12 @@ return image.resize({width:512,height:512,fit:'inside',withoutEnlargement:true})
 PUT route 只接受约定 image content-type，使用 `express.raw({type:['image/png','image/jpeg','image/webp'],limit:'1mb'})`；
 解码完成后在短事务保存并 audit，不允许执行用户 SVG。
 
-- [ ] **7.3 实现导出。** 仅 owner/admin，字段为时间、成员、类型、整数 units、显示单位、理由、操作者、关联 id。
+- [x] **7.3 实现导出。** 仅 owner/admin，字段为时间、成员、类型、整数 units、显示单位、理由、操作者、关联 id。
 所有字段加双引号、内部双引号转义，首个非空白字符为 `= + - @` 或开头控制字符时加单引号。
 不导出密码/session/token。设置 attachment 文件名为固定 `crumb-ledger.csv`，不使用用户输入作为 header。
 规则更新、Logo 更新与删除写 audit；公开 Logo 响应 nosniff。
 
-- [ ] **7.4 绿灯并提交。** API 测试加入 member 修改组织/下载全员账本 403、admin 修改设置 403、有效图片响应 PNG。
+- [x] **7.4 绿灯并提交。** API 测试加入 member 修改组织/下载全员账本 403、admin 修改设置 403、有效图片响应 PNG。
 运行 `npm test`；提交 `feat: add organization branding and safe exports`。
 
 ## Task 8：成员端、管理员端与中英文界面

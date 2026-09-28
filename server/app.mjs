@@ -7,6 +7,7 @@ import { isBusy } from './db.mjs';
 import { csrfMiddleware, sessionMiddleware } from './auth.mjs';
 import { authRoutes } from './routes/auth.mjs';
 import { memberRoutes } from './routes/members.mjs';
+import { orgRoutes } from './routes/org.mjs';
 import { readModelRoutes } from './routes/read-models.mjs';
 import { rewardRoutes } from './routes/rewards.mjs';
 
@@ -94,8 +95,9 @@ export function createApp({ db, config, clock = () => Date.now(), log = console.
   api.use(csrfMiddleware({ config }));
   api.use(authRoutes({ db, config, clock }));
   api.use(memberRoutes({ db, config, clock }));
-  api.use(readModelRoutes({ db }));
+  api.use(readModelRoutes({ db, clock }));
   api.use(rewardRoutes({ db, clock }));
+  api.use(orgRoutes({ db, clock }));
   api.use(() => {
     throw new AppError(404, 'NOT_FOUND', 'Not found.');
   });
