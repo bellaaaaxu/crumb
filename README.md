@@ -57,14 +57,34 @@ bounds, so a flat one (prawn cracker) and a round one (mooncake) sit level in th
 
 ## Running it
 
-There is no build step and no dependencies. Clone it and open `index.html`, or:
+There is no build step and no runtime dependencies. To get a local copy:
+
+```bash
+git clone https://github.com/bellaaaaxu/crumb.git
+cd crumb
+```
+
+Open `index.html` directly in a modern browser. Alternatively, if Python 3 is installed,
+serve the folder locally:
 
 ```bash
 python3 -m http.server 4173
 ```
 
+On Windows, use `py -m http.server 4173`. Then open <http://localhost:4173>.
+
 The demo keeps its state in `localStorage`, so a reload remembers where you left off. **Reset the
 demo** in the counter panel puts it back.
+
+## Contributing
+
+Bug reports, accessibility improvements, documentation fixes and pixel-art improvements are
+welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) for the project scope, local checks and pull
+request workflow, or [open an issue](https://github.com/bellaaaaxu/crumb/issues).
+
+This repository is a browser demo with invented data. It does not include a production backend,
+authentication or shared storage; browser data can be edited or cleared. It is not ready to
+manage real staff balances as-is.
 
 ## How it is put together
 
@@ -98,5 +118,10 @@ The names, staff numbers, balances and history on this page are invented. The re
 ledger design and the interface are the real thing. Nothing here connects to any employer's data.
 
 ---
+
+## License
+
+Crumb is open source under the [MIT License](LICENSE). You may use, modify and distribute
+it, including commercially, provided you retain the copyright and license notice.
 
 Designed & built by **Bella Xu** · [github.com/bellaaaaxu](https://github.com/bellaaaaxu)
