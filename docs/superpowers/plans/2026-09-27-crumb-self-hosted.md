@@ -333,7 +333,7 @@ WHERE token_hash = @hash AND purpose = @purpose
 `unlockEarned(db,userId,grantId):CollectionItem[]`，仅在调用方事务内部执行；
 `CollectionItem={ordinal,spriteKey,unlockedAt}`。带 clock 的服务参数默认 `()=>Date.now()`。
 
-- [ ] **4.1 写计算、重放、冲突与永久收藏红灯。** 测试文件导入上述 ledger 接口、fixture、test 和 strict assert。
+- [x] **4.1 写计算、重放、冲突与永久收藏红灯。** 测试文件导入上述 ledger 接口、fixture、test 和 strict assert。
 
 ```js
 test('a retried grant creates one entry and one collection unlock', t => {
@@ -354,7 +354,7 @@ test('a retried grant creates one entry and one collection unlock', t => {
 补测 available 包含 pending 预留、退款不增加 lifetime、double revoke 被拒绝、余额不足无法撤销、
 单位越界（直接领域调用也验证）、停用用户不能收到新奖励。运行 `node --test tests/ledger.test.mjs tests/collections.test.mjs` 得到红灯。
 
-- [ ] **4.2 实现幂等边界和只追加账本。** payload 必须是领域层构造的固定字段对象，稳定键排序后 hash；
+- [x] **4.2 实现幂等边界和只追加账本。** payload 必须是领域层构造的固定字段对象，稳定键排序后 hash；
 operation 回调返回 `{status,body}`，成功事务才写 idempotency，失败整体回滚；领域函数取其 body 返回，保持上方领域接口一致。
 成功记录第一版不自动清理，防止迟到重试再次执行。DB busy 超时返回 503 `RETRY_LATER` 而非伪成功。
 
@@ -370,7 +370,7 @@ FROM redemptions WHERE user_id=@userId AND status='pending';
 撤销验证 source 为本实例 grant、未撤销、余额减预留足够；追加相反数、audit，不更新 collection_unlocks。
 原因限制 500 字符，撤销必须有非空原因。幂等请求返回第一次响应，因此 UI 成功后另读最新 /api/me。
 
-- [ ] **4.3 固定主题与解锁顺序。** theme-manifest 脚本从可信仓库 sprites.js 读取 SPRITES/NAMES，
+- [x] **4.3 固定主题与解锁顺序。** theme-manifest 脚本从可信仓库 sprites.js 读取 SPRITES/NAMES，
 生成含 themeId、version、固定 keys 和中英文名字的默认清单；先确认当前确为 39 项并逐项验证 palette/rows。
 用户收藏排序用 `SHA256(userId + ':' + spriteKey)` 的字典序，永不使用 Math.random。
 
@@ -385,7 +385,7 @@ for (let ordinal = existingCount; ordinal < earned; ordinal += 1) {
 测试 `5000 grant → revoke → 5000 grant → 5000 grant` 得到收藏数量 `1,1,1,2`，
 集齐后继续发奖正常、数量不超过图鉴，重新打开数据库排序一致。
 
-- [ ] **4.4 绿灯并提交。** 运行 Task 1–4 测试；提交 `feat: add idempotent rewards and permanent collections`。
+- [x] **4.4 绿灯并提交。** 运行 Task 1–4 测试；提交 `feat: add idempotent rewards and permanent collections`。
 
 ## Task 5：福利目录和可并发验证的兑换状态机
 
