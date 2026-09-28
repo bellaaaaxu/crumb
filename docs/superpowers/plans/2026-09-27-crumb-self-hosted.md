@@ -445,7 +445,7 @@ worker 收到 `{userId,rewardId,key}` 后读取 users 中真实 role 并调用 r
 **Interfaces:** 全局 HTTP 表所列奖励、管理和读取路径；所有 route 只做字段验证、认证、格式映射和服务调用。
 领域模块不读取 req/res。`GET /api/me` 提供完整 Balance 与 CollectionItem，历史使用统一分页结构。
 
-- [ ] **6.1 写两身份 API 红灯。** 用 helper 创建 owner、两成员的真实 cookie。
+- [x] **6.1 写两身份 API 红灯。** 用 helper 创建 owner、两成员的真实 cookie。
 
 ```js
 test('member cannot list team members or grant rewards', async t => {
@@ -460,7 +460,7 @@ test('member cannot list team members or grant rewards', async t => {
 owner 经 API 发奖，member API 查到相同余额；member2 看不到 member1 明细；
 请求体伪造 actorId/userId/role 不改变登录身份。运行 `node --test tests/api.test.mjs` 得到红灯。
 
-- [ ] **6.2 接入服务并分页读取。** 成员查询固定 `WHERE user_id = session.user.id`，
+- [x] **6.2 接入服务并分页读取。** 成员查询固定 `WHERE user_id = session.user.id`，
 不存在与越权资源统一 404；管理列表不包含 password_hash/token/session。
 包括用户、福利和兑换端点的字段白名单，parseUnits 使用数据库里的 org.mode，不接收客户端模式。
 
@@ -477,7 +477,7 @@ res.status(201).json(result);
 body、organization 必须由 route 校验器／数据库读取定义；统一错误处理中间件位于所有路由之后。
 所有查询使用 bind parameters。按时间＋id 稳定倒序，cursor 格式不合法返回 422。
 
-- [ ] **6.3 测试隔离和失败原子性。** 一次发奖缺少幂等头返回 422；相同 key 修改金额返回 409；
+- [x] **6.3 测试隔离和失败原子性。** 一次发奖缺少幂等头返回 422；相同 key 修改金额返回 409；
 超额申请返回 409，之后账本/预留保持不变；数据库 busy 503；同一时间多行分页不重复不漏项。
 运行 `npm test`；提交 `feat: expose permission-scoped application API`。
 
