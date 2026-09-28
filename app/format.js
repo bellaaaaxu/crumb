@@ -23,6 +23,17 @@ export function formatUnits(units, org, locale) {
   return `${count} ${org.unitLabel}`;
 }
 
+/* The same rules as the server's parseUnits, for checking a form before it
+ * is sent: "12.50" -> 1250 in credit mode, "100" -> 100 in points mode, and
+ * null for anything the unit cannot hold. The server still decides. */
+export function amountToUnits(value, mode) {
+  const pattern = mode === 'credit' ? /^\d+(?:\.\d{1,2})?$/ : /^\d+$/;
+  if (typeof value !== 'string' || value.length > 32 || !pattern.test(value)) return null;
+  const [whole, fraction = ''] = value.split('.');
+  const units = mode === 'credit' ? BigInt(whole) * 100n + BigInt(fraction.padEnd(2, '0')) : BigInt(whole);
+  return units >= 1n && units <= 1_000_000_000_000n ? Number(units) : null;
+}
+
 /* The plain decimal an input field should show for a value, e.g. 1250 -> "12.50". */
 export function unitsToInput(units, mode) {
   if (mode !== 'credit') return String(units);

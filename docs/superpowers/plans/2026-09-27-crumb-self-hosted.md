@@ -538,7 +538,7 @@ PUT route 只接受约定 image content-type，使用 `express.raw({type:['image
 context 含 session、org、navigate、refresh、request、t（翻译函数）。`drawCollection(canvas,spriteKey)` 复用可信 Pixel，
 app/pixels.js 封装全局 Pixel，其他模块不直接依赖 globals。
 
-- [ ] **8.1 写真实浏览器红灯。** Playwright 使用 localhost 独立测试数据库，不复用开发或生产数据；
+- [x] **8.1 写真实浏览器红灯。** Playwright 使用 localhost 独立测试数据库，不复用开发或生产数据；
 fixtures 导出 `provision(browser,{mode})`，通过真实 setup/invite API 创建 owner/member 并返回凭据、origin、
 ownerPage/memberPage（不同 browser context）。E2E 必须分别跑 credit 和 points。
 
@@ -567,7 +567,7 @@ test('member requests a benefit and owner completes it', async ({browser}) => {
 provision 将 points 门槛设 100、Coffee 价格 40（credit 门槛 5000、价格 1250），通过 API 创建福利但不预先发奖。
 运行 `npx playwright install chromium` 后 `npm run test:e2e -- --project=chromium`，确认目标流程红灯。
 
-- [ ] **8.2 做产品壳与账号界面。** 宽屏成员为个人卡片＋福利区，手机为单列；管理区采用独立导航，
+- [x] **8.2 做产品壳与账号界面。** 宽屏成员为个人卡片＋福利区，手机为单列；管理区采用独立导航，
 不复用演示中随意切换员工的控件。登录、首次设置、邀请接受、重置密码都有明确标签和错误提示。
 GET session 决定初始化／登录／产品状态，不依赖客户端角色自我声明。
 页面刷新恢复登录态，401 回登录，403 提示无权限，503 提供保留原幂等 key 的重试。
@@ -585,18 +585,18 @@ export function el(tag,{text,attrs={}}={},children=[]) {
 attrs 仅传开发者预定义属性；链接 URL 仍按允许的 scheme 验证。用户内容禁止 innerHTML。
 每个提交动作创建一个 key，直到成功或用户明确放弃该动作前重试复用；新动作生成新 key。
 
-- [ ] **8.3 实现成员与管理流程。** 成员看到可用／预留、感谢、收藏、福利和分页历史；兑换前展示价格和确认，
+- [x] **8.3 实现成员与管理流程。** 成员看到可用／预留、感谢、收藏、福利和分页历史；兑换前展示价格和确认，
 网络失败不假装成功。管理员有成员邀请、复制链接、重置、停用、发奖、撤销、目录编辑、
 兑换完成／拒绝／退款、CSV 导出与 audit 页面；owner 另有品牌、单位设置及管理员角色管理。
 未配置组织联系人时明确提示联系部署负责人，不能把员工问题误送到上游。
 
-- [ ] **8.4 加语言与可访问性验证。** en/zh-CN 覆盖所有可见文案，成员可选择会话显示语言，组织设置为默认。
+- [x] **8.4 加语言与可访问性验证。** en/zh-CN 覆盖所有可见文案，成员可选择会话显示语言，组织设置为默认。
 金额使用组织 currency 而不是硬编码 `$`；关闭页后语言偏好可保存在 localStorage，账号/token/账本不保存其中。
 canvas 收藏附名称文字和数量，表单使用 label，动态消息 aria-live，dialog 捕获和恢复焦点，Escape 可关闭。
 Playwright 检查 390×844、1440×900，无水平溢出；纯键盘完成登录及兑换；reduce-motion 下没有持续自动动画。
 注入显示名 `<img src=x onerror=alert(1)>`、感谢 `<script>`，应显示文本且不会执行。
 
-- [ ] **8.5 绿灯并提交。** 运行 `npm test` 与完整 E2E，手动查看成员和管理员截图。
+- [x] **8.5 绿灯并提交。** 运行 `npm test` 与完整 E2E，手动查看成员和管理员截图。
 刷新验证跨会话共享数据。提交 `feat: build member and team management interface`。
 
 ## Task 9：容器、初始化凭据、备份恢复与 CI

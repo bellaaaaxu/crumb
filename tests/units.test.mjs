@@ -1,6 +1,23 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { parseUnits, formatUnits, MAX_UNITS } from '../server/units.mjs';
+import { amountToUnits } from '../app/format.js';
+
+test('the browser check agrees with the server on every amount', () => {
+  const samples = ['12.50', '12.5', '0.01', '0', '0.00', '1.001', '-1', '1e2', 'Infinity', '', '.5', '5.', ' 5',
+    '10000000000.00', '10000000000.01', '1000000000000', '1000000000001', '100', '０', '9'.repeat(33), '007'];
+  for (const mode of ['credit', 'points']) {
+    for (const sample of samples) {
+      let server = null;
+      try {
+        server = parseUnits(sample, mode);
+      } catch {
+        server = null;
+      }
+      assert.equal(amountToUnits(sample, mode), server, `${mode} ${JSON.stringify(sample)}`);
+    }
+  }
+});
 
 test('exact units and invalid representations', () => {
   assert.equal(parseUnits('12.50', 'credit'), 1250);

@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex">
+<title>Crumb</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/app.css">
+<!-- The pixel table is a classic script defining one global; the app reads it through pixels.js.
+     Deferred classic scripts and module scripts run in document order, so it is ready first. -->
+<script src="/assets/sprites.js" defer></script>
+<script type="module" src="/main.js"></script>
+</head>
+<body>
+<div id="app"><p class="boot">Loading Crumb…</p></div>
+<div id="toasts" class="toasts" role="status" aria-live="polite"></div>
+<noscript><p class="boot">Crumb needs JavaScript to run.</p></noscript>
+</body>
+</html>
