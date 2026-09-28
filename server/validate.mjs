@@ -7,7 +7,7 @@ const SINGLE_LINE_CONTROL = /[\u0000-\u001F\u007F-\u009F]/;
 /* Embedding, override and isolate controls reorder the text around them, so a
  * name or message could display as something else. Right-to-left text itself,
  * and the plain direction marks it may use, are fine. */
-const DIRECTION_CONTROL = /[‪-‮⁦-⁩]/;
+const DIRECTION_CONTROL = /[\u202A-\u202E\u2066-\u2069]/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 export const invalid = (field, message) => new AppError(422, 'INVALID_INPUT', message, { field });

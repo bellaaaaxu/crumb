@@ -107,16 +107,20 @@ expect "$(body | jq .balance.postedUnits)" 150 "balance after restart (the retry
 expect "$(body | jq '.collection | length')" 1 "collection after restart"
 endgroup
 
-group "Backup inside the running container"
+group "Backup inside the running container, copied off and back in"
 docker compose exec -T crumb node scripts/backup.mjs --output /backups/drill.sqlite
 expect "$(api GET /api/me)" 200 "the app kept serving during the backup"
+# Off the server as docs/OPERATIONS.md says, then back in the way it documents for a kept file.
+docker compose cp crumb:/backups/drill.sqlite "$work/drill-copy.sqlite"
+docker run --rm -u 0 -v "$CRUMB_BACKUP_VOLUME:/backups" -v "$work":/in:ro "$CRUMB_IMAGE" \
+  install -o node -g node -m 600 /in/drill-copy.sqlite /backups/drill-returned.sqlite
 endgroup
 
 group "Restore into a new volume and switch to it"
 docker compose stop crumb
 docker volume create "$RESTORED" >/dev/null
 docker run --rm -v "$RESTORED:/data" -v "$CRUMB_BACKUP_VOLUME:/backups:ro" "$CRUMB_IMAGE" \
-  node scripts/restore.mjs --from /backups/drill.sqlite --to /data/crumb.sqlite
+  node scripts/restore.mjs --from /backups/drill-returned.sqlite --to /data/crumb.sqlite
 CRUMB_DATA_VOLUME=$RESTORED docker compose up -d --wait --wait-timeout 180
 expect "$(api GET /api/me)" 401 "an old session on the restored copy"
 sign_in "$PASSWORD" "sign in on the restored copy"

@@ -232,7 +232,7 @@ test('the ledger downloads as CSV from the settings page', async ({ browser }) =
     const chunks = [];
     for await (const chunk of await download.createReadStream()) chunks.push(chunk);
     const text = Buffer.concat(chunks).toString('utf8');
-    expect(text.startsWith('﻿')).toBe(true);
+    expect(text.startsWith('\uFEFF')).toBe(true);
     expect(text).toContain('Export me');
   } finally {
     await fx.close();
@@ -297,10 +297,16 @@ test('sending again after a lost answer records the reward once, even from a reo
     await expect(ownerPage.getByRole('dialog').getByRole('alert')).toContainText('Could not reach Crumb');
     await ownerPage.getByRole('dialog').getByRole('button', { name: 'Cancel', exact: true }).click();
     await ownerPage.unroute('**/api/admin/grants');
+    const grants = async () => (await fx.api.request('GET', `/api/admin/ledger?userId=${fx.memberId}`)).body.items
+      .filter(item => item.kind === 'grant');
+    // The retry is answered from storage, and the page says so rather than "Sent".
+    await give();
+    await expect(ownerPage.getByRole('status').filter({ hasText: 'had already been recorded' })).toBeVisible();
+    expect(await grants()).toHaveLength(1);
+    // Sending the same thing again on purpose, after that answer, is a second reward.
     await give();
     await expect(ownerPage.getByRole('status').filter({ hasText: 'Sent 100 points to Mina Park.' })).toBeVisible();
-    const ledger = await fx.api.request('GET', `/api/admin/ledger?userId=${fx.memberId}`);
-    expect(ledger.body.items.filter(item => item.kind === 'grant')).toHaveLength(1);
+    expect(await grants()).toHaveLength(2);
   } finally {
     await fx.close();
   }
@@ -326,8 +332,28 @@ test('asking again after a lost answer makes one request, even from a reopened d
     await memberPage.getByRole('dialog').getByRole('button', { name: 'Cancel', exact: true }).click();
     await memberPage.unroute('**/api/redemptions');
     await ask();
+    await expect(memberPage.getByRole('status').filter({ hasText: 'had already gone through' })).toBeVisible();
     await expect(memberPage.getByText('Awaiting confirmation', { exact: true })).toHaveCount(1);
     expect((await fx.api.request('GET', '/api/admin/redemptions?status=pending')).body.items).toHaveLength(1);
+  } finally {
+    await fx.close();
+  }
+});
+
+test('asking at a price that just changed shows the new price instead of charging it', async ({ browser }) => {
+  const fx = await provision(browser, { mode: 'points' });
+  try {
+    await fx.api.request('POST', '/api/admin/grants', { userId: fx.memberId, amount: '100', mode: fx.mode, reason: 'Thanks' },
+      { 'idempotency-key': 'e2e-price-change-grant-01' });
+    const { memberPage } = fx;
+    await memberPage.reload();
+    await memberPage.getByRole('button', { name: 'Redeem Coffee', exact: true }).click();
+    // While the member is looking at 40 points, a manager changes the price.
+    expect((await fx.api.request('PATCH', `/api/admin/rewards/${fx.coffeeId}`, { amount: '60', mode: fx.mode })).status).toBe(200);
+    await memberPage.getByRole('button', { name: 'Confirm request', exact: true }).click();
+    await expect(memberPage.getByRole('status').filter({ hasText: 'The price of this benefit just changed' })).toBeVisible();
+    await expect(memberPage.getByText('60 points', { exact: true })).toBeVisible();
+    expect((await fx.api.request('GET', '/api/admin/redemptions?status=pending')).body.items).toHaveLength(0);
   } finally {
     await fx.close();
   }

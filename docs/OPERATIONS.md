@@ -6,7 +6,8 @@ from [DEPLOYMENT.md](DEPLOYMENT.md) and are run in the project folder. With HTTP
 `init-secrets --origin` put `COMPOSE_FILE=compose.yaml:compose.https.yaml` in `.env`, so
 every `docker compose` command below includes the proxy. (If your `.env` predates that,
 add those two lines from `.env.example`; leaving the proxy out drops `TRUST_PROXY`, and then
-everyone shares one sign-in limit.)
+everyone shares one sign-in limit.) If you set `CRUMB_IMAGE`, use that name wherever a command
+below says `crumb:local`.
 
 ## Where the data is
 
@@ -66,8 +67,14 @@ docker run --rm -v crumb_restored_2026_09_27:/data -v crumb_backups:/backups:ro 
   node scripts/restore.mjs --from /backups/crumb-2026-09-27.sqlite --to /data/crumb.sqlite
 ```
 
-(To restore a file you kept elsewhere, first copy it into the backups volume, for example
-with `docker run --rm -v crumb_backups:/backups -v "$PWD":/in:ro crumb:local cp /in/crumb-2026-09-27.sqlite /backups/`.)
+To restore a file you kept elsewhere, first copy it into the backups volume. Backups are
+readable only by their owner, so the copy runs as root inside the container and hands the
+file to Crumb's user:
+
+```bash
+docker run --rm -u 0 -v crumb_backups:/backups -v "$PWD":/in:ro crumb:local \
+  install -o node -g node -m 600 /in/crumb-2026-09-27.sqlite /backups/crumb-2026-09-27.sqlite
+```
 
 The restore refuses to overwrite anything (including leftover `-wal` files at the target),
 rejects damaged files, files that fail a full integrity and reference check, and backups made
@@ -169,9 +176,9 @@ invitation link. There is deliberately no web page for it.
 1. Back up, and copy the backup to the new server.
 2. On the new server, follow [DEPLOYMENT.md](DEPLOYMENT.md) up to — not including — the
    first `docker compose up`, then build the image: `docker compose build`.
-3. Copy the backup into the backups volume and restore it into a new volume (see Restoring),
-   and put `CRUMB_DATA_VOLUME=<that volume>` in `.env`. (Restoring into a volume Crumb has
-   already started on is refused: it already holds a database.)
+3. Copy the backup into the backups volume with the `install` command under Restoring, restore
+   it into a new volume, and put `CRUMB_DATA_VOLUME=<that volume>` in `.env`. (Restoring into
+   a volume Crumb has already started on is refused: it already holds a database.)
 4. `docker compose up -d`, check it, then point your domain at the new server.
 
 Everyone signs in again on the new server.

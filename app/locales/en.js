@@ -121,6 +121,7 @@ export default {
   'redeem.after': 'Available after this request: {amount}',
   'redeem.confirm': 'Confirm request',
   'redeem.sent': 'Requested {name}. An admin will confirm it.',
+  'redeem.alreadySent': 'Your request for {name} had already gone through, so it was not made twice.',
 
   'status.pending': 'Awaiting confirmation',
   'status.completed': 'Completed',
@@ -169,6 +170,7 @@ export default {
   'grant.messageHint': 'Optional, but it is the part they will remember. They see it with the reward.',
   'grant.send': 'Send reward',
   'grant.sent': 'Sent {amount} to {name}.',
+  'grant.alreadySent': '{amount} to {name} had already been recorded, so it was not added twice. Send it again if you meant a second one.',
   'grant.unlocked': 'It unlocked {count} new collectible(s).',
 
   'members.invite': 'Invite someone',
@@ -190,7 +192,7 @@ export default {
   'members.deactivate': 'Deactivate',
   'members.deactivateNamed': 'Deactivate {name}',
   'members.deactivateTitle': 'Deactivate {name}?',
-  'members.deactivateExplain': 'They are signed out at once and cannot sign in. Pending requests are cancelled and the amount set aside is released. Their history stays.',
+  'members.deactivateExplain': 'They are signed out at once and cannot sign in. Pending requests are cancelled and the amount set aside is released. Invitation and reset links they made stop working. Their history stays.',
   'members.deactivated': '{name} was deactivated.',
   'members.reactivate': 'Reactivate',
   'members.reactivateNamed': 'Reactivate {name}',
@@ -216,6 +218,7 @@ export default {
   'benefits.open': 'Open for requests',
   'benefits.add': 'Add benefit',
   'benefits.added': '{name} added.',
+  'benefits.alreadyAdded': '{name} had already been added, so it was not added twice.',
   'benefits.catalog': 'Catalog',
   'benefits.none': 'No benefits yet.',
   'benefits.editNamed': 'Edit {name}',

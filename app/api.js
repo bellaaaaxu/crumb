@@ -49,6 +49,9 @@ export async function request(path, { method = 'GET', body, key, contentType } =
   if (!response.ok) {
     throw new ApiError(response.status, data?.error?.code ?? `HTTP_${response.status}`, data?.error?.message, data?.error?.field);
   }
+  // A retried change answered from storage: it was recorded earlier, not just now.
+  if (response.headers.get('Idempotent-Replayed') === 'true' && data && typeof data === 'object')
+    Object.defineProperty(data, 'replayed', { value: true });
   return data;
 }
 
@@ -77,3 +80,8 @@ export function keyFor(action) {
 export function settleKey(action) {
   pendingKeys.delete(action);
 }
+
+/* Only a 4xx means the server looked at the request and turned it down, so nothing
+ * happened and its key can go. No answer, 503, a proxy's 502/504 or any other 5xx
+ * may hide a change that did happen: keep the key, so trying again is a retry. */
+export const wasRefused = failure => failure.status >= 400 && failure.status < 500;

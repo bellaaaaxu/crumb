@@ -4,6 +4,11 @@ import { writeTransaction } from './db.mjs';
 
 const KEY_SHAPE = /^[\x21-\x7E]{16,128}$/;
 
+/* Answers handed back from storage, so a route can tell the page "this was
+ * already recorded" instead of letting it look like a new change. */
+const replays = new WeakSet();
+export const wasReplayed = body => body !== null && typeof body === 'object' && replays.has(body);
+
 export function assertIdempotencyKey(key) {
   if (typeof key !== 'string' || !KEY_SHAPE.test(key))
     throw new AppError(422, 'IDEMPOTENCY_KEY_REQUIRED',
@@ -45,7 +50,9 @@ export function withIdempotency(db, actor, route, key, payload, operation, { clo
     if (stored) {
       if (stored.request_hash !== requestHash)
         throw new AppError(409, 'IDEMPOTENCY_CONFLICT', 'This request key was already used for a different request.');
-      return { status: stored.status_code, body: JSON.parse(stored.response_json), replayed: true };
+      const body = JSON.parse(stored.response_json);
+      replays.add(body);
+      return { status: stored.status_code, body, replayed: true };
     }
     const result = operation(authorized);
     const json = JSON.stringify(result.body);

@@ -2,7 +2,7 @@
  * history. Everything here is read from the server for the signed-in person
  * only; there is nothing about anyone else on this page. */
 
-import { keyFor, request, settleKey } from '../api.js';
+import { keyFor, request, settleKey, wasRefused } from '../api.js';
 import { button, el, formError, openDialog, toast, uid } from '../dom.js';
 import { formatDate, getLocale, t } from '../i18n.js';
 import { formatUnits } from '../format.js';
@@ -113,13 +113,15 @@ function confirmRedeem(ctx, me, reward, money) {
         error.clear();
         confirm.disabled = true;
         try {
-          await request('/api/redemptions', { method: 'POST', body: { rewardId: reward.id, expectedCostUnits: reward.costUnits }, key: keyFor(action) });
+          const result = await request('/api/redemptions', {
+            method: 'POST', body: { rewardId: reward.id, expectedCostUnits: reward.costUnits }, key: keyFor(action),
+          });
           settleKey(action);
           dialog.close();
-          toast(t('redeem.sent', { name: reward.name }));
+          toast(t(result.replayed ? 'redeem.alreadySent' : 'redeem.sent', { name: reward.name }));
           ctx.render();
         } catch (failure) {
-          if (failure.status && failure.status !== 503) settleKey(action);
+          if (wasRefused(failure)) settleKey(action);
           confirm.disabled = false;
           if (failure.code === 'PRICE_CHANGED') {
             // Nothing was reserved. Show the new price rather than asking again at the old one.
@@ -171,7 +173,7 @@ async function cancelRequest(ctx, item) {
     toast(t('me.requestCancelled', { name: item.rewardName }));
     ctx.render();
   } catch (failure) {
-    if (failure.status && failure.status !== 503) settleKey(action);
+    if (wasRefused(failure)) settleKey(action);
     ctx.fail(failure);
   }
 }

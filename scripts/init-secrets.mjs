@@ -64,6 +64,8 @@ runCommand(USAGE, async () => {
   chmodSync('.secrets', 0o700);
   const token = randomBytes(32).toString('base64url');
   if (writeOnce('.secrets/setup-token', `${token}\n`, 0o644)) {
+    // Set the mode outright: a strict umask (027, 077) would otherwise hide it from the container.
+    chmodSync('.secrets/setup-token', 0o644);
     console.log('Wrote .secrets/setup-token (the code is not shown here).');
     console.log('  Read it on the server when you first open Crumb:  cat .secrets/setup-token');
   } else {

@@ -128,8 +128,12 @@ function clientNetwork(address) {
   const [head, tail] = plain.split('::');
   const left = groups(head);
   const right = groups(tail);
-  const full = tail === undefined ? left : [...left, ...Array(8 - left.length - right.length).fill('0'), ...right];
-  return `${full.slice(0, 4).map(group => parseInt(group, 16).toString(16)).join(':')}::/64`;
+  const full = (tail === undefined ? left : [...left, ...Array(8 - left.length - right.length).fill('0'), ...right])
+    .map(group => parseInt(group, 16));
+  // NAT64 (64:ff9b::/96) puts every translated IPv4 client in one /64; count each as its IPv4 address.
+  if (full[0] === 0x64 && full[1] === 0xff9b && full.slice(2, 6).every(group => group === 0))
+    return [full[6] >> 8, full[6] & 0xff, full[7] >> 8, full[7] & 0xff].join('.');
+  return `${full.slice(0, 4).map(group => group.toString(16)).join(':')}::/64`;
 }
 
 export function loginBuckets(username, address) {

@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { constants, createReadStream, existsSync, mkdirSync, statSync, writeFileSync } from 'node:fs';
+import { constants, createReadStream, createWriteStream, existsSync, mkdirSync, statSync, writeFileSync } from 'node:fs';
+import { pipeline } from 'node:stream/promises';
 import { chmod, copyFile, link, rm, unlink } from 'node:fs/promises';
 import { basename, dirname, join, resolve } from 'node:path';
 import Database from 'better-sqlite3';
@@ -126,7 +127,8 @@ export async function restoreDatabase({ sourcePath, destinationPath }) {
   const temp = join(dirname(destination), `.${basename(destination)}.restoring-${randomUUID()}`);
   let copy = null;
   try {
-    await copyFile(source, temp, constants.COPYFILE_EXCL);
+    // Streamed into a file that is private from its first byte (copyFile would give it the source's mode).
+    await pipeline(createReadStream(source), createWriteStream(temp, { flags: 'wx', mode: PRIVATE }));
     await chmod(temp, PRIVATE);
     let healthy = false;
     try {

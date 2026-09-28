@@ -4,7 +4,7 @@ import { grant, revokeGrant } from '../ledger.mjs';
 import { listRewards, saveReward } from '../rewards.mjs';
 import { refundRedemption, requestRedemption, resolveRedemption } from '../redemptions.mjs';
 import { MANAGERS, requireActor, requireRole } from '../permissions.mjs';
-import { assertIdempotencyKey } from '../idempotency.mjs';
+import { assertIdempotencyKey, wasReplayed } from '../idempotency.mjs';
 import { parseUnits } from '../units.mjs';
 import { amount, invalid, isUuid, oneOf, readObject } from '../validate.mjs';
 import { readQuery } from './read-models.mjs';
@@ -18,6 +18,12 @@ const required = () => (value, field) => {
 /* The unit the person typed the amount in, as their page showed it. */
 const mode = ({ optional = false } = {}) => oneOf(['credit', 'points'], { optional });
 const idempotencyKey = req => req.get('Idempotency-Key');
+/* A stored answer handed back for a retried key says so, so the page can tell
+ * the person it was already recorded rather than that it just happened. */
+function reply(res, status, result) {
+  if (wasReplayed(result)) res.set('Idempotent-Replayed', 'true');
+  res.status(status).json(result);
+}
 
 /* Routes only check shape, turn amounts into units in the mode the client
  * says it used (the domain refuses the write if that is no longer the
@@ -56,7 +62,7 @@ export function rewardRoutes({ db, clock }) {
     const input = rewardInput(req, { editing: false });
     // Required, as for every other create: a retried "add" must not leave two benefits.
     const key = assertIdempotencyKey(idempotencyKey(req));
-    res.status(201).json(saveReward(db, req.actor, input, clock, { key }));
+    reply(res, 201, saveReward(db, req.actor, input, clock, { key }));
   });
 
   router.patch('/admin/rewards/:id', (req, res) => {
@@ -69,14 +75,14 @@ export function rewardRoutes({ db, clock }) {
     requireRole(req.actor, MANAGERS);
     const body = readObject(req.body, { userId: any(), amount: amount(), mode: mode(), reason: any() });
     const units = parseUnits(body.amount, body.mode);
-    res.status(201).json(grant(db, req.actor,
+    reply(res, 201, grant(db, req.actor,
       { userId: body.userId, units, mode: body.mode, reason: body.reason, key: idempotencyKey(req) }, clock));
   });
 
   router.post('/admin/grants/:id/revoke', (req, res) => {
     requireRole(req.actor, MANAGERS);
     const body = readObject(req.body, { reason: any() });
-    res.json(revokeGrant(db, req.actor, { grantId: req.params.id, reason: body.reason, key: idempotencyKey(req) }, clock));
+    reply(res, 200, revokeGrant(db, req.actor, { grantId: req.params.id, reason: body.reason, key: idempotencyKey(req) }, clock));
   });
 
   router.post('/redemptions', (req, res) => {
@@ -84,35 +90,35 @@ export function rewardRoutes({ db, clock }) {
     // The price the member was shown travels with the request, so a price
     // change they have not seen yet refuses the request instead of charging it.
     const body = readObject(req.body, { rewardId: any(), expectedCostUnits: required() });
-    res.status(201).json(requestRedemption(db, req.actor,
+    reply(res, 201, requestRedemption(db, req.actor,
       { rewardId: body.rewardId, expectedCostUnits: body.expectedCostUnits, key: idempotencyKey(req) }, clock));
   });
 
   router.post('/redemptions/:id/cancel', (req, res) => {
     requireActor(req.actor);
     readObject(req.body ?? {}, {});
-    res.json(resolveRedemption(db, req.actor,
+    reply(res, 200, resolveRedemption(db, req.actor,
       { redemptionId: req.params.id, action: 'cancel', key: idempotencyKey(req) }, clock));
   });
 
   router.post('/admin/redemptions/:id/complete', (req, res) => {
     requireRole(req.actor, MANAGERS);
     readObject(req.body ?? {}, {});
-    res.json(resolveRedemption(db, req.actor,
+    reply(res, 200, resolveRedemption(db, req.actor,
       { redemptionId: req.params.id, action: 'complete', key: idempotencyKey(req) }, clock));
   });
 
   router.post('/admin/redemptions/:id/reject', (req, res) => {
     requireRole(req.actor, MANAGERS);
     const body = readObject(req.body ?? {}, { reason: any() });
-    res.json(resolveRedemption(db, req.actor,
+    reply(res, 200, resolveRedemption(db, req.actor,
       { redemptionId: req.params.id, action: 'reject', reason: body.reason, key: idempotencyKey(req) }, clock));
   });
 
   router.post('/admin/redemptions/:id/refund', (req, res) => {
     requireRole(req.actor, MANAGERS);
     const body = readObject(req.body, { reason: any() });
-    res.json(refundRedemption(db, req.actor,
+    reply(res, 200, refundRedemption(db, req.actor,
       { redemptionId: req.params.id, reason: body.reason, key: idempotencyKey(req) }, clock));
   });
 

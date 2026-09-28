@@ -29,7 +29,7 @@ test('the ledger export is complete, safe to open and free of secrets', t => {
   revokeGrant(db, owner, { grantId: first.entry.id, reason: '-wrong person', key: 'csv-export-revoke-1' });
 
   const csv = exportLedger(db, owner);
-  assert.ok(csv.startsWith('﻿'), 'starts with a BOM so spreadsheets read UTF-8');
+  assert.ok(csv.startsWith('\uFEFF'), 'starts with a BOM so spreadsheets read UTF-8');
   const lines = csv.slice(1).split('\r\n').filter(Boolean);
   assert.equal(lines.length, 3);
   assert.equal(lines[0], '"time","member","username","type","units","amount","reason","recorded_by","related_id","entry_id"');

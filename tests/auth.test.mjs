@@ -199,6 +199,10 @@ test('the per-address limit treats one IPv6 /64 as one address', () => {
   assert.equal(key('fe80::1%eth0'), key('fe80::2'));
   assert.notEqual(key('2001:db8:1:2::1'), key('2001:db8:1:3::1'));
   assert.equal(key('::ffff:203.0.113.9'), key('203.0.113.9'), 'IPv4 written as IPv6 is still that IPv4 address');
+  // NAT64 (64:ff9b::/96) carries many IPv4 clients in one /64: each counts as its own IPv4 address.
+  assert.equal(key('64:ff9b::203.0.113.9'), key('203.0.113.9'));
+  assert.equal(key('64:ff9b::cb00:7109'), key('203.0.113.9'));
+  assert.notEqual(key('64:ff9b::203.0.113.9'), key('64:ff9b::203.0.113.10'));
   assert.notEqual(key('203.0.113.9'), key('203.0.113.10'));
   assert.equal(loginBuckets('owner', '203.0.113.9')[0].key, 'account:owner');
 });

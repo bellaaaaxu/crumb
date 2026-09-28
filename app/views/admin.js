@@ -1,7 +1,7 @@
 /* Team management for owners and admins. The server re-checks every permission;
  * hiding a button here is a courtesy, not the control. */
 
-import { keyFor, request, requestAll, settleKey } from '../api.js';
+import { keyFor, request, requestAll, settleKey, wasRefused } from '../api.js';
 import { button, copyText, el, field, formError, openDialog, radios, toast, uid } from '../dom.js';
 import { formatDate, formatDateTime, getLocale, has, t } from '../i18n.js';
 import { amountToUnits, formatUnits, unitsToInput } from '../format.js';
@@ -57,7 +57,7 @@ function actionDialog(ctx, { title, intro = [], fields = [], extra = [], submitL
           opened.close();
           done(result);
         } catch (failure) {
-          if (failure.status && failure.status !== 503) settleKey(id);
+          if (wasRefused(failure)) settleKey(id);
           submit.disabled = false;
           ctx.fail(failure, error);
         }
@@ -84,7 +84,7 @@ async function oneTap(ctx, action, { method = 'POST', path, body }, onDone) {
     onDone(result);
     return true;
   } catch (failure) {
-    if (failure.status && failure.status !== 503) settleKey(action);
+    if (wasRefused(failure)) settleKey(action);
     ctx.fail(failure);
     return false;
   }
@@ -135,8 +135,14 @@ async function openGrant(ctx, done) {
     }),
     done(result) {
       const person = members.find(item => item.id === result.entry.userId);
-      const sent = t('grant.sent', { amount: money(result.entry.deltaUnits), name: person?.displayName ?? '' });
-      toast(result.unlocked.length ? `${sent} ${t('grant.unlocked', { count: result.unlocked.length })}` : sent);
+      const params = { amount: money(result.entry.deltaUnits), name: person?.displayName ?? '' };
+      if (result.replayed) {
+        // The same reward sent again after a lost answer: say it was not added twice.
+        toast(t('grant.alreadySent', params));
+      } else {
+        const sent = t('grant.sent', params);
+        toast(result.unlocked.length ? `${sent} ${t('grant.unlocked', { count: result.unlocked.length })}` : sent);
+      }
       done();
     },
   });
@@ -427,10 +433,10 @@ async function benefits(container, ctx) {
         try {
           const reward = await request('/api/admin/rewards', { method: 'POST', body, key: keyFor(action) });
           settleKey(action);
-          toast(t('benefits.added', { name: reward.name }));
+          toast(t(reward.replayed ? 'benefits.alreadyAdded' : 'benefits.added', { name: reward.name }));
           ctx.render();
         } catch (failure) {
-          if (failure.status && failure.status !== 503) settleKey(action);
+          if (wasRefused(failure)) settleKey(action);
           add.disabled = false;
           ctx.fail(failure, error);
         }
@@ -502,7 +508,7 @@ async function redemptions(container, ctx) {
       toast(t('redemptions.completedToast', { reward: item.rewardName, name: item.member.displayName }));
       ctx.render();
     } catch (failure) {
-      if (failure.status && failure.status !== 503) settleKey(action);
+      if (wasRefused(failure)) settleKey(action);
       ctx.fail(failure);
     }
   };

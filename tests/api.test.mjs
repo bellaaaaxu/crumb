@@ -133,6 +133,9 @@ test('the full journey works through the API, with retries that do not double an
   assert.equal(first.status, 201);
   assert.equal(retry.status, 201);
   assert.deepEqual(retry.body, first.body);
+  // The retry says it is a stored answer, so the page can say "already recorded".
+  assert.equal(first.headers.get('idempotent-replayed'), null);
+  assert.equal(retry.headers.get('idempotent-replayed'), 'true');
   const changed = await owner.request('POST', '/api/admin/grants', { ...body, amount: '200' }, grantKey);
   assert.equal(changed.status, 409);
   assert.equal(changed.body.error.code, 'IDEMPOTENCY_CONFLICT');

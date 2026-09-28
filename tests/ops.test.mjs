@@ -42,6 +42,15 @@ test('init-secrets writes a setup code and .env, never prints the code, and neve
   assert.equal(readFileSync(join(cwd, '.secrets', 'setup-token'), 'utf8').trim(), token);
 });
 
+test('the setup code stays readable for the container under a strict umask',
+  { skip: process.platform === 'win32' && 'Windows has no umask or POSIX permission bits' }, t => {
+    const cwd = scratch(t);
+    const strict = spawnSync('sh', ['-c', `umask 077 && "${process.execPath}" "${join(scripts, 'init-secrets.mjs')}"`], { cwd, encoding: 'utf8' });
+    assert.equal(strict.status, 0, strict.stderr);
+    assert.equal(statSync(join(cwd, '.secrets')).mode & 0o777, 0o700);
+    assert.equal(statSync(join(cwd, '.secrets', 'setup-token')).mode & 0o777, 0o644);
+  });
+
 test('init-secrets prepares an HTTPS deployment when given its address', t => {
   const cwd = scratch(t);
   const result = run('init-secrets.mjs', ['--origin', 'https://crumb.example.com'], { cwd });

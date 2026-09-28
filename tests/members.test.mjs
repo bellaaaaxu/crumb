@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { grant } from '../server/ledger.mjs';
-import { consumeToken, inviteMember, issueReset, renewInvitation, updateMember } from '../server/members.mjs';
+import { checkToken, consumeToken, inviteMember, issueReset, renewInvitation, updateMember } from '../server/members.mjs';
 import {
   PASSWORD, authenticatedClient, client, fixture, joinTeam, setupOrganization, startServer,
 } from './helpers.mjs';
@@ -302,6 +302,38 @@ test('a link stops working when whoever made it can no longer manage the account
   consumeToken(db, { token: ownerMade.token, passwordHash: HASH, purpose: 'invite' });
 });
 
+test('links from someone who lost the right to make them are void for good, and refused before any hashing', t => {
+  const { db, owner, member } = fixture(t);
+  updateMember(db, owner, member.id, { role: 'admin' });
+  const admin = { id: member.id, role: 'admin' };
+  const carol = inviteMember(db, admin, { username: 'carol', displayName: 'Carol', role: 'member' });
+  const dan = inviteMember(db, admin, { username: 'dan', displayName: 'Dan', role: 'member' });
+
+  updateMember(db, owner, member.id, { role: 'member' });
+  // The cheap check the routes run before hashing a password already says no…
+  assert.equal(checkToken(db, { token: carol.token, purpose: 'invite' }), false);
+  // …and bringing the admin back does not bring the links back.
+  updateMember(db, owner, member.id, { role: 'admin' });
+  assert.equal(checkToken(db, { token: carol.token, purpose: 'invite' }), false);
+  assert.throws(() => consumeToken(db, { token: carol.token, passwordHash: HASH, purpose: 'invite' }), code('INVALID_TOKEN'));
+  updateMember(db, owner, member.id, { active: false });
+  updateMember(db, owner, member.id, { active: true });
+  assert.throws(() => consumeToken(db, { token: dan.token, passwordHash: HASH, purpose: 'invite' }), code('INVALID_TOKEN'));
+});
+
+test('a demotion voids only the links the person could no longer make', t => {
+  const { db, owner, member } = fixture(t);
+  updateMember(db, owner, member.id, { role: 'owner' });
+  const secondOwner = { id: member.id, role: 'owner' };
+  const forAdmin = inviteMember(db, secondOwner, { username: 'ada', displayName: 'Ada', role: 'admin' });
+  const forMember = inviteMember(db, secondOwner, { username: 'moe.m', displayName: 'Moe', role: 'member' });
+  updateMember(db, owner, member.id, { role: 'admin' });
+  // An admin may still invite members, so that link stands; an admin invitation does not.
+  assert.equal(checkToken(db, { token: forMember.token, purpose: 'invite' }), true);
+  assert.equal(checkToken(db, { token: forAdmin.token, purpose: 'invite' }), false);
+  consumeToken(db, { token: forMember.token, passwordHash: HASH, purpose: 'invite' });
+});
+
 test('over HTTP, an admin cannot turn an invitation into an owner account', async t => {
   const server = await startServer(t);
   const { api: owner } = await setupOrganization(server);
@@ -318,12 +350,12 @@ test('over HTTP, an admin cannot turn an invitation into an owner account', asyn
 
 test('names and messages refuse text-direction controls but keep right-to-left text and emoji', t => {
   const { db, owner, member } = fixture(t);
-  for (const displayName of ['Mina‮gnp.exe', 'Mo⁦', '‪boss‬', 'a⁩b'])
+  for (const displayName of ['Mina\u202Egnp.exe', 'Mo\u2066', '\u202Aboss\u202C', 'a\u2069b'])
     assert.throws(() => inviteMember(db, owner, { username: `spoof${randomUUID().slice(0, 8)}`, displayName, role: 'member' }),
       code('INVALID_INPUT'), JSON.stringify(displayName));
-  assert.throws(() => grant(db, owner, { userId: member.id, units: 10, reason: 'Thanks ‮roirepus', key: 'bidi-reason-key-0001' }),
+  assert.throws(() => grant(db, owner, { userId: member.id, units: 10, reason: 'Thanks \u202Eroirepus', key: 'bidi-reason-key-0001' }),
     code('INVALID_INPUT'));
-  for (const displayName of ['مينا', 'נועה‏', 'Mina 👩‍💻'])
+  for (const displayName of ['مينا', 'נועה\u200F', 'Mina 👩\u200D💻'])
     assert.equal(inviteMember(db, owner, { username: `ok${randomUUID().slice(0, 8)}`, displayName, role: 'member' }).user.displayName,
       displayName);
 });

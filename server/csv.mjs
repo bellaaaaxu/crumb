@@ -40,5 +40,5 @@ export function exportLedger(db, actor, clock = () => Date.now()) {
   }
   writeTransaction(db, () => writeAudit(db, { actorId: actor.id, action: 'ledger.export', detail: { rows: rows.length } },
     new Date(clock()).toISOString()));
-  return `﻿${lines.join('\r\n')}\r\n`;
+  return `\uFEFF${lines.join('\r\n')}\r\n`;
 }

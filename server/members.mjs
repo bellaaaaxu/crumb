@@ -49,6 +49,32 @@ function issueToken(db, userId, purpose, ttlMs, now, issuerId) {
 const voidLinksFor = (db, userId, now) =>
   db.prepare('UPDATE tokens SET used_at = ? WHERE user_id = ? AND used_at IS NULL').run(now, userId);
 
+/* Someone deactivated (role null) or demoted: the unused links they made for
+ * accounts they may no longer manage end for good, even if they come back. */
+function voidLinksIssuedBy(db, issuerId, role, now) {
+  const links = db.prepare(`SELECT t.token_hash, u.role FROM tokens t JOIN users u ON u.id = t.user_id
+                            WHERE t.issued_by = ? AND t.used_at IS NULL`).all(issuerId);
+  const end = db.prepare('UPDATE tokens SET used_at = ? WHERE token_hash = ?');
+  for (const link of links) if (!role || !canManageRole({ role }, link.role)) end.run(now, link.token_hash);
+}
+
+/**
+ * The one test of whether a link may be used right now: unused, not expired,
+ * made by someone who is still active and may manage the account as it is
+ * now, and for an account in the state the link expects. The routes run it
+ * before spending a password hash; consumeToken runs it again when claiming.
+ */
+function usableLink(db, hash, purpose, now) {
+  const link = db.prepare(`SELECT user_id, issued_by FROM tokens
+                           WHERE token_hash = ? AND purpose = ? AND used_at IS NULL AND expires_at > ?`).get(hash, purpose, now);
+  if (!link) return null;
+  const user = loadUser(db, link.user_id);
+  const issuer = db.prepare('SELECT role, active FROM users WHERE id = ?').get(link.issued_by);
+  if (!issuer || issuer.active !== 1 || !canManageRole({ role: issuer.role }, user.role)) return null;
+  const expected = purpose === 'invite' ? statusOf(user) === 'invited' && !user.has_password : user.active === 1;
+  return expected ? user : null;
+}
+
 export function inviteMember(db, actor, input, clock = () => Date.now()) {
   requireRole(actor, MANAGERS);
   const fields = readObject(input, {
@@ -104,54 +130,45 @@ export function issueReset(db, actor, userId, clock = () => Date.now()) {
   });
 }
 
-/* Cheap check before spending a password hash on a request with a dead link. */
+/* Cheap check before spending a password hash: the same test consumeToken makes. */
 export function checkToken(db, { token, purpose }, clock = () => Date.now()) {
   if (!looksLikeSecret(token)) return false;
-  const row = db.prepare('SELECT used_at, expires_at FROM tokens WHERE token_hash = ? AND purpose = ?').get(sha256(token), purpose);
-  return Boolean(row && row.used_at === null && row.expires_at > iso(clock()));
+  return usableLink(db, sha256(token), purpose, iso(clock())) !== null;
 }
 
 /**
  * Uses a one-time link. The password was hashed beforehand (outside the
- * transaction); here the link is claimed atomically, so two simultaneous
- * submissions cannot both succeed. Every session of the account ends.
+ * transaction); here the link is checked and claimed in one IMMEDIATE
+ * transaction, so two simultaneous submissions cannot both succeed. A link is
+ * only as good as the person who made it (see usableLink): otherwise an admin
+ * could keep a link to an account an owner later promoted, or a removed admin
+ * could still use links they handed out. A reset never brings back a
+ * deactivated account. Every session of the account ends.
  */
 export function consumeToken(db, { token, passwordHash, purpose }, clock = () => Date.now()) {
   if (!looksLikeSecret(token) || !['invite', 'reset'].includes(purpose)) throw invalidLink();
   return writeTransaction(db, () => {
     const now = iso(clock());
     const hash = sha256(token);
-    const claimed = db.prepare(`UPDATE tokens SET used_at = @now
-      WHERE token_hash = @hash AND purpose = @purpose AND used_at IS NULL AND expires_at > @now`).run({ now, hash, purpose });
-    if (claimed.changes !== 1) throw invalidLink();
-    const { user_id: userId, issued_by: issuedBy } = db.prepare('SELECT user_id, issued_by FROM tokens WHERE token_hash = ?').get(hash);
-    const user = loadUser(db, userId);
-    // A link is only as good as the person who made it: they must still be active
-    // and still allowed to manage this account as it is now. Otherwise an admin
-    // could keep a link to an account an owner later promoted, or a removed admin
-    // could still use links they handed out.
-    const issuer = db.prepare('SELECT role, active FROM users WHERE id = ?').get(issuedBy);
-    if (!issuer || issuer.active !== 1 || !canManageRole({ role: issuer.role }, user.role)) throw invalidLink();
-    if (purpose === 'invite') {
-      if (statusOf(user) !== 'invited' || user.has_password) throw invalidLink();
-      db.prepare('UPDATE users SET password_hash = ?, active = 1 WHERE id = ?').run(passwordHash, userId);
-    } else {
-      // A reset never brings back a deactivated account.
-      if (user.active !== 1) throw invalidLink();
-      db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(passwordHash, userId);
-    }
-    revokeSessionsOf(db, userId);
-    writeAudit(db, { actorId: userId, action: purpose === 'invite' ? 'member.joined' : 'member.password_reset', targetId: userId }, now);
+    const user = usableLink(db, hash, purpose, now);
+    if (!user) throw invalidLink();
+    db.prepare('UPDATE tokens SET used_at = ? WHERE token_hash = ?').run(now, hash);
+    if (purpose === 'invite') db.prepare('UPDATE users SET password_hash = ?, active = 1 WHERE id = ?').run(passwordHash, user.id);
+    else db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(passwordHash, user.id);
+    revokeSessionsOf(db, user.id);
+    writeAudit(db, { actorId: user.id, action: purpose === 'invite' ? 'member.joined' : 'member.password_reset', targetId: user.id }, now);
     return { username: user.username };
   });
 }
 
-/* Inside the caller's transaction: the person loses access at once, their
- * links stop working, and anything they asked for is released. History stays. */
+/* Inside the caller's transaction: the person loses access at once, links for
+ * them and links they made stop working, and anything they asked for is
+ * released. History stays. */
 function deactivate(db, actor, target, now) {
   db.prepare('UPDATE users SET active = 0, deactivated_at = ? WHERE id = ?').run(now, target.id);
   revokeSessionsOf(db, target.id);
   voidLinksFor(db, target.id, now);
+  voidLinksIssuedBy(db, target.id, null, now);
   const pending = db.prepare(`SELECT id, reward_name, cost_units FROM redemptions WHERE user_id = ? AND status = 'pending'`).all(target.id);
   const cancel = db.prepare(`UPDATE redemptions SET status = 'cancelled', resolved_at = ?, resolved_by = ?,
                                resolution_reason = 'Account deactivated' WHERE id = ? AND status = 'pending'`);
@@ -189,6 +206,8 @@ export function updateMember(db, actor, userId, changes, clock = () => Date.now(
       db.prepare('UPDATE users SET role = ? WHERE id = ?').run(nextRole, target.id);
       // Links made for the old role end; a new one must come from someone who may manage the new role.
       voidLinksFor(db, target.id, now);
+      // And links this person made that the new role could not have made end too.
+      voidLinksIssuedBy(db, target.id, nextRole, now);
       writeAudit(db, { actorId: current.id, action: 'member.role', targetId: target.id, detail: { from: target.role, to: nextRole } }, now);
     }
     if (deactivating) deactivate(db, current, target, now);
