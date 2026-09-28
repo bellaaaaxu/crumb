@@ -1,19 +1,25 @@
 ---
-name: Improvement idea
-about: Suggest an improvement to the Crumb demo
+name: Idea or improvement
+about: Suggest something that would make Crumb more useful for a team
 title: ''
 labels: ''
 assignees: ''
 ---
 
-## Problem
+<!-- Describe the situation with invented names; never include real people's data. -->
 
-Who encounters this problem, and when?
+## The situation
 
-## Suggested improvement
+Who runs into this, and when? What kind of team is it — for example a café, a shop or an office?
 
-Describe what should change and why. Sketches or examples are welcome.
+## What gets in the way today
 
-## Alternatives
+What can't you do, or what takes too long?
 
-Have you considered a simpler way to address the problem?
+## What would help
+
+Describe the change you have in mind. Sketches or examples are welcome.
+
+## Anything simpler?
+
+Is there a smaller change, or a way you work around it now?

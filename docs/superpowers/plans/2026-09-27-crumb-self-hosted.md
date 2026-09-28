@@ -707,7 +707,7 @@ DEPLOYMENT 覆盖两种奖励模式、首次 token 输入、域名、所需端�
 **Interfaces:** 公共 URL 保留 `https://bellaaaaxu.github.io/crumb/`；项目反馈指向现有 GitHub Issues，
 自托管实例可配置外部 feedbackUrl；组织 adminContact 与项目 feedbackUrl 不互相替代。
 
-- [ ] **10.1 写入口和演示回归红灯。** docs.test 验证 README 的本地链接和图片存在、两种语言均有 demo/deploy/feedback 链接；
+- [x] **10.1 写入口和演示回归红灯。** docs.test 验证 README 的本地链接和图片存在、两种语言均有 demo/deploy/feedback 链接；
 只验证可机器检查的链接，不通过大量字符串断言锁死营销文案。
 
 ```js
@@ -726,7 +726,7 @@ test('README local assets and links resolve', async () => {
 测试顶部导入 `readFile,access` from node:fs/promises 和 `resolve,dirname` from node:path。
 浏览器验证 demo tour、Take control、发奖、消费后收藏不减少、Reset；公开页面有 demo 标签及部署入口。
 
-- [ ] **10.2 制作真实截图。** 用 Task 8 的测试实例与虚构团队，捕获成员和管理员画面，统一英文显示。
+- [x] **10.2 制作真实截图。** 用 Task 8 的测试实例与虚构团队，捕获成员和管理员画面，统一英文显示。
 
 ```js
 await ownerPage.screenshot({path:'assets/screenshots/admin.png',fullPage:true});
@@ -736,7 +736,7 @@ await memberPage.screenshot({path:'assets/screenshots/member.png',fullPage:true}
 截图前等待字体／canvas／数据加载完成，禁用动画，隐藏一次性邀请／重置链接。
 查看实际图片，不使用生成图替代软件截图。优先让手机成员卡和管理发奖界面在 README 宽度下清晰。
 
-- [ ] **10.3 重写英文与中文 README。** 开头结构如下；路径与章节必须实际存在：
+- [x] **10.3 重写英文与中文 README。** 开头结构如下；路径与章节必须实际存在：
 
 ```markdown
 # Crumb
@@ -755,16 +755,16 @@ Open-source recognition and rewards for teams. Self-hosted, with data under your
 快速部署命令引用 Task 9 已验证版本，不能将 GitHub Pages 说成可运行生产后端。
 将“无依赖、无登录”明确限定为 demo，不再用于整个项目；首版标记为早期版本，不宣称大企业认证或服务保障。
 
-- [ ] **10.4 更新演示和分享卡。** 保留原互动逻辑，将页首定位、行业文案、CTA 与 meta/OG 更新为团队认可。
+- [x] **10.4 更新演示和分享卡。** 保留原互动逻辑，将页首定位、行业文案、CTA 与 meta/OG 更新为团队认可。
 公开演示明确虚构身份，并连接真实部署指南；不展示未实现的主题切换或服务接入。
 运行 `node scripts/make-og.mjs` 并查看生成的 assets/og.png，保持现有 1200×627 尺寸及统一标语。
 
-- [ ] **10.5 补齐反馈与主题文档。** bug 模板加入版本、部署方式、复现、浏览器；feature 模板问场景与阻碍；
+- [x] **10.5 补齐反馈与主题文档。** bug 模板加入版本、部署方式、复现、浏览器；feature 模板问场景与阻碍；
 usage_feedback 询问团队场景、最有用部分、卡住步骤，敏感信息提示简短明确。
 THEMES 定义 themeId/version/keys/名称/palette/rows、允许的像素大小和稳定 key 规则，说明现有收藏 key 不能删除或重用。
 CONTRIBUTING 更新 npm/test/Docker 与演示无构建的差别；PR 模板要求相关权限／账本／恢复验证结果。
 
-- [ ] **10.6 验证并提交。** node --test tests/docs.test.mjs、demo E2E、项目 E2E；只读检查公共 demo 和 Issues 链接。
+- [x] **10.6 验证并提交。** node --test tests/docs.test.mjs、demo E2E、项目 E2E；只读检查公共 demo 和 Issues 链接。
 检查截图无 token／真实成员资料，检查双语文档描述一致。提交 `docs: launch Crumb project landing page and feedback paths`。
 
 ## Task 11：完整验收、独立审查与发布准备

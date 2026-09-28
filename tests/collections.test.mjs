@@ -12,13 +12,24 @@ let keys = 0;
 const nextKey = () => `collect-request-${String(++keys).padStart(4, '0')}`;
 const count = (db, userId) => db.prepare('SELECT count(*) AS n FROM collection_unlocks WHERE user_id = ?').get(userId).n;
 
-test('the default theme is the 39 sprites of assets/sprites.js, validated one by one', async () => {
+/* Every key a release has shipped. Collections store keys forever, so none may ever
+ * disappear from the theme (docs/THEMES.md); add new keys here in the same change. */
+const RELEASED_KEYS = [
+  'laopo', 'tart', 'mungbean', 'gaimei', 'taro', 'caketriangle', 'bolo', 'mochi', 'charsiu', 'eggyolk',
+  'swissroll', 'sausage', 'bridecake', 'creambun', 'walnut', 'mango', 'nougat', 'coconuttart', 'shrimpchip',
+  'boloyau', 'papercake', 'blackforest', 'datepastry', 'chickenpie', 'almond', 'dragonphoenix', 'centuryegg',
+  'chestnut', 'porttart', 'blacksesamemochi', 'cheesehotdog', 'pumpkintuile', 'blacksesamepastry',
+  'pistachiohorn', 'cnybox', 'mooncake', 'radishcake', 'tarocake', 'ricecake',
+];
+
+test('the default theme is the sprites of assets/sprites.js, validated one by one', async () => {
   const committed = JSON.parse(await readFile(new URL('../themes/default.json', import.meta.url), 'utf8'));
   const rebuilt = buildManifest(await readFile(new URL('../assets/sprites.js', import.meta.url), 'utf8'));
   assert.deepEqual(committed, rebuilt, 'themes/default.json is out of date: run node scripts/theme-manifest.mjs');
   assert.equal(committed.themeId, 'default');
-  assert.equal(committed.keys.length, 39);
-  assert.equal(new Set(committed.keys).size, 39);
+  for (const key of RELEASED_KEYS) assert.ok(committed.keys.includes(key), `released key ${key} was removed`);
+  assert.deepEqual([...committed.keys].sort(), [...RELEASED_KEYS].sort(), 'a new key must be added to RELEASED_KEYS too');
+  assert.equal(new Set(committed.keys).size, committed.keys.length);
   for (const key of committed.keys) {
     assert.ok(committed.names[key].en, key);
     assert.ok(committed.names[key]['zh-CN'], key);

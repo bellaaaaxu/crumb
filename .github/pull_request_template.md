@@ -1,12 +1,20 @@
 ## What changes and why?
 
-Describe the problem and resulting behaviour. Link a related issue if there is one.
+Describe the problem and the resulting behaviour. Link a related issue if there is one.
 
-## Validation
+## How it was checked
 
-Describe the checks you ran and their results. For browser changes, include the browser
-and device or viewport tested. See [CONTRIBUTING.md](https://github.com/bellaaaaxu/crumb/blob/main/CONTRIBUTING.md).
+Say what you ran and what happened — including anything you could not run.
+See [CONTRIBUTING.md](https://github.com/bellaaaaxu/crumb/blob/main/CONTRIBUTING.md).
+
+- [ ] `npm test`
+- [ ] `npm run test:e2e -- --project=chromium`, for anything a browser shows
+- [ ] For permissions, the ledger, requests, backups or restores: the failure cases you
+      checked (wrong role, retried request, two devices at once, restore into a new volume)
+- [ ] For the public demo: checked in a browser, including the tour and Reset the demo
+
+Browser and device or viewport tested:
 
 ## Screenshots
 
-For visible changes, include before-and-after screenshots. Otherwise remove this section.
+For visible changes, before and after — with invented data only. Otherwise remove this section.

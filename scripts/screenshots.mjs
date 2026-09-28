@@ -152,16 +152,25 @@ async function main() {
       console.log(`wrote ${join(outDir, `${name}.png`)}`);
     };
 
+    // The README images: sized to read clearly at README width rather than whole pages.
     const phone = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, reducedMotion: 'reduce' });
     const memberPage = await signIn(phone, 'mina');
     await memberPage.getByTestId('available-balance').waitFor();
-    await shoot(memberPage, 'member');
+    await shoot(memberPage, 'member', false);
 
-    const desk = await browser.newContext({ viewport: { width: 1280, height: 860 }, deviceScaleFactor: 2, reducedMotion: 'reduce' });
+    const desk = await browser.newContext({ viewport: { width: 1200, height: 800 }, deviceScaleFactor: 2, reducedMotion: 'reduce' });
     const ownerPage = await signIn(desk, 'olive');
+    await ownerPage.goto(`${origin}/#/team`);
+    await ownerPage.getByRole('button', { name: 'Give recognition', exact: true }).click();
+    await ownerPage.getByLabel('Team member').selectOption(people.leo.id);
+    await ownerPage.getByLabel('Amount').fill('20.00');
+    await ownerPage.getByLabel('Message').fill('Opened on a snow day and kept the whole street caffeinated.');
+    await shoot(ownerPage, 'admin', false);
+    await ownerPage.keyboard.press('Escape');
+
     await ownerPage.goto(`${origin}/#/team/redemptions`);
     await ownerPage.getByRole('button', { name: 'Confirm delivery', exact: true }).first().waitFor();
-    await shoot(ownerPage, 'admin', false);
+    await shoot(ownerPage, 'redemptions', false);
 
     if (captureAll) {
       for (const [route, name] of [['#/team', 'team-overview'], ['#/team/members', 'team-members'], ['#/team/benefits', 'team-benefits'],
@@ -169,12 +178,7 @@ async function main() {
         await ownerPage.goto(`${origin}/${route}`);
         await shoot(ownerPage, name);
       }
-      await ownerPage.goto(`${origin}/#/team`);
-      await ownerPage.getByRole('button', { name: 'Give recognition', exact: true }).click();
-      await ownerPage.getByLabel('Team member').selectOption(people.leo.id);
-      await ownerPage.getByLabel('Amount').fill('20.00');
-      await ownerPage.getByLabel('Message').fill('Opened on a snow day and kept the neighbourhood caffeinated.');
-      await shoot(ownerPage, 'grant-dialog', false);
+      await shoot(memberPage, 'member-full');
       const phoneOwner = await signIn(await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, reducedMotion: 'reduce' }), 'olive');
       await phoneOwner.goto(`${origin}/#/team/members`);
       await shoot(phoneOwner, 'team-members-phone');

@@ -140,6 +140,27 @@ canvas { display: block; image-rendering: pixelated; }
   text-wrap: pretty;
 }
 
+/* Where to go from the demo: the real thing, its source, and a way to say something. */
+.listing-links {
+  display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 22px;
+  margin-top: 14px;
+  font-size: 14px; font-weight: 700;
+}
+.listing-links a { color: var(--wood); text-underline-offset: 3px; }
+
+/* Says plainly, before anyone touches it, that nothing here is real. */
+.demo-note {
+  max-width: 72ch; margin: 0 auto 22px;
+  padding: 10px 16px;
+  text-align: center;
+  font-size: 13px; color: var(--ink-soft);
+  background: var(--paper);
+  border: 2px dashed var(--line);
+  border-radius: 14px;
+  text-wrap: pretty;
+}
+.demo-note b { color: var(--wood); }
+
 /* ------------------------------------------------------------------ preview column */
 
 /* A definite width, because the stage's right column is `auto` and would
