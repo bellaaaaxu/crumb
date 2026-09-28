@@ -4,7 +4,7 @@ import { writeAudit } from './audit.mjs';
 import { appendEntry, balanceOf } from './ledger.mjs';
 import { withIdempotency } from './idempotency.mjs';
 import { MANAGERS, freshActor, requireActor, requireRole } from './permissions.mjs';
-import { MAX_UNITS } from './units.mjs';
+import { MAX_UNITS, assertUnits } from './units.mjs';
 import { invalid, isUuid, text } from './validate.mjs';
 
 /* pending → completed | cancelled | rejected, once. Nothing moves back. */
@@ -42,15 +42,19 @@ function loadRedemption(db, redemptionId) {
  * A member asks for a benefit. The price is reserved, not spent: the check
  * of the available balance and the new pending row happen in one IMMEDIATE
  * transaction, so two devices cannot both spend the same balance, and a
- * deactivation that commits first makes this fail.
+ * deactivation that commits first makes this fail. `expectedCostUnits` is
+ * the price the member was shown (the API always sends it): if a manager
+ * changed the price since, nothing is reserved.
  */
-export function requestRedemption(db, actor, { rewardId, key }, clock = () => Date.now()) {
+export function requestRedemption(db, actor, { rewardId, expectedCostUnits, key }, clock = () => Date.now()) {
   requireActor(actor);
-  return withIdempotency(db, actor, 'redemption.create', key, { rewardId }, () => {
-    const current = freshActor(db, actor);
+  if (expectedCostUnits !== undefined) assertUnits(expectedCostUnits);
+  return withIdempotency(db, actor, 'redemption.create', key, { rewardId, expectedCostUnits }, current => {
     const reward = isUuid(rewardId) ? db.prepare('SELECT * FROM rewards WHERE id = ?').get(rewardId) : undefined;
     if (!reward) throw new AppError(404, 'REWARD_NOT_FOUND', 'That benefit does not exist.');
     if (reward.active !== 1) throw new AppError(409, 'REWARD_UNAVAILABLE', 'This benefit is not available right now.');
+    if (expectedCostUnits !== undefined && reward.cost_units !== expectedCostUnits)
+      throw new AppError(409, 'PRICE_CHANGED', 'The price of this benefit has changed. Check the new price before asking again.');
     if (balanceOf(db, current.id).availableUnits < reward.cost_units)
       throw new AppError(409, 'INSUFFICIENT_BALANCE', 'There is not enough available balance for this benefit.');
     const at = iso(clock);
@@ -60,7 +64,7 @@ export function requestRedemption(db, actor, { rewardId, key }, clock = () => Da
     writeAudit(db, { actorId: current.id, action: 'redemption.request', targetId: id,
       detail: { rewardId: reward.id, costUnits: reward.cost_units } }, at);
     return { status: 201, body: { redemption: redemptionView(loadRedemption(db, id)), balance: balanceOf(db, current.id) } };
-  }, clock).body;
+  }, { clock, authorize: () => freshActor(db, actor) }).body;
 }
 
 /**
@@ -73,11 +77,16 @@ export function resolveRedemption(db, actor, { redemptionId, action, reason, key
   if (!Object.hasOwn(NEXT_STATUS, action)) throw invalid('action', 'Action must be complete, cancel or reject.');
   if (action === 'cancel') requireActor(actor); else requireRole(actor, MANAGERS);
   const cleanReason = readReason(reason, 'reason') ?? '';
-  return withIdempotency(db, actor, `redemption.${action}`, key, { redemptionId, reason: cleanReason }, () => {
+  // Runs on every call, replays included: someone demoted since the first
+  // attempt must not be handed back a request that is not theirs.
+  const authorize = () => {
     const current = freshActor(db, actor, action === 'cancel' ? undefined : MANAGERS);
     const request = loadRedemption(db, redemptionId);
     // Members may only cancel their own; someone else's request looks like it does not exist.
     if (!MANAGERS.includes(current.role) && request.user_id !== current.id) throw notFound();
+    return { current, request };
+  };
+  return withIdempotency(db, actor, `redemption.${action}`, key, { redemptionId, reason: cleanReason }, ({ current, request }) => {
     const at = iso(clock);
     const moved = db.prepare(`UPDATE redemptions SET status = @status, resolved_at = @at, resolved_by = @by,
                                 resolution_reason = @reason WHERE id = @id AND status = 'pending'`)
@@ -90,7 +99,7 @@ export function resolveRedemption(db, actor, { redemptionId, action, reason, key
     writeAudit(db, { actorId: current.id, action: `redemption.${action}`, targetId: request.id,
       detail: { userId: request.user_id, costUnits: request.cost_units } }, at);
     return { status: 200, body: { redemption: redemptionView(loadRedemption(db, request.id)), balance: balanceOf(db, request.user_id) } };
-  }, clock).body;
+  }, { clock, authorize }).body;
 }
 
 /**
@@ -101,8 +110,7 @@ export function resolveRedemption(db, actor, { redemptionId, action, reason, key
 export function refundRedemption(db, actor, { redemptionId, reason, key }, clock = () => Date.now()) {
   requireRole(actor, MANAGERS);
   const cleanReason = readRequiredReason(reason, 'reason');
-  return withIdempotency(db, actor, 'redemption.refund', key, { redemptionId, reason: cleanReason }, () => {
-    const current = freshActor(db, actor, MANAGERS);
+  return withIdempotency(db, actor, 'redemption.refund', key, { redemptionId, reason: cleanReason }, current => {
     const request = loadRedemption(db, redemptionId);
     if (request.status !== 'completed') throw new AppError(409, 'INVALID_STATE', 'Only a completed request can be refunded.');
     if (request.refunded === 1) throw new AppError(409, 'ALREADY_REFUNDED', 'This request has already been refunded.');
@@ -114,5 +122,5 @@ export function refundRedemption(db, actor, { redemptionId, reason, key }, clock
     writeAudit(db, { actorId: current.id, action: 'redemption.refund', targetId: request.id,
       detail: { userId: request.user_id, costUnits: request.cost_units } }, at);
     return { status: 200, body: { redemption: redemptionView(loadRedemption(db, request.id)), balance: balanceOf(db, request.user_id) } };
-  }, clock).body;
+  }, { clock, authorize: () => freshActor(db, actor, MANAGERS) }).body;
 }

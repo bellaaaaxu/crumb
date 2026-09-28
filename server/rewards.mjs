@@ -3,8 +3,8 @@ import { AppError } from './errors.mjs';
 import { writeTransaction } from './db.mjs';
 import { writeAudit } from './audit.mjs';
 import { MANAGERS, freshActor, requireRole } from './permissions.mjs';
-import { assertUnits } from './units.mjs';
-import { bool, id, readObject, text } from './validate.mjs';
+import { assertSameMode, assertUnits } from './units.mjs';
+import { bool, id, oneOf, readObject, text } from './validate.mjs';
 
 export const rewardView = row => ({
   id: row.id,
@@ -35,7 +35,7 @@ export function listRewards(db, { includeInactive = false } = {}) {
 /**
  * Creates a benefit, or edits one when `id` is given (fields left out stay
  * as they are). Editing never changes requests already made: those keep the
- * name and price they were made with.
+ * name and price they were made with. `mode` is the unit a price was read in.
  */
 export function saveReward(db, actor, input, clock = () => Date.now()) {
   requireRole(actor, MANAGERS);
@@ -45,10 +45,12 @@ export function saveReward(db, actor, input, clock = () => Date.now()) {
     name: text({ min: 1, max: 80, optional: editing }),
     description: text({ max: 500, optional: true, multiline: true }),
     costUnits: units({ optional: editing }),
+    mode: oneOf(['credit', 'points'], { optional: true }),
     active: bool({ optional: editing }),
   });
   return writeTransaction(db, () => {
     const current = freshActor(db, actor, MANAGERS);
+    assertSameMode(db, fields.mode);
     const at = new Date(clock()).toISOString();
     if (!editing) {
       const row = { id: randomUUID(), name: fields.name, description: fields.description ?? '', cost_units: fields.costUnits,

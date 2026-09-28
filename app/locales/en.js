@@ -327,6 +327,8 @@ export default {
   'error.IDEMPOTENCY_CONFLICT': 'An earlier attempt of this was already recorded. Reload to see it before trying again.',
   'error.IDEMPOTENCY_KEY_REQUIRED': 'Please reload the page and try again.',
   'error.RULES_LOCKED': 'These reward rules are fixed now that rewards are recorded.',
+  'error.RULES_CHANGED': 'The reward settings changed while you were typing. Reload the page and enter the amount again.',
+  'error.PRICE_CHANGED': 'The price of this benefit just changed, so nothing was requested. Check the new price before asking again.',
   'error.INVALID_LOGO': 'Use a static PNG, JPEG or WebP image up to 2048 pixels a side.',
   'error.LOGO_TOO_LARGE': 'Use an image under 1 MB.',
   'error.PAYLOAD_TOO_LARGE': 'That is too large to send.',

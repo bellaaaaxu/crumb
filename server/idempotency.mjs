@@ -29,12 +29,17 @@ function canonical(value) {
  * with a different request is a conflict, never a silent replay.
  *
  * `payload` must be the fixed set of fields the domain function acts on.
- * `operation` returns { status, body } and must be synchronous.
+ * `authorize` runs first, inside the same transaction, on every call —
+ * including replays — so an actor who has since been demoted, deactivated or
+ * who never owned the resource gets a refusal, not a stored answer. Its
+ * return value is handed to `operation`, which returns { status, body } and
+ * must be synchronous.
  */
-export function withIdempotency(db, actor, route, key, payload, operation, clock = () => Date.now()) {
+export function withIdempotency(db, actor, route, key, payload, operation, { clock = () => Date.now(), authorize } = {}) {
   assertIdempotencyKey(key);
   const requestHash = createHash('sha256').update(canonical(payload)).digest('hex');
   return writeTransaction(db, () => {
+    const authorized = authorize ? authorize() : undefined;
     const stored = db.prepare(`SELECT request_hash, response_json, status_code FROM idempotency
                                WHERE actor_id = ? AND route = ? AND key = ?`).get(actor.id, route, key);
     if (stored) {
@@ -42,7 +47,7 @@ export function withIdempotency(db, actor, route, key, payload, operation, clock
         throw new AppError(409, 'IDEMPOTENCY_CONFLICT', 'This request key was already used for a different request.');
       return { status: stored.status_code, body: JSON.parse(stored.response_json), replayed: true };
     }
-    const result = operation();
+    const result = operation(authorized);
     const json = JSON.stringify(result.body);
     db.prepare(`INSERT INTO idempotency (actor_id, route, key, request_hash, response_json, status_code, created_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?)`).run(actor.id, route, key, requestHash, json, result.status, new Date(clock()).toISOString());

@@ -30,3 +30,15 @@ export function assertUnits(units) {
     throw new AppError(422, 'INVALID_AMOUNT', 'Amount is outside the supported range.');
   return units;
 }
+
+/**
+ * "12" is 1200 cents as credit but 12 as points. Called inside the write
+ * transaction with the mode the amount was read in, so a change of rules that
+ * commits first makes the write fail instead of storing a misread amount.
+ */
+export function assertSameMode(db, mode) {
+  if (mode === undefined) return;
+  if (db.prepare('SELECT mode FROM organization WHERE id = 1').get()?.mode !== mode)
+    throw new AppError(409, 'RULES_CHANGED',
+      'The reward rules changed while this was being entered. Reload the page and enter the amount again.');
+}

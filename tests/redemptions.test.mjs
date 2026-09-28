@@ -154,3 +154,34 @@ test('every transition is audited with who did it', t => {
     { action: 'redemption.refund', actor_id: owner.id },
   ]);
 });
+
+test('a replayed request is authorized again before its stored answer is returned', t => {
+  const { db, owner, member, member2, reward } = funded(t);
+  updateMember(db, owner, member2.id, { role: 'admin' });
+  const admin = { id: member2.id, role: 'admin' };
+  const requestKey = nextKey();
+  const { redemption } = requestRedemption(db, member, { rewardId: reward.id, key: requestKey });
+  const cancelKey = nextKey();
+  resolveRedemption(db, admin, { redemptionId: redemption.id, action: 'cancel', key: cancelKey });
+  const grantInput = { userId: member.id, units: 100, reason: 'Replay me', key: nextKey() };
+  grant(db, admin, grantInput);
+  updateMember(db, owner, member2.id, { role: 'member' });
+  // Demoted: replaying an old key must not hand back someone else's request…
+  assert.throws(() => resolveRedemption(db, { id: member2.id, role: 'member' }, { redemptionId: redemption.id, action: 'cancel', key: cancelKey }),
+    code('REDEMPTION_NOT_FOUND'));
+  // …and a stale actor object that still claims to be an admin gets nothing either.
+  assert.throws(() => grant(db, admin, grantInput), code('FORBIDDEN'));
+  updateMember(db, owner, member.id, { active: false });
+  // A member who has left cannot replay their own request to read it back.
+  assert.throws(() => requestRedemption(db, member, { rewardId: reward.id, key: requestKey }), code('ACCOUNT_INACTIVE'));
+});
+
+test('a request is refused if the price changed after the member saw it', t => {
+  const { db, owner, member, reward } = funded(t);
+  saveReward(db, owner, { id: reward.id, name: 'Team lunch', costUnits: 4500 });
+  assert.throws(() => requestRedemption(db, member, { rewardId: reward.id, expectedCostUnits: 3000, key: nextKey() }),
+    code('PRICE_CHANGED'));
+  assert.equal(balanceOf(db, member.id).reservedUnits, 0);
+  const ok = requestRedemption(db, member, { rewardId: reward.id, expectedCostUnits: 4500, key: nextKey() });
+  assert.equal(ok.redemption.costUnits, 4500);
+});

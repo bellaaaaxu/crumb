@@ -50,8 +50,8 @@ test('no page scrolls sideways on a phone or a laptop, and nothing trips the CSP
   const fx = await provision(browser, { mode: 'credit', memberName: 'Maximiliana Featherstonehaugh-Worthington' });
   try {
     const long = `Thank you for ${'staying-late-again-'.repeat(12)}`;
-    await fx.api.request('POST', '/api/admin/grants', { userId: fx.memberId, amount: '123456.78', reason: long }, key());
-    await fx.api.request('POST', '/api/admin/rewards', { name: 'A very long benefit name that keeps going', description: 'x'.repeat(200), amount: '99999.99', active: true });
+    await fx.api.request('POST', '/api/admin/grants', { userId: fx.memberId, amount: '123456.78', mode: fx.mode, reason: long }, key());
+    await fx.api.request('POST', '/api/admin/rewards', { name: 'A very long benefit name that keeps going', description: 'x'.repeat(200), amount: '99999.99', mode: fx.mode, active: true });
     const ownerProblems = await watch(fx.ownerPage);
     const memberProblems = await watch(fx.memberPage);
     for (const size of [{ width: 390, height: 844 }, { width: 1440, height: 900 }]) {
@@ -105,7 +105,7 @@ test('signing in and requesting a benefit work from the keyboard alone', async (
   const fx = await provision(browser, { mode: 'points' });
   const context = await browser.newContext();
   try {
-    await fx.api.request('POST', '/api/admin/grants', { userId: fx.memberId, amount: '100', reason: 'Keyboard test' }, key());
+    await fx.api.request('POST', '/api/admin/grants', { userId: fx.memberId, amount: '100', mode: fx.mode, reason: 'Keyboard test' }, key());
     const page = await context.newPage();
     await page.goto(fx.origin);
     await tabUntil(page, page.getByLabel('Username'));
@@ -138,7 +138,7 @@ test('with reduced motion nothing keeps moving', async ({ browser }) => {
   const fx = await provision(browser, { mode: 'points' });
   const context = await browser.newContext({ reducedMotion: 'reduce' });
   try {
-    await fx.api.request('POST', '/api/admin/grants', { userId: fx.memberId, amount: '100', reason: 'Motion test' }, key());
+    await fx.api.request('POST', '/api/admin/grants', { userId: fx.memberId, amount: '100', mode: fx.mode, reason: 'Motion test' }, key());
     const page = await context.newPage();
     await page.goto(fx.origin);
     await page.getByLabel('Username').fill('mina');
@@ -167,8 +167,8 @@ test('names and messages that look like HTML are shown as text and never run', a
   try {
     let alerts = 0;
     for (const page of [fx.ownerPage, fx.memberPage]) page.on('dialog', dialog => { alerts += 1; dialog.dismiss(); });
-    await fx.api.request('POST', '/api/admin/grants', { userId: fx.memberId, amount: '100', reason: '<script>alert("x")</script>' }, key());
-    await fx.api.request('POST', '/api/admin/rewards', { name: '<b>Bold</b> coffee', description: '<iframe src="javascript:alert(1)"></iframe>', amount: '10', active: true });
+    await fx.api.request('POST', '/api/admin/grants', { userId: fx.memberId, amount: '100', mode: fx.mode, reason: '<script>alert("x")</script>' }, key());
+    await fx.api.request('POST', '/api/admin/rewards', { name: '<b>Bold</b> coffee', description: '<iframe src="javascript:alert(1)"></iframe>', amount: '10', mode: fx.mode, active: true });
 
     await fx.memberPage.reload();
     await expect(fx.memberPage.getByText('<script>alert("x")</script>')).toBeVisible();

@@ -327,6 +327,8 @@ export default {
   'error.IDEMPOTENCY_CONFLICT': '之前的一次尝试已经记录下来了，请先刷新查看再决定是否重试。',
   'error.IDEMPOTENCY_KEY_REQUIRED': '请刷新页面后重试。',
   'error.RULES_LOCKED': '已有奖励记录，这些奖励规则已经固定。',
+  'error.RULES_CHANGED': '你填写期间奖励规则被修改了。请刷新页面，重新填写金额。',
+  'error.PRICE_CHANGED': '这项福利的价格刚刚改了，这次没有提交申请。请先看清新价格再申请。',
   'error.INVALID_LOGO': '请使用每边不超过 2048 像素的静态 PNG、JPEG 或 WebP 图片。',
   'error.LOGO_TOO_LARGE': '请使用小于 1 MB 的图片。',
   'error.PAYLOAD_TOO_LARGE': '内容太大，无法发送。',

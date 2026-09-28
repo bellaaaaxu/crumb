@@ -5,7 +5,7 @@ import { balanceOf } from './balance.mjs';
 import { collectionOf, unlockEarned } from './collections.mjs';
 import { withIdempotency } from './idempotency.mjs';
 import { MANAGERS, freshActor, requireRole } from './permissions.mjs';
-import { MAX_UNITS, assertUnits } from './units.mjs';
+import { MAX_UNITS, assertSameMode, assertUnits } from './units.mjs';
 import { isUuid, text } from './validate.mjs';
 
 export { balanceOf };
@@ -44,13 +44,14 @@ export function appendEntry(db, entry) {
 /**
  * Gives a member recognition: one ledger row, any collection unlocks it
  * earns, and an audit record — all in one transaction, at most once per key.
+ * `mode` is the unit the amount was read in; the API always sends it.
  */
-export function grant(db, actor, { userId, units, reason, key }, clock = () => Date.now()) {
+export function grant(db, actor, { userId, units, reason, key, mode }, clock = () => Date.now()) {
   requireRole(actor, MANAGERS);
   assertUnits(units);
   const cleanReason = readReason(reason, 'reason') ?? '';
-  return withIdempotency(db, actor, 'grant.create', key, { userId, units, reason: cleanReason }, () => {
-    const current = freshActor(db, actor, MANAGERS);
+  return withIdempotency(db, actor, 'grant.create', key, { userId, units, reason: cleanReason, mode }, current => {
+    assertSameMode(db, mode);
     activeRecipient(db, userId);
     const before = balanceOf(db, userId);
     if (before.postedUnits + units > MAX_UNITS || before.lifetimeUnits + units > MAX_UNITS)
@@ -65,7 +66,7 @@ export function grant(db, actor, { userId, units, reason, key }, clock = () => D
       status: 201,
       body: { entry: entryView(row), balance: balanceOf(db, userId), collection: collectionOf(db, userId), unlocked },
     };
-  }, clock).body;
+  }, { clock, authorize: () => freshActor(db, actor, MANAGERS) }).body;
 }
 
 /**
@@ -75,8 +76,7 @@ export function grant(db, actor, { userId, units, reason, key }, clock = () => D
 export function revokeGrant(db, actor, { grantId, reason, key }, clock = () => Date.now()) {
   requireRole(actor, MANAGERS);
   const cleanReason = readRequiredReason(reason, 'reason');
-  return withIdempotency(db, actor, 'grant.revoke', key, { grantId, reason: cleanReason }, () => {
-    const current = freshActor(db, actor, MANAGERS);
+  return withIdempotency(db, actor, 'grant.revoke', key, { grantId, reason: cleanReason }, current => {
     const source = isUuid(grantId) ? db.prepare(`SELECT * FROM ledger WHERE id = ? AND kind = 'grant'`).get(grantId) : undefined;
     if (!source) throw new AppError(404, 'GRANT_NOT_FOUND', 'That grant does not exist.');
     if (db.prepare(`SELECT 1 FROM ledger WHERE kind = 'revoke' AND source_id = ?`).get(grantId))
@@ -92,5 +92,5 @@ export function revokeGrant(db, actor, { grantId, reason, key }, clock = () => D
     writeAudit(db, { actorId: current.id, action: 'grant.revoke', targetId: row.id,
       detail: { userId: source.user_id, grantId, units: source.delta_units } }, at);
     return { status: 200, body: { entry: entryView(row), balance: balanceOf(db, source.user_id) } };
-  }, clock).body;
+  }, { clock, authorize: () => freshActor(db, actor, MANAGERS) }).body;
 }

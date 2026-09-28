@@ -73,7 +73,7 @@ test('a member can cancel a request; the owner can decline and refund', async ({
   const fx = await provision(browser, { mode: 'points' });
   try {
     const { ownerPage, memberPage } = fx;
-    await fx.api.request('POST', '/api/admin/grants', { userId: fx.memberId, amount: '200', reason: 'Great month' },
+    await fx.api.request('POST', '/api/admin/grants', { userId: fx.memberId, amount: '200', mode: fx.mode, reason: 'Great month' },
       { 'idempotency-key': 'e2e-grant-refund-0001' });
     await memberPage.reload();
     await memberPage.getByRole('button', { name: 'Redeem Coffee', exact: true }).click();
@@ -111,7 +111,7 @@ test('a mistaken grant is revoked with a reason and stays visible as revoked', a
   const fx = await provision(browser, { mode: 'points' });
   try {
     const { ownerPage, memberPage } = fx;
-    await fx.api.request('POST', '/api/admin/grants', { userId: fx.memberId, amount: '100', reason: 'For the Sunday shift' },
+    await fx.api.request('POST', '/api/admin/grants', { userId: fx.memberId, amount: '100', mode: fx.mode, reason: 'For the Sunday shift' },
       { 'idempotency-key': 'e2e-grant-revoke-0001' });
     await ownerPage.getByRole('link', { name: 'History', exact: true }).click();
     await ownerPage.getByRole('button', { name: 'Revoke', exact: true }).click();

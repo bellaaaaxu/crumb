@@ -14,8 +14,8 @@ async function team(t, { mode = 'credit' } = {}) {
   return { server, owner, ownerUser, member: one.api, memberUser: one.user, member2: two.api, member2User: two.user };
 }
 
-async function giveCoffee(owner, amount = '12.50') {
-  const created = await owner.request('POST', '/api/admin/rewards', { name: 'Coffee', description: 'One drink', amount, active: true });
+async function giveCoffee(owner, amount = '12.50', mode = 'credit') {
+  const created = await owner.request('POST', '/api/admin/rewards', { name: 'Coffee', description: 'One drink', amount, mode, active: true });
   assert.equal(created.status, 201);
   return created.body;
 }
@@ -47,7 +47,7 @@ test('every management endpoint refuses members', async t => {
 test('a grant made by the owner shows up for that member and no one else', async t => {
   const { owner, member, member2, memberUser } = await team(t);
   const granted = await owner.request('POST', '/api/admin/grants',
-    { userId: memberUser.id, amount: '50.00', reason: 'Thanks for covering <b>Sunday</b>' }, key());
+    { userId: memberUser.id, amount: '50.00', mode: 'credit', reason: 'Thanks for covering <b>Sunday</b>' }, key());
   assert.equal(granted.status, 201);
   assert.equal(granted.body.balance.availableUnits, 5000);
   assert.equal(granted.body.collection.length, 1);
@@ -80,18 +80,18 @@ test('a grant made by the owner shows up for that member and no one else', async
 test('forged identity fields are refused, not obeyed', async t => {
   const { owner, member, memberUser, member2User, ownerUser } = await team(t);
   const coffee = await giveCoffee(owner, '1.00');
-  await owner.request('POST', '/api/admin/grants', { userId: memberUser.id, amount: '5.00', reason: '' }, key());
+  await owner.request('POST', '/api/admin/grants', { userId: memberUser.id, amount: '5.00', mode: 'credit', reason: '' }, key());
 
-  const forged = await member.request('POST', '/api/redemptions', { rewardId: coffee.id, actorId: ownerUser.id }, key());
+  const forged = await member.request('POST', '/api/redemptions', { rewardId: coffee.id, expectedCostUnits: coffee.costUnits, actorId: ownerUser.id }, key());
   assert.equal(forged.status, 422);
   assert.equal(forged.body.error.code, 'UNKNOWN_FIELD');
-  const asOther = await member.request('POST', '/api/redemptions', { rewardId: coffee.id, userId: member2User.id }, key());
+  const asOther = await member.request('POST', '/api/redemptions', { rewardId: coffee.id, expectedCostUnits: coffee.costUnits, userId: member2User.id }, key());
   assert.equal(asOther.status, 422);
-  const role = await owner.request('POST', '/api/admin/grants', { userId: memberUser.id, amount: '1.00', reason: '', role: 'owner' }, key());
+  const role = await owner.request('POST', '/api/admin/grants', { userId: memberUser.id, amount: '1.00', mode: 'credit', reason: '', role: 'owner' }, key());
   assert.equal(role.status, 422);
   const peek = await member.request('GET', `/api/me/ledger?userId=${member2User.id}`);
   assert.equal(peek.status, 422);
-  const units = await owner.request('POST', '/api/admin/grants', { userId: memberUser.id, amount: 500, reason: '' }, key());
+  const units = await owner.request('POST', '/api/admin/grants', { userId: memberUser.id, amount: 500, mode: 'credit', reason: '' }, key());
   assert.equal(units.status, 422, 'a JSON number is not accepted as an amount');
   assert.equal(units.body.error.code, 'INVALID_AMOUNT');
 });
@@ -99,8 +99,8 @@ test('forged identity fields are refused, not obeyed', async t => {
 test('another member\'s request looks like it does not exist', async t => {
   const { owner, member, member2, memberUser } = await team(t);
   const coffee = await giveCoffee(owner, '1.00');
-  await owner.request('POST', '/api/admin/grants', { userId: memberUser.id, amount: '5.00', reason: '' }, key());
-  const mine = await member.request('POST', '/api/redemptions', { rewardId: coffee.id }, key());
+  await owner.request('POST', '/api/admin/grants', { userId: memberUser.id, amount: '5.00', mode: 'credit', reason: '' }, key());
+  const mine = await member.request('POST', '/api/redemptions', { rewardId: coffee.id, expectedCostUnits: coffee.costUnits }, key());
   assert.equal(mine.status, 201);
   const theirs = await member2.request('POST', `/api/redemptions/${mine.body.redemption.id}/cancel`, undefined, key());
   assert.equal(theirs.status, 404);
@@ -125,9 +125,9 @@ test('management lists never include secrets', async t => {
 
 test('the full journey works through the API, with retries that do not double anything', async t => {
   const { owner, member, memberUser, server } = await team(t, { mode: 'points' });
-  const coffee = await giveCoffee(owner, '40');
+  const coffee = await giveCoffee(owner, '40', 'points');
   const grantKey = key();
-  const body = { userId: memberUser.id, amount: '100', reason: 'Great week' };
+  const body = { userId: memberUser.id, amount: '100', mode: 'points', reason: 'Great week' };
   const first = await owner.request('POST', '/api/admin/grants', body, grantKey);
   const retry = await owner.request('POST', '/api/admin/grants', body, grantKey);
   assert.equal(first.status, 201);
@@ -141,10 +141,10 @@ test('the full journey works through the API, with retries that do not double an
   assert.equal(noKey.body.error.code, 'IDEMPOTENCY_KEY_REQUIRED');
 
   const requestKey = key();
-  const requested = await member.request('POST', '/api/redemptions', { rewardId: coffee.id }, requestKey);
+  const requested = await member.request('POST', '/api/redemptions', { rewardId: coffee.id, expectedCostUnits: coffee.costUnits }, requestKey);
   assert.equal(requested.status, 201);
   assert.equal(requested.body.balance.availableUnits, 60);
-  assert.equal((await member.request('POST', '/api/redemptions', { rewardId: coffee.id }, requestKey)).body.redemption.id,
+  assert.equal((await member.request('POST', '/api/redemptions', { rewardId: coffee.id, expectedCostUnits: coffee.costUnits }, requestKey)).body.redemption.id,
     requested.body.redemption.id);
 
   const pending = await owner.request('GET', '/api/admin/redemptions?status=pending');
@@ -169,8 +169,8 @@ test('the full journey works through the API, with retries that do not double an
 test('an unaffordable request fails cleanly and changes nothing', async t => {
   const { owner, member, memberUser, server } = await team(t);
   const coffee = await giveCoffee(owner, '12.50');
-  await owner.request('POST', '/api/admin/grants', { userId: memberUser.id, amount: '10.00', reason: '' }, key());
-  const refused = await member.request('POST', '/api/redemptions', { rewardId: coffee.id }, key());
+  await owner.request('POST', '/api/admin/grants', { userId: memberUser.id, amount: '10.00', mode: 'credit', reason: '' }, key());
+  const refused = await member.request('POST', '/api/redemptions', { rewardId: coffee.id, expectedCostUnits: coffee.costUnits }, key());
   assert.equal(refused.status, 409);
   assert.equal(refused.body.error.code, 'INSUFFICIENT_BALANCE');
   assert.equal(server.db.prepare('SELECT count(*) AS n FROM redemptions').get().n, 0);
@@ -184,7 +184,7 @@ test('a busy database answers 503 and the same key succeeds afterwards', async t
   const blocker = new Database(server.config.dbPath);
   blocker.prepare('BEGIN IMMEDIATE').run();
   const retryKey = key();
-  const body = { userId: memberUser.id, amount: '5.00', reason: 'Busy day' };
+  const body = { userId: memberUser.id, amount: '5.00', mode: 'credit', reason: 'Busy day' };
   let busy;
   try {
     busy = await owner.request('POST', '/api/admin/grants', body, retryKey);
@@ -202,7 +202,7 @@ test('a busy database answers 503 and the same key succeeds afterwards', async t
 test('pages never repeat or skip rows that share a timestamp', async t => {
   const { owner, memberUser, member, server } = await team(t, { mode: 'points' });
   for (let i = 0; i < 7; i += 1)
-    assert.equal((await owner.request('POST', '/api/admin/grants', { userId: memberUser.id, amount: String(i + 1), reason: `#${i}` }, key())).status, 201);
+    assert.equal((await owner.request('POST', '/api/admin/grants', { userId: memberUser.id, amount: String(i + 1), mode: 'points', reason: `#${i}` }, key())).status, 201);
   assert.equal(server.db.prepare('SELECT count(DISTINCT created_at) AS n FROM ledger').get().n, 1, 'all rows share one time');
 
   const seen = [];
@@ -225,7 +225,7 @@ test('pages never repeat or skip rows that share a timestamp', async t => {
 
 test('admins see the ledger with names, revoke from it, and read the activity log', async t => {
   const { owner, memberUser, server } = await team(t);
-  const granted = await owner.request('POST', '/api/admin/grants', { userId: memberUser.id, amount: '5.00', reason: 'Wrong person' }, key());
+  const granted = await owner.request('POST', '/api/admin/grants', { userId: memberUser.id, amount: '5.00', mode: 'credit', reason: 'Wrong person' }, key());
   const ledger = await owner.request('GET', `/api/admin/ledger?userId=${memberUser.id}`);
   assert.equal(ledger.body.items.length, 1);
   assert.equal(ledger.body.items[0].member.displayName, 'Mina');
@@ -245,10 +245,10 @@ test('admins see the ledger with names, revoke from it, and read the activity lo
 
 test('catalog edits go through the organization unit', async t => {
   const { owner, member } = await team(t, { mode: 'points' });
-  assert.equal((await owner.request('POST', '/api/admin/rewards', { name: 'Coffee', description: '', amount: '1.50', active: true })).status, 422);
-  const coffee = await giveCoffee(owner, '40');
+  assert.equal((await owner.request('POST', '/api/admin/rewards', { name: 'Coffee', description: '', amount: '1.50', mode: 'points', active: true })).status, 422);
+  const coffee = await giveCoffee(owner, '40', 'points');
   assert.equal(coffee.costUnits, 40);
-  const edited = await owner.request('PATCH', `/api/admin/rewards/${coffee.id}`, { amount: '45', description: 'Any size' });
+  const edited = await owner.request('PATCH', `/api/admin/rewards/${coffee.id}`, { amount: '45', mode: 'points', description: 'Any size' });
   assert.equal(edited.body.costUnits, 45);
   assert.equal(edited.body.description, 'Any size');
   assert.equal((await owner.request('PATCH', `/api/admin/rewards/${coffee.id}`, { costUnits: 1 })).status, 422);
@@ -256,6 +256,32 @@ test('catalog edits go through the organization unit', async t => {
   await owner.request('PATCH', `/api/admin/rewards/${coffee.id}`, { active: false });
   assert.deepEqual((await member.request('GET', '/api/rewards')).body.items, []);
   assert.equal((await owner.request('GET', '/api/admin/rewards')).body.items.length, 1);
+});
+
+test('amounts carry the unit they were typed in; requests carry the price the member saw', async t => {
+  const { owner, member, memberUser, server } = await team(t);
+  // "12" typed as points while the team counts credit would be 12 cents: refused, nothing recorded.
+  const misread = await owner.request('POST', '/api/admin/grants', { userId: memberUser.id, amount: '12', mode: 'points', reason: '' }, key());
+  assert.equal(misread.status, 409);
+  assert.equal(misread.body.error.code, 'RULES_CHANGED');
+  const noMode = await owner.request('POST', '/api/admin/grants', { userId: memberUser.id, amount: '12', reason: '' }, key());
+  assert.equal(noMode.status, 422);
+  assert.equal(noMode.body.error.field, 'mode');
+  const unpricedBenefit = await owner.request('POST', '/api/admin/rewards', { name: 'Tea', description: '', amount: '3', active: true });
+  assert.equal(unpricedBenefit.body.error.field, 'mode');
+  assert.equal(server.db.prepare('SELECT count(*) AS n FROM ledger').get().n, 0);
+
+  const coffee = await giveCoffee(owner, '1.00');
+  await owner.request('POST', '/api/admin/grants', { userId: memberUser.id, amount: '5.00', mode: 'credit', reason: '' }, key());
+  assert.equal((await owner.request('PATCH', `/api/admin/rewards/${coffee.id}`, { amount: '2.00', mode: 'credit' })).status, 200);
+  const stale = await member.request('POST', '/api/redemptions', { rewardId: coffee.id, expectedCostUnits: 100 }, key());
+  assert.equal(stale.status, 409);
+  assert.equal(stale.body.error.code, 'PRICE_CHANGED');
+  const unpriced = await member.request('POST', '/api/redemptions', { rewardId: coffee.id }, key());
+  assert.equal(unpriced.status, 422);
+  assert.equal(unpriced.body.error.field, 'expectedCostUnits');
+  assert.equal(server.db.prepare('SELECT count(*) AS n FROM redemptions').get().n, 0);
+  assert.equal((await member.request('POST', '/api/redemptions', { rewardId: coffee.id, expectedCostUnits: 200 }, key())).status, 201);
 });
 
 test('signed-out visitors get 401 from every data endpoint', async t => {

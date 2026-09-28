@@ -83,7 +83,7 @@ async function main() {
       ['Lunch from the kitchen', 'One meal, any day this week.', '14.00'],
       ['Bookstore voucher', 'A card for the shop next door.', '25.00'],
       ['Movie night for two', 'Two tickets at the Rio.', '32.00'],
-    ]) await owner.send('POST', '/api/admin/rewards', { name, description, amount, active: true });
+    ]) await owner.send('POST', '/api/admin/rewards', { name, description, amount, mode: 'credit', active: true });
 
     const people = {};
     for (const [username, displayName, role] of [
@@ -111,7 +111,7 @@ async function main() {
     for (const [username, amount, reason] of grants) {
       time.now += 4 * DAY;
       await owner.signIn('olive');
-      await owner.change('/api/admin/grants', { userId: people[username].id, amount, reason });
+      await owner.change('/api/admin/grants', { userId: people[username].id, amount, mode: 'credit', reason });
     }
 
     const mina = people.mina.client;
@@ -120,15 +120,15 @@ async function main() {
     const rewards = await mina.send('GET', '/api/rewards');
     const coffee = rewards.items.find(item => item.name === 'Coffee on the house');
     const lunch = rewards.items.find(item => item.name === 'Lunch from the kitchen');
-    const firstCoffee = await mina.change('/api/redemptions', { rewardId: coffee.id });
+    const firstCoffee = await mina.change('/api/redemptions', { rewardId: coffee.id, expectedCostUnits: coffee.costUnits });
     await owner.signIn('olive');
     await owner.change(`/api/admin/redemptions/${firstCoffee.redemption.id}/complete`);
     time.now = Date.now() - 2 * 60 * 60 * 1000;
     await mina.signIn('mina');
-    await mina.change('/api/redemptions', { rewardId: lunch.id });
+    await mina.change('/api/redemptions', { rewardId: lunch.id, expectedCostUnits: lunch.costUnits });
     const sam = people.sam.client;
     await sam.signIn('sam');
-    await sam.change('/api/redemptions', { rewardId: coffee.id });
+    await sam.change('/api/redemptions', { rewardId: coffee.id, expectedCostUnits: coffee.costUnits });
     time.now = Date.now();
 
     mkdirSync(outDir, { recursive: true });

@@ -38,13 +38,16 @@ function loadUser(db, userId) {
 }
 
 /* A new link of a kind replaces any unused one: only the latest link works. */
-function issueToken(db, userId, purpose, ttlMs, now) {
+function issueToken(db, userId, purpose, ttlMs, now, issuerId) {
   db.prepare('UPDATE tokens SET used_at = ? WHERE user_id = ? AND purpose = ? AND used_at IS NULL').run(iso(now), userId, purpose);
   const token = newSecret();
-  db.prepare('INSERT INTO tokens (token_hash, purpose, user_id, created_at, expires_at) VALUES (?, ?, ?, ?, ?)')
-    .run(sha256(token), purpose, userId, iso(now), iso(now + ttlMs));
+  db.prepare('INSERT INTO tokens (token_hash, purpose, user_id, issued_by, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?)')
+    .run(sha256(token), purpose, userId, issuerId, iso(now), iso(now + ttlMs));
   return token;
 }
+
+const voidLinksFor = (db, userId, now) =>
+  db.prepare('UPDATE tokens SET used_at = ? WHERE user_id = ? AND used_at IS NULL').run(now, userId);
 
 export function inviteMember(db, actor, input, clock = () => Date.now()) {
   requireRole(actor, MANAGERS);
@@ -62,7 +65,7 @@ export function inviteMember(db, actor, input, clock = () => Date.now()) {
     const id = randomUUID();
     db.prepare(`INSERT INTO users (id, username, display_name, password_hash, role, active, created_at)
                 VALUES (?, ?, ?, NULL, ?, 0, ?)`).run(id, fields.username, fields.displayName, fields.role, iso(now));
-    const token = issueToken(db, id, 'invite', INVITE_TTL_MS, now);
+    const token = issueToken(db, id, 'invite', INVITE_TTL_MS, now, current.id);
     writeAudit(db, { actorId: current.id, action: 'member.invite', targetId: id, detail: { role: fields.role } }, iso(now));
     return { user: memberView(loadUser(db, id)), token };
   });
@@ -77,7 +80,7 @@ export function renewInvitation(db, actor, userId, clock = () => Date.now()) {
     if (!canManageRole(current, target.role)) throw forbidden('You cannot manage this account.');
     if (statusOf(target) !== 'invited') throw new AppError(409, 'NOT_INVITED', 'This account is not waiting on an invitation.');
     const now = clock();
-    const token = issueToken(db, target.id, 'invite', INVITE_TTL_MS, now);
+    const token = issueToken(db, target.id, 'invite', INVITE_TTL_MS, now, current.id);
     writeAudit(db, { actorId: current.id, action: 'member.invite_renewed', targetId: target.id }, iso(now));
     return { token };
   });
@@ -95,7 +98,7 @@ export function issueReset(db, actor, userId, clock = () => Date.now()) {
     if (status === 'deactivated')
       throw new AppError(409, 'MEMBER_INACTIVE', 'Reactivate this account before resetting its password.');
     const now = clock();
-    const token = issueToken(db, target.id, 'reset', RESET_TTL_MS, now);
+    const token = issueToken(db, target.id, 'reset', RESET_TTL_MS, now, current.id);
     writeAudit(db, { actorId: current.id, action: 'member.reset_issued', targetId: target.id }, iso(now));
     return { token };
   });
@@ -121,8 +124,14 @@ export function consumeToken(db, { token, passwordHash, purpose }, clock = () =>
     const claimed = db.prepare(`UPDATE tokens SET used_at = @now
       WHERE token_hash = @hash AND purpose = @purpose AND used_at IS NULL AND expires_at > @now`).run({ now, hash, purpose });
     if (claimed.changes !== 1) throw invalidLink();
-    const { user_id: userId } = db.prepare('SELECT user_id FROM tokens WHERE token_hash = ?').get(hash);
+    const { user_id: userId, issued_by: issuedBy } = db.prepare('SELECT user_id, issued_by FROM tokens WHERE token_hash = ?').get(hash);
     const user = loadUser(db, userId);
+    // A link is only as good as the person who made it: they must still be active
+    // and still allowed to manage this account as it is now. Otherwise an admin
+    // could keep a link to an account an owner later promoted, or a removed admin
+    // could still use links they handed out.
+    const issuer = db.prepare('SELECT role, active FROM users WHERE id = ?').get(issuedBy);
+    if (!issuer || issuer.active !== 1 || !canManageRole({ role: issuer.role }, user.role)) throw invalidLink();
     if (purpose === 'invite') {
       if (statusOf(user) !== 'invited' || user.has_password) throw invalidLink();
       db.prepare('UPDATE users SET password_hash = ?, active = 1 WHERE id = ?').run(passwordHash, userId);
@@ -142,7 +151,7 @@ export function consumeToken(db, { token, passwordHash, purpose }, clock = () =>
 function deactivate(db, actor, target, now) {
   db.prepare('UPDATE users SET active = 0, deactivated_at = ? WHERE id = ?').run(now, target.id);
   revokeSessionsOf(db, target.id);
-  db.prepare('UPDATE tokens SET used_at = ? WHERE user_id = ? AND used_at IS NULL').run(now, target.id);
+  voidLinksFor(db, target.id, now);
   const pending = db.prepare(`SELECT id, reward_name, cost_units FROM redemptions WHERE user_id = ? AND status = 'pending'`).all(target.id);
   const cancel = db.prepare(`UPDATE redemptions SET status = 'cancelled', resolved_at = ?, resolved_by = ?,
                                resolution_reason = 'Account deactivated' WHERE id = ? AND status = 'pending'`);
@@ -178,6 +187,8 @@ export function updateMember(db, actor, userId, changes, clock = () => Date.now(
     const now = iso(clock());
     if (nextRole !== target.role) {
       db.prepare('UPDATE users SET role = ? WHERE id = ?').run(nextRole, target.id);
+      // Links made for the old role end; a new one must come from someone who may manage the new role.
+      voidLinksFor(db, target.id, now);
       writeAudit(db, { actorId: current.id, action: 'member.role', targetId: target.id, detail: { from: target.role, to: nextRole } }, now);
     }
     if (deactivating) deactivate(db, current, target, now);

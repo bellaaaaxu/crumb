@@ -111,12 +111,19 @@ function confirmRedeem(ctx, me, reward, money) {
         error.clear();
         confirm.disabled = true;
         try {
-          await request('/api/redemptions', { method: 'POST', body: { rewardId: reward.id }, key });
+          await request('/api/redemptions', { method: 'POST', body: { rewardId: reward.id, expectedCostUnits: reward.costUnits }, key });
           dialog.close();
           toast(t('redeem.sent', { name: reward.name }));
           ctx.render();
         } catch (failure) {
           confirm.disabled = false;
+          if (failure.code === 'PRICE_CHANGED') {
+            // Nothing was reserved. Show the new price rather than asking again at the old one.
+            dialog.close();
+            toast(ctx.errorText(failure), { tone: 'error' });
+            ctx.render();
+            return;
+          }
           ctx.fail(failure, error);
         }
       },

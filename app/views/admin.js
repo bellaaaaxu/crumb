@@ -126,7 +126,7 @@ async function openGrant(ctx, done) {
       return true;
     },
     send: key => request('/api/admin/grants', {
-      method: 'POST', key, body: { userId: member.control.value, amount: amount.control.value.trim(), reason: message.control.value },
+      method: 'POST', key, body: { userId: member.control.value, amount: amount.control.value.trim(), mode: org.mode, reason: message.control.value },
     }),
     done(result) {
       const person = members.find(item => item.id === result.entry.userId);
@@ -372,7 +372,9 @@ function benefitFields(org, reward = {}) {
     if (!ok) (name.control.getAttribute('aria-invalid') ? name : price).control.focus();
     return ok;
   };
-  const body = () => ({ name: name.control.value, description: description.control.value, amount: price.control.value.trim(), active: open.checked });
+  const body = () => ({
+    name: name.control.value, description: description.control.value, amount: price.control.value.trim(), mode: org.mode, active: open.checked,
+  });
   return { fields: [name, description, price], openWrapper, validate, body };
 }
 

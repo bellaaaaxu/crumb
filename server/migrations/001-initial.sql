@@ -49,11 +49,13 @@ CREATE TABLE sessions (
 CREATE INDEX sessions_by_user ON sessions (user_id);
 CREATE INDEX sessions_by_expiry ON sessions (expires_at);
 
--- One-time invitation and password-reset links, stored as hashes.
+-- One-time invitation and password-reset links, stored as hashes. A link is
+-- only honoured while the person who made it may still manage the account.
 CREATE TABLE tokens (
   token_hash TEXT PRIMARY KEY,
   purpose TEXT NOT NULL CHECK (purpose IN ('invite', 'reset')),
   user_id TEXT NOT NULL REFERENCES users(id),
+  issued_by TEXT NOT NULL REFERENCES users(id),
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   expires_at TEXT NOT NULL,
   used_at TEXT

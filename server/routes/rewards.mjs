@@ -3,19 +3,25 @@ import { AppError } from '../errors.mjs';
 import { grant, revokeGrant } from '../ledger.mjs';
 import { listRewards, saveReward } from '../rewards.mjs';
 import { refundRedemption, requestRedemption, resolveRedemption } from '../redemptions.mjs';
-import { requireOrg } from '../org.mjs';
 import { MANAGERS, requireActor, requireRole } from '../permissions.mjs';
 import { parseUnits } from '../units.mjs';
-import { amount, isUuid, readObject } from '../validate.mjs';
+import { amount, invalid, isUuid, oneOf, readObject } from '../validate.mjs';
 import { readQuery } from './read-models.mjs';
 
 /* Field is present; its content is checked by the domain function. */
 const any = () => value => value;
+const required = () => (value, field) => {
+  if (value === undefined) throw invalid(field, `${field} is required.`);
+  return value;
+};
+/* The unit the person typed the amount in, as their page showed it. */
+const mode = ({ optional = false } = {}) => oneOf(['credit', 'points'], { optional });
 const idempotencyKey = req => req.get('Idempotency-Key');
 
-/* Routes only check shape, map amounts to units with the organization's
- * own mode, and call the domain. Permissions are checked first, so a member
- * learns nothing from a malformed body. */
+/* Routes only check shape, turn amounts into units in the mode the client
+ * says it used (the domain refuses the write if that is no longer the
+ * organization's mode), and call the domain. Permissions are checked first,
+ * so a member learns nothing from a malformed body. */
 export function rewardRoutes({ db, clock }) {
   const router = express.Router();
 
@@ -32,9 +38,14 @@ export function rewardRoutes({ db, clock }) {
   });
 
   function rewardInput(req, { editing }) {
-    const body = readObject(req.body, { name: any(), description: any(), amount: amount({ optional: editing }), active: any() });
-    const input = { name: body.name, description: body.description, active: body.active };
-    if (body.amount !== undefined) input.costUnits = parseUnits(body.amount, requireOrg(db).mode);
+    const body = readObject(req.body, {
+      name: any(), description: any(), amount: amount({ optional: editing }), mode: mode({ optional: true }), active: any(),
+    });
+    const input = { name: body.name, description: body.description, active: body.active, mode: body.mode };
+    if (body.amount !== undefined) {
+      if (body.mode === undefined) throw invalid('mode', 'mode is required with an amount.');
+      input.costUnits = parseUnits(body.amount, body.mode);
+    }
     for (const key of Object.keys(input)) if (input[key] === undefined) delete input[key];
     return input;
   }
@@ -52,10 +63,10 @@ export function rewardRoutes({ db, clock }) {
 
   router.post('/admin/grants', (req, res) => {
     requireRole(req.actor, MANAGERS);
-    const body = readObject(req.body, { userId: any(), amount: amount(), reason: any() });
-    const units = parseUnits(body.amount, requireOrg(db).mode);
+    const body = readObject(req.body, { userId: any(), amount: amount(), mode: mode(), reason: any() });
+    const units = parseUnits(body.amount, body.mode);
     res.status(201).json(grant(db, req.actor,
-      { userId: body.userId, units, reason: body.reason, key: idempotencyKey(req) }, clock));
+      { userId: body.userId, units, mode: body.mode, reason: body.reason, key: idempotencyKey(req) }, clock));
   });
 
   router.post('/admin/grants/:id/revoke', (req, res) => {
@@ -66,8 +77,11 @@ export function rewardRoutes({ db, clock }) {
 
   router.post('/redemptions', (req, res) => {
     requireActor(req.actor);
-    const body = readObject(req.body, { rewardId: any() });
-    res.status(201).json(requestRedemption(db, req.actor, { rewardId: body.rewardId, key: idempotencyKey(req) }, clock));
+    // The price the member was shown travels with the request, so a price
+    // change they have not seen yet refuses the request instead of charging it.
+    const body = readObject(req.body, { rewardId: any(), expectedCostUnits: required() });
+    res.status(201).json(requestRedemption(db, req.actor,
+      { rewardId: body.rewardId, expectedCostUnits: body.expectedCostUnits, key: idempotencyKey(req) }, clock));
   });
 
   router.post('/redemptions/:id/cancel', (req, res) => {

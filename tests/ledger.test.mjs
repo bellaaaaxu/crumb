@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { balanceOf, grant, revokeGrant } from '../server/ledger.mjs';
+import { saveReward } from '../server/rewards.mjs';
 import { fixture } from './helpers.mjs';
 
 const code = expected => error => {
@@ -147,4 +148,14 @@ test('a refused operation stores nothing, so the same key works once the problem
   assert.equal(db.prepare('SELECT count(*) AS n FROM idempotency').get().n, 0);
   db.prepare(`UPDATE users SET active = 1, deactivated_at = NULL WHERE id = ?`).run(member.id);
   assert.equal(grant(db, owner, input).balance.postedUnits, 250);
+});
+
+test('an amount parsed for one reward type is refused if the type changed meanwhile', t => {
+  const { db, owner, member } = fixture(t);
+  assert.throws(() => grant(db, owner, { userId: member.id, units: 1250, reason: '', key: nextKey(), mode: 'points' }),
+    code('RULES_CHANGED'));
+  assert.throws(() => saveReward(db, owner, { name: 'Coffee', costUnits: 1250, mode: 'points', active: true }), code('RULES_CHANGED'));
+  assert.equal(db.prepare('SELECT count(*) AS n FROM ledger').get().n + db.prepare('SELECT count(*) AS n FROM rewards').get().n, 0);
+  assert.equal(grant(db, owner, { userId: member.id, units: 1250, reason: '', key: nextKey(), mode: 'credit' }).entry.deltaUnits, 1250);
+  assert.equal(saveReward(db, owner, { name: 'Coffee', costUnits: 1250, mode: 'credit', active: true }).costUnits, 1250);
 });

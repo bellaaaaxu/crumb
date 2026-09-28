@@ -115,7 +115,7 @@ try {
     org: { name: 'Again', mode: 'points', unitLabel: 'points', threshold: '100', locale: 'en' },
   });
   check(again.status === 409, 'setup cannot run twice, even with the right code');
-  const grant = { userId: setup.data.user.id, amount: '150', reason: 'Drill' };
+  const grant = { userId: setup.data.user.id, amount: '150', mode: 'points', reason: 'Drill' };
   check((await tab.call(running.origin, 'POST', '/api/admin/grants', grant, 'drill-grant-request-0001')).status === 201, 'a reward is recorded');
   check((await tab.call(running.origin, 'POST', '/api/admin/grants', grant, 'drill-grant-request-0001')).status === 201, 'the retried request is answered');
 

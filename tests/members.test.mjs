@@ -265,3 +265,52 @@ test('roles are enforced by the server, not by hidden buttons', async t => {
   await signedOut.bootstrap();
   assert.equal((await signedOut.request('POST', '/api/admin/invitations', { username: 'z.member', displayName: 'Z', role: 'member' })).status, 401);
 });
+
+test('a link stops working when the account it is for changes role', t => {
+  const { db, owner, member, member2 } = fixture(t);
+  updateMember(db, owner, member.id, { role: 'admin' });
+  const admin = { id: member.id, role: 'admin' };
+  // The takeover the review found: an admin invites a member, the owner promotes the
+  // pending account, and the admin uses the link they still hold.
+  const invited = inviteMember(db, admin, { username: 'bob.b', displayName: 'Bob', role: 'member' });
+  updateMember(db, owner, invited.user.id, { role: 'owner' });
+  assert.throws(() => consumeToken(db, { token: invited.token, passwordHash: HASH, purpose: 'invite' }), code('INVALID_TOKEN'));
+  assert.equal(db.prepare('SELECT active FROM users WHERE id = ?').get(invited.user.id).active, 0);
+  const renewed = renewInvitation(db, owner, invited.user.id);
+  consumeToken(db, { token: renewed.token, passwordHash: HASH, purpose: 'invite' });
+
+  const reset = issueReset(db, admin, member2.id);
+  updateMember(db, owner, member2.id, { role: 'admin' });
+  assert.throws(() => consumeToken(db, { token: reset.token, passwordHash: HASH, purpose: 'reset' }), code('INVALID_TOKEN'));
+  assert.equal(db.prepare('SELECT password_hash FROM users WHERE id = ?').get(member2.id).password_hash, 'fixture-no-login');
+});
+
+test('a link stops working when whoever made it can no longer manage the account', t => {
+  const { db, owner, member, member2 } = fixture(t);
+  updateMember(db, owner, member.id, { role: 'admin' });
+  const admin = { id: member.id, role: 'admin' };
+  const carol = inviteMember(db, admin, { username: 'carol', displayName: 'Carol', role: 'member' });
+  const reset = issueReset(db, admin, member2.id);
+  const ownerMade = inviteMember(db, owner, { username: 'dave', displayName: 'Dave', role: 'member' });
+
+  updateMember(db, owner, member.id, { role: 'member' });
+  assert.throws(() => consumeToken(db, { token: reset.token, passwordHash: HASH, purpose: 'reset' }), code('INVALID_TOKEN'));
+  updateMember(db, owner, member.id, { active: false });
+  assert.throws(() => consumeToken(db, { token: carol.token, passwordHash: HASH, purpose: 'invite' }), code('INVALID_TOKEN'));
+  // Links from someone who can still manage the account keep working.
+  consumeToken(db, { token: ownerMade.token, passwordHash: HASH, purpose: 'invite' });
+});
+
+test('over HTTP, an admin cannot turn an invitation into an owner account', async t => {
+  const server = await startServer(t);
+  const { api: owner } = await setupOrganization(server);
+  const { api: admin } = await joinTeam(server, owner, { username: 'ada', role: 'admin' });
+  const invite = await admin.request('POST', '/api/admin/invitations', { username: 'bob.b', displayName: 'Bob', role: 'member' });
+  assert.equal((await owner.request('PATCH', `/api/admin/members/${invite.body.user.id}`, { role: 'owner' })).status, 200);
+  const stranger = client(server.base);
+  await stranger.bootstrap();
+  const accepted = await stranger.request('POST', '/api/invitations/accept',
+    { token: new URL(invite.body.invitationUrl).hash.slice('#invite='.length), password: PASSWORD });
+  assert.equal(accepted.status, 400);
+  assert.equal(accepted.body.error.code, 'INVALID_TOKEN');
+});
