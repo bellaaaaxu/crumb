@@ -15,6 +15,10 @@ test('the deployment files agree with each other', () => {
   assert.ok(read('docs/DEPLOYMENT.md').includes(nodeImage), 'the Docker-only setup command uses the same image');
   assert.match(https, /image: caddy:2@sha256:[0-9a-f]{64}/);
   for (const script of dockerfile.match(/scripts\/[a-z-]+\.mjs/g)) assert.ok(existsSync(new URL(`../${script}`, import.meta.url)), script);
+  // `npm ci` must not try to compile better-sqlite3 (it ships binaries); see .npmrc.
+  assert.match(read('.npmrc'), /^ignore-scripts=true$/m);
+  assert.match(dockerfile, /COPY package\.json package-lock\.json \.npmrc/);
+  assert.match(dockerfile, /npm ci --omit=dev --ignore-scripts/);
 
   const ignored = read('.dockerignore').split(/\r?\n/);
   for (const secret of ['.env', '.secrets', 'data', 'backups', '.git', 'node_modules']) assert.ok(ignored.includes(secret), secret);

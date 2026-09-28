@@ -14,7 +14,7 @@ behind HTTPS. Day-to-day care — backups, restores, upgrades, locked-out owners
 
 | | Try it locally | Run it for your team |
 | --- | --- | --- |
-| Machine | Any computer with Docker | A Linux server or VM with Docker Engine and Docker Compose v2 |
+| Machine | Any computer with Docker | A Linux server or VM (x64 or arm64) with Docker Engine and Docker Compose v2 |
 | Memory | 1 GB free | 1 GB or more (each sign-in briefly uses about 128 MB for password hashing) |
 | Network | Nothing | A domain name pointing at the server; ports 80 and 443 open |
 | Other | Node.js 24 *or* Docker to create the setup code | The same |

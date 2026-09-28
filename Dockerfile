@@ -6,12 +6,10 @@ ARG NODE_IMAGE=node:24.21.0-bookworm-slim@sha256:0e0ff40c39bc087845bfb27465a0df4
 
 FROM ${NODE_IMAGE} AS deps
 WORKDIR /app
-# Compilers only in this stage, for platforms where better-sqlite3 has no prebuilt binary.
-RUN apt-get update \
- && apt-get install -y --no-install-recommends python3 make g++ \
- && rm -rf /var/lib/apt/lists/*
-COPY package.json package-lock.json ./
-RUN npm ci --omit=dev --no-audit --no-fund
+# better-sqlite3 and sharp ship ready-made binaries for linux/amd64 and linux/arm64,
+# so nothing is compiled and no install scripts are needed (see .npmrc).
+COPY package.json package-lock.json .npmrc ./
+RUN npm ci --omit=dev --ignore-scripts --no-audit --no-fund
 
 FROM ${NODE_IMAGE}
 ENV NODE_ENV=production \

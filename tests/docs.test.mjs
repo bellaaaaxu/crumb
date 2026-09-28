@@ -68,7 +68,8 @@ test('the public demo and its share card say the same thing as the README', asyn
 
 test('issue templates exist for bugs, ideas and usage stories, and ask for no personal data', async () => {
   for (const file of ['bug_report.md', 'feature_request.md', 'usage_feedback.md']) {
-    const text = await readFile(`.github/ISSUE_TEMPLATE/${file}`, 'utf8');
+    // Windows checkouts may have CRLF line endings.
+    const text = (await readFile(`.github/ISSUE_TEMPLATE/${file}`, 'utf8')).replace(/\r\n/g, '\n');
     assert.match(text, /^---\nname: .+\nabout: .+/m, file);
     assert.match(text, /real (names|people|employee)/i, `${file} warns against real people’s data`);
   }
