@@ -1,4 +1,5 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
+import { isIPv6 } from 'node:net';
 import { AppError } from './errors.mjs';
 import { writeTransaction } from './db.mjs';
 
@@ -112,10 +113,29 @@ export function csrfMiddleware({ config }) {
 
 /* ---------------------------------------------------------------- sign-in limits */
 
+/* One IPv6 client usually holds a whole /64 and could rotate through it, so
+ * those addresses count as one. IPv4 written as IPv6 is its IPv4 address. */
+function clientNetwork(address) {
+  const plain = String(address ?? '').split('%')[0];
+  const mapped = /^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/i.exec(plain);
+  if (mapped) return mapped[1];
+  if (!isIPv6(plain)) return plain;
+  const groups = part => (part ? part.split(':') : []).flatMap(group => {
+    if (!group.includes('.')) return [group];
+    const [a, b, c, d] = group.split('.').map(Number);
+    return [((a << 8) | b).toString(16), ((c << 8) | d).toString(16)];
+  });
+  const [head, tail] = plain.split('::');
+  const left = groups(head);
+  const right = groups(tail);
+  const full = tail === undefined ? left : [...left, ...Array(8 - left.length - right.length).fill('0'), ...right];
+  return `${full.slice(0, 4).map(group => parseInt(group, 16).toString(16)).join(':')}::/64`;
+}
+
 export function loginBuckets(username, address) {
   return [
     { key: `account:${username.slice(0, 64)}`, limit: LOGIN_LIMITS.account },
-    { key: `address:${address}`, limit: LOGIN_LIMITS.address },
+    { key: `address:${clientNetwork(address)}`, limit: LOGIN_LIMITS.address },
   ];
 }
 
@@ -159,6 +179,18 @@ export function releaseLoginAttempt(db, buckets) {
     db.prepare('DELETE FROM login_limits WHERE bucket = ?').run(buckets[0].key);
     db.prepare('UPDATE login_limits SET attempts = max(attempts - 1, 0) WHERE bucket = ?').run(buckets[1].key);
   });
+}
+
+/* For an attempt that never got an answer (the server was busy): it was not a guess, so it does not count. */
+export function refundLoginAttempt(db, buckets) {
+  try {
+    writeTransaction(db, () => {
+      const refund = db.prepare('UPDATE login_limits SET attempts = max(attempts - 1, 0) WHERE bucket = ?');
+      for (const bucket of buckets) refund.run(bucket.key);
+    });
+  } catch {
+    // Still busy: the attempt stays counted, which errs on the safe side.
+  }
 }
 
 /* Housekeeping: expired sessions and finished sign-in windows. */

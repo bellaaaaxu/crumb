@@ -6,7 +6,7 @@ import { writeTransaction } from '../db.mjs';
 import { writeAudit } from '../audit.mjs';
 import { DUMMY_HASH, hashPassword, isPasswordHash, verifyPassword } from '../passwords.mjs';
 import {
-  clearSessionCookie, createSession, deleteSession, loginBuckets, releaseLoginAttempt,
+  clearSessionCookie, createSession, deleteSession, loginBuckets, refundLoginAttempt, releaseLoginAttempt,
   reserveLoginAttempt, sameHash, setSessionCookie, sha256, toSessionUser,
 } from '../auth.mjs';
 import { orgView, readNewOrg, readOrgRow } from '../org.mjs';
@@ -89,17 +89,23 @@ export function authRoutes({ db, config, clock }) {
     reserveLoginAttempt(db, buckets, clock);
 
     const user = db.prepare('SELECT id, username, display_name, role, active, password_hash FROM users WHERE username = ?').get(name);
-    const usable = user?.active === 1 && isPasswordHash(user.password_hash);
-    const matches = await verifyPassword(body.password, usable ? user.password_hash : DUMMY_HASH);
-    if (!usable || !matches) throw INVALID_CREDENTIALS();
-
-    const created = writeTransaction(db, () => {
-      // The password check was async: make sure nothing changed meanwhile.
-      const fresh = db.prepare('SELECT active, password_hash FROM users WHERE id = ?').get(user.id);
-      if (fresh?.active !== 1 || fresh.password_hash !== user.password_hash) throw INVALID_CREDENTIALS();
-      if (req.session) deleteSession(db, req.session.tokenHash);
-      return createSession(db, user.id, clock);
-    });
+    let created;
+    try {
+      const usable = user?.active === 1 && isPasswordHash(user.password_hash);
+      const matches = await verifyPassword(body.password, usable ? user.password_hash : DUMMY_HASH);
+      if (!usable || !matches) throw INVALID_CREDENTIALS();
+      created = writeTransaction(db, () => {
+        // The password check was async: make sure nothing changed meanwhile.
+        const fresh = db.prepare('SELECT active, password_hash FROM users WHERE id = ?').get(user.id);
+        if (fresh?.active !== 1 || fresh.password_hash !== user.password_hash) throw INVALID_CREDENTIALS();
+        if (req.session) deleteSession(db, req.session.tokenHash);
+        return createSession(db, user.id, clock);
+      });
+    } catch (error) {
+      // Only a wrong username or password counts. "Busy" was never a guess.
+      if (error.code !== 'INVALID_CREDENTIALS') refundLoginAttempt(db, buckets);
+      throw error;
+    }
     releaseLoginAttempt(db, buckets);
     setSessionCookie(res, config, created);
     res.json({ user: toSessionUser(user), csrfToken: created.csrfToken });

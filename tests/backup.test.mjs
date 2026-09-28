@@ -1,10 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
-import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { createHash, randomUUID } from 'node:crypto';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import Database from 'better-sqlite3';
-import { openDatabase, SCHEMA_VERSION } from '../server/db.mjs';
+import { openDatabase, schemaVersionOf, SCHEMA_VERSION } from '../server/db.mjs';
 import { backupDatabase, restoreDatabase } from '../server/backup.mjs';
 import { balanceOf, grant } from '../server/ledger.mjs';
 import { saveReward } from '../server/rewards.mjs';
@@ -151,3 +152,99 @@ test('restore refuses an existing target, the live file, corrupt files and newer
   assert.deepEqual(readdirSync(dir).filter(name => name.includes('restoring')), [], 'no temporary files left behind');
   assert.ok(existsSync(path));
 });
+
+const ROOT = fileURLToPath(new URL('..', import.meta.url));
+
+/* The next release, as far as backups care: this code with one more
+ * migration. It lives under node_modules/.cache so it still finds the
+ * project's dependencies, and is removed afterwards. */
+async function newerCrumb(t) {
+  const base = join(ROOT, 'node_modules', '.cache', `crumb-newer-${randomUUID()}`);
+  t.after(() => rmSync(base, { recursive: true, force: true }));
+  mkdirSync(join(base, 'server', 'migrations'), { recursive: true });
+  for (const file of ['backup.mjs', 'db.mjs', 'errors.mjs']) copyFileSync(join(ROOT, 'server', file), join(base, 'server', file));
+  for (const file of readdirSync(join(ROOT, 'server', 'migrations')))
+    copyFileSync(join(ROOT, 'server', 'migrations', file), join(base, 'server', 'migrations', file));
+  const next = String(SCHEMA_VERSION + 1).padStart(3, '0');
+  writeFileSync(join(base, 'server', 'migrations', `${next}-add-stock.sql`), 'ALTER TABLE rewards ADD COLUMN stock INTEGER;\n');
+  return import(pathToFileURL(join(base, 'server', 'backup.mjs')).href);
+}
+
+test('a restore keeps the schema the backup has, so rolling back to the previous version works', async t => {
+  const { db, owner, member, dir } = fixture(t);
+  grant(db, owner, { userId: member.id, units: 500, reason: 'Before the upgrade', key: 'before-upgrade-grant' });
+  const backup = (await backupDatabase(db, join(dir, 'before-upgrade.sqlite'))).path;
+  const newer = await newerCrumb(t);
+  const destination = join(dir, 'rolled-back', 'crumb.sqlite');
+  // The rollback runbook restores with whichever image is at hand — possibly the newer one.
+  const result = await newer.restoreDatabase({ sourcePath: backup, destinationPath: destination });
+  const reopened = openDatabase(destination);
+  try {
+    assert.equal(schemaVersionOf(reopened), SCHEMA_VERSION);
+    assert.equal(balanceOf(reopened, member.id).postedUnits, 500);
+  } finally {
+    reopened.close();
+  }
+  assert.deepEqual(result, { path: destination, schemaVersion: SCHEMA_VERSION });
+});
+
+test('restore checks every index and every reference, not only the page structure', async t => {
+  const { db, owner, member, dir } = fixture(t);
+  grant(db, owner, { userId: member.id, units: 500, reason: 'Thanks', key: 'integrity-grant-001' });
+
+  // An index that no longer matches its table: quick_check says "ok", integrity_check does not.
+  const mismatched = (await backupDatabase(db, join(dir, 'mismatched.sqlite'))).path;
+  const raw = new Database(mismatched);
+  raw.unsafeMode(true);
+  raw.pragma('writable_schema = ON');
+  raw.prepare(`UPDATE sqlite_master SET sql = 'CREATE INDEX ledger_by_user ON ledger (created_at, user_id, id)'
+               WHERE name = 'ledger_by_user'`).run();
+  raw.close();
+  const probe = new Database(mismatched, { readonly: true });
+  assert.equal(probe.pragma('quick_check', { simple: true }), 'ok', 'the damage is invisible to quick_check');
+  probe.close();
+  await assert.rejects(restoreDatabase({ sourcePath: mismatched, destinationPath: join(dir, 'from-mismatched.sqlite') }),
+    code('INVALID_BACKUP'));
+
+  // A ledger row that belongs to nobody.
+  const orphaned = (await backupDatabase(db, join(dir, 'orphaned.sqlite'))).path;
+  const loose = new Database(orphaned);
+  loose.pragma('foreign_keys = OFF');
+  loose.prepare(`INSERT INTO ledger (id, user_id, delta_units, kind, actor_id, created_at)
+                 VALUES (?, ?, 100, 'grant', ?, ?)`).run(randomUUID(), randomUUID(), owner.id, new Date().toISOString());
+  loose.close();
+  await assert.rejects(restoreDatabase({ sourcePath: orphaned, destinationPath: join(dir, 'from-orphaned.sqlite') }),
+    code('INVALID_BACKUP'));
+  assert.equal(existsSync(join(dir, 'from-mismatched.sqlite')) || existsSync(join(dir, 'from-orphaned.sqlite')), false);
+});
+
+test('restore refuses a copy whose latest changes still sit in a file beside it', async t => {
+  const { db, owner, member, path, dir } = fixture(t);
+  db.pragma('wal_autocheckpoint = 0');
+  grant(db, owner, { userId: member.id, units: 5000, reason: 'Only in the WAL so far', key: 'wal-only-grant-0001' });
+  assert.ok(statSync(`${path}-wal`).size > 0);
+  // Copying only the main file of a running (or killed) Crumb would silently lose this grant.
+  await assert.rejects(restoreDatabase({ sourcePath: path, destinationPath: join(dir, 'from-live.sqlite') }), code('SOURCE_IN_USE'));
+
+  const good = (await backupDatabase(db, join(dir, 'good.sqlite'))).path;
+  writeFileSync(`${good}-journal`, 'an interrupted transaction');
+  await assert.rejects(restoreDatabase({ sourcePath: good, destinationPath: join(dir, 'from-crashed.sqlite') }), code('SOURCE_IN_USE'));
+  rmSync(`${good}-journal`);
+
+  // A -wal left behind by an earlier database would be replayed into the restored one.
+  writeFileSync(join(dir, 'reused.sqlite-wal'), 'left over from a deleted database');
+  await assert.rejects(restoreDatabase({ sourcePath: good, destinationPath: join(dir, 'reused.sqlite') }), code('TARGET_EXISTS'));
+  assert.equal(existsSync(join(dir, 'reused.sqlite')), false);
+  for (const name of ['from-live.sqlite', 'from-crashed.sqlite']) assert.equal(existsSync(join(dir, name)), false, name);
+});
+
+test('backups, restored copies and new databases can be read by their owner only',
+  { skip: process.platform === 'win32' && 'Windows has no POSIX permission bits' }, async t => {
+    const { db, path, dir } = fixture(t);
+    const modeOf = file => statSync(file).mode & 0o777;
+    assert.equal(modeOf(path), 0o600, 'the live database holds password hashes');
+    const backup = (await backupDatabase(db, join(dir, 'private.sqlite'))).path;
+    assert.equal(modeOf(backup), 0o600);
+    await restoreDatabase({ sourcePath: backup, destinationPath: join(dir, 'restored', 'crumb.sqlite') });
+    assert.equal(modeOf(join(dir, 'restored', 'crumb.sqlite')), 0o600);
+  });

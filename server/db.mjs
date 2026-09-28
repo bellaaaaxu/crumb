@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync } from 'node:fs';
+import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import Database from 'better-sqlite3';
@@ -22,9 +22,15 @@ export const SCHEMA_VERSION = MIGRATIONS.at(-1).version;
 /**
  * Opens (or creates) the database and brings its schema up to date before
  * anything else can use it. A database written by a newer Crumb is refused
- * rather than guessed at.
+ * rather than guessed at. A new database file is readable by its owner only
+ * (it holds password hashes); SQLite gives its -wal and -shm the same mode.
  */
 export function openDatabase(path) {
+  try {
+    writeFileSync(path, '', { flag: 'wx', mode: 0o600 });
+  } catch (error) {
+    if (error.code !== 'EEXIST') throw error;
+  }
   const db = new Database(path);
   try {
     db.pragma('busy_timeout = 5000');

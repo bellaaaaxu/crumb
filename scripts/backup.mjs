@@ -4,7 +4,8 @@
  *
  * Writes one new, self-contained SQLite file (never overwrites), checks it,
  * and prints its path and SHA-256. The logo is inside the database, so it is
- * included. Keep backups somewhere only the server's operators can read. */
+ * included. The file is readable only by the user who runs this; keep
+ * backups somewhere only the server's operators can read. */
 import { existsSync } from 'node:fs';
 import Database from 'better-sqlite3';
 import { backupDatabase } from '../server/backup.mjs';
@@ -23,6 +24,7 @@ runCommand(USAGE, async () => {
     console.log(`backup ${result.path}`);
     console.log(`sha256 ${result.sha256}`);
     console.log(`schema ${result.schemaVersion}`);
+    if (result.leftover) console.log(`Note: the temporary file ${result.leftover} could not be removed. It can be deleted.`);
   } finally {
     db.close();
   }

@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { loginBuckets } from '../server/auth.mjs';
 import { hashPassword, verifyPassword } from '../server/passwords.mjs';
 import { PASSWORD, client, orgInput, rawGet, setupOrganization, startServer } from './helpers.mjs';
 
@@ -170,6 +171,31 @@ test('five failures lock an account for 15 minutes, even with the right password
   server.time.now += 15 * MINUTE;
   await api.bootstrap();
   assert.equal((await api.request('POST', '/api/login', { username: 'owner', password: PASSWORD })).status, 200);
+});
+
+test('a sign-in the server was too busy to check does not count as a failed attempt', async t => {
+  const server = await startServer(t);
+  await setupOrganization(server);
+  const api = client(server.base);
+  await api.bootstrap();
+  // Two hashes running and sixteen waiting: the next one is turned away.
+  const flood = Array.from({ length: 18 }, () => hashPassword('a flood of password hashing'));
+  const busy = await api.request('POST', '/api/login', { username: 'owner', password: PASSWORD });
+  await Promise.all(flood);
+  assert.equal(busy.status, 503);
+  assert.equal(busy.body.error.code, 'RETRY_LATER');
+  assert.deepEqual(server.db.prepare('SELECT bucket FROM login_limits WHERE attempts > 0').all(), []);
+});
+
+test('the per-address limit treats one IPv6 /64 as one address', () => {
+  const key = address => loginBuckets('owner', address)[1].key;
+  assert.equal(key('2001:db8:1:2:aaaa::1'), key('2001:db8:1:2:ffff:ffff:ffff:ffff'));
+  assert.equal(key('2001:db8::1'), key('2001:0db8:0000:0000:0000:0000:0000:0002'));
+  assert.equal(key('fe80::1%eth0'), key('fe80::2'));
+  assert.notEqual(key('2001:db8:1:2::1'), key('2001:db8:1:3::1'));
+  assert.equal(key('::ffff:203.0.113.9'), key('203.0.113.9'), 'IPv4 written as IPv6 is still that IPv4 address');
+  assert.notEqual(key('203.0.113.9'), key('203.0.113.10'));
+  assert.equal(loginBuckets('owner', '203.0.113.9')[0].key, 'account:owner');
 });
 
 test('a forged X-Forwarded-For does not escape the per-address limit', async t => {

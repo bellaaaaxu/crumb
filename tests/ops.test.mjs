@@ -2,6 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import { existsSync, mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -95,4 +96,29 @@ test('recover-owner resets an owner password from stdin and signs them out', asy
   assert.equal(run('recover-owner.mjs', ['--username', 'owner', '--password', 'x'], { env: { DATA_DIR: dir } }).status, 2,
     'passwords are never taken as arguments');
   assert.notEqual(db.prepare('SELECT password_hash FROM users WHERE id = ?').get(member.id).password_hash, row.password_hash);
+});
+
+test('recover-owner lifts the sign-in lock on that owner, and only on that owner', t => {
+  const { db, dir } = fixture(t);
+  const lock = db.prepare('INSERT INTO login_limits (bucket, attempts, window_start) VALUES (?, 5, ?)');
+  for (const bucket of ['account:owner', 'account:member', 'address:203.0.113.9']) lock.run(bucket, new Date().toISOString());
+  const result = run('recover-owner.mjs', ['--username', 'owner'], { env: { DATA_DIR: dir }, input: 'a completely new owner password\n' });
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /sign-in lock/i);
+  assert.deepEqual(db.prepare('SELECT bucket FROM login_limits ORDER BY bucket').all().map(row => row.bucket),
+    ['account:member', 'address:203.0.113.9']);
+});
+
+test('recover-owner does not give a password to an owner who never joined', t => {
+  const { db, owner, dir } = fixture(t);
+  const pendingId = randomUUID();
+  db.prepare(`INSERT INTO users (id, username, display_name, password_hash, role, active, created_at)
+              VALUES (?, 'second.owner', 'Second Owner', NULL, 'owner', 0, ?)`).run(pendingId, new Date().toISOString());
+  const result = run('recover-owner.mjs', ['--username', 'second.owner'], { env: { DATA_DIR: dir }, input: 'a completely new owner password\n' });
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /has not joined yet/);
+  assert.match(result.stderr, /new invitation/);
+  assert.equal(db.prepare('SELECT password_hash FROM users WHERE id = ?').get(pendingId).password_hash, null);
+  assert.equal(db.prepare(`SELECT count(*) AS n FROM audit WHERE action = 'owner.recover'`).get().n, 0);
+  assert.ok(owner.id);
 });
