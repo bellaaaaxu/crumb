@@ -33,7 +33,8 @@ function activeRecipient(db, userId) {
   return row;
 }
 
-function appendEntry(db, entry) {
+/* The only writer of ledger rows. Callers are inside a write transaction. */
+export function appendEntry(db, entry) {
   const row = { id: randomUUID(), source_id: null, reason: '', ...entry };
   db.prepare(`INSERT INTO ledger (id, user_id, delta_units, kind, actor_id, reason, source_id, request_key, created_at)
               VALUES (@id, @user_id, @delta_units, @kind, @actor_id, @reason, @source_id, @request_key, @created_at)`).run(row);

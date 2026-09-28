@@ -398,7 +398,7 @@ for (let ordinal = existingCount; ordinal < earned; ordinal += 1) {
 Reward 含 id/name/description/costUnits/active，Redemption 使用上方表字段的 camelCase。
 refund 不把 completed 改回 pending，响应附 `refunded:true`；唯一退款分录识别已退款状态。
 
-- [ ] **5.1 写完整业务红灯。** 创建福利、发 5000、申请价格 3000，预留后可用 2000；改目录价格不改申请快照；完成后余额 2000，收藏保留。
+- [x] **5.1 写完整业务红灯。** 创建福利、发 5000、申请价格 3000，预留后可用 2000；改目录价格不改申请快照；完成后余额 2000，收藏保留。
 
 ```js
 test('reservation, completion and retry use one debit', t => {
@@ -418,7 +418,7 @@ test('reservation, completion and retry use one debit', t => {
 测试取消、拒绝、重复退款、已完成再取消、成员操作他人申请、停用成员不能新申请。
 运行 `node --test tests/redemptions.test.mjs tests/concurrency.test.mjs` 确认红灯。
 
-- [ ] **5.2 实现状态机。** 同一 immediate 事务中检查 actor/用户 active、目录 active、余额及状态，
+- [x] **5.2 实现状态机。** 同一 immediate 事务中检查 actor/用户 active、目录 active、余额及状态，
 写入申请快照或扣减账本，再写 audit 和幂等响应。取消仅本人或 owner/admin；complete/reject/refund 仅 owner/admin。
 完成时使用申请快照价格；退款追加等额正数，不增加 lifetime，也不解锁收藏。
 
@@ -430,13 +430,13 @@ WHERE id=@id AND status='pending';
 检查 changes=1，状态失败返回 409 `INVALID_STATE`；整个事务回滚，绝不先扣款后检查状态。
 domain 调用持有同一幂等事务，不再套独立 COMMIT；余额与收藏查询在该事务内取得一致结果。
 
-- [ ] **5.3 真实多连接并发测试。** 测试启动两个 Worker，共用同一临时 db 文件，每个 worker 建自己的连接。
+- [x] **5.3 真实多连接并发测试。** 测试启动两个 Worker，共用同一临时 db 文件，每个 worker 建自己的连接。
 worker 收到 `{userId,rewardId,key}` 后读取 users 中真实 role 并调用 requestRedemption，返回 `{ok,code}`，不接收 role。
 父测试先给余额 5000，两 worker 各申请价格 3000，只能一个成功、另一个 `INSUFFICIENT_BALANCE`。
 再用同一 key 同时申请，两者得到同一 id，表中只增加一行。worker 在 finally 关闭 DB。
 补测停用与申请交错：若先申请则停用取消，若先停用则申请失败，最终 inactive 用户没有 pending。
 
-- [ ] **5.4 绿灯并提交。** 运行 Task 1–5 测试；提交 `feat: add atomic benefit redemption and refunds`。
+- [x] **5.4 绿灯并提交。** 运行 Task 1–5 测试；提交 `feat: add atomic benefit redemption and refunds`。
 
 ## Task 6：API 组合、权限隔离与读取模型
 
