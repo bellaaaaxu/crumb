@@ -1,2 +1,13 @@
 .DS_Store
 Thumbs.db
+
+# Dependencies and local runtime state for the self-hosted app
+node_modules/
+.env
+.secrets/
+data/
+backups/
+
+# Playwright output
+playwright-report/
+test-results/

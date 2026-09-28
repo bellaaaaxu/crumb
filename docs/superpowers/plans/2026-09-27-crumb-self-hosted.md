@@ -180,7 +180,7 @@ Cookie 为 HttpOnly、SameSite=Lax、Path=/，HTTPS 生产模式 Secure，响应
 返回 `{db,owner,member,member2,path}`；`t.after` 关闭连接并仅清理其临时目录。
 fixture 插入测试用户不供生产调用。HTTP helper `serve(t,app)` 返回 localhost 随机端口 URL。
 
-- [ ] **1.1 安装精确依赖并建立命令。** Node 引擎限制 `>=24.14.0 <25`，ESM，私有 npm 包但仓库保持 MIT；不发布 npm 包。
+- [x] **1.1 安装精确依赖并建立命令。** Node 引擎限制 `>=24.14.0 <25`，ESM，私有 npm 包但仓库保持 MIT；不发布 npm 包。
 
 ```json
 {"name":"crumb","version":"0.1.0","private":true,"type":"module","license":"MIT","engines":{"node":">=24.14.0 <25"},"scripts":{"start":"node server/main.mjs","test":"node --test tests/*.test.mjs","test:e2e":"playwright test","backup":"node scripts/backup.mjs","restore":"node scripts/restore.mjs"},"dependencies":{"express":"5.2.1","better-sqlite3":"13.0.3","helmet":"8.3.0","sharp":"0.35.5"},"devDependencies":{"@playwright/test":"1.63.0"}}
@@ -189,7 +189,7 @@ fixture 插入测试用户不供生产调用。HTTP helper `serve(t,app)` 返回
 运行 `npm install` 生成 lockfile；忽略 `node_modules/`, `.env`, `.secrets/`, `data/`, `backups/`, `playwright-report/`, `test-results/`。
 Docker 和 GitHub Pages 的公开素材仍不依赖 npm 安装。
 
-- [ ] **1.2 写红灯测试。** 文件顶部导入 node:test、strict assert 和下列被测接口；此时运行 `node --test tests/units.test.mjs tests/db.test.mjs` 应因尚未实现接口而失败。
+- [x] **1.2 写红灯测试。** 文件顶部导入 node:test、strict assert 和下列被测接口；此时运行 `node --test tests/units.test.mjs tests/db.test.mjs` 应因尚未实现接口而失败。
 
 ```js
 test('exact units and invalid representations', () => {
@@ -205,7 +205,7 @@ test('exact units and invalid representations', () => {
 数据库测试逐一检查外键开启、迁移重复运行不重复建表、ledger UPDATE/DELETE 被触发器拒绝、
 关闭重开仍保留用户，并把不支持的新 schema version 判为启动失败。
 
-- [ ] **1.3 实现精确解析和迁移。** 核心算法如下，错误类型统一 422；formatUnits 用整数拆分与 Intl.NumberFormat 的币种／标签展示，不再用于计算。
+- [x] **1.3 实现精确解析和迁移。** 核心算法如下，错误类型统一 422；formatUnits 用整数拆分与 Intl.NumberFormat 的币种／标签展示，不再用于计算。
 
 ```js
 export function parseUnits(value, mode) {
@@ -226,7 +226,7 @@ export function parseUnits(value, mode) {
 按照上方表契约编写完整 SQL；ledger signed integer check，grant/refund 为正，revoke/redeem 为负。
 迁移版本校验与迁移事务必须在开放 HTTP 前完成。
 
-- [ ] **1.4 绿灯并提交。** 运行两个测试文件，确认全部通过；提交 `feat: add persistent schema and exact reward units`。
+- [x] **1.4 绿灯并提交。** 运行两个测试文件，确认全部通过；提交 `feat: add persistent schema and exact reward units`。
 
 ## Task 2：初始化、会话、密码与授权基础
 
