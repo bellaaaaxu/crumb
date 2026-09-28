@@ -10,7 +10,7 @@
 
 **Spec:** [已确认设计](../specs/2026-09-27-crumb-self-hosted-design.md)。执行者必须先读取设计及本计划。
 
-**Status:** 计划待审阅；本文件中的命令、代码和测试是实施指令，不代表已经实现或运行。
+**Status:** 已在分支 `feature/self-hosted` 实施，尚未合并，等待独立审查。Docker 镜像、Compose、HTTPS（Caddy）与容器演练从未运行（实施机器没有 Docker），因此 9.3、9.4、9.6、11.1 中的容器部分和 11.4 保持未勾选；实际运行过什么、结果如何、哪些未验证，见 [VALIDATION.md](../../VALIDATION.md) 和 [RELEASE-CHECKLIST.md](../../RELEASE-CHECKLIST.md)。
 
 ## Global Constraints
 
@@ -788,11 +788,11 @@ git diff --check
 
 init-secrets 在 compose config 前按 Task 9 文档执行；若已有 .env/.secrets，不覆盖，应使用新的临时检出目录。
 
-- [ ] **11.2 独立审查并修复。** 按执行方式调用相应 review 技能；审查重点为 Review Focus 的五类故障、
+- [x] **11.2 独立审查并修复。** 按执行方式调用相应 review 技能；审查重点为 Review Focus 的五类故障、
 SQL/权限边界、静态文件暴露、CSRF、token 泄漏、数据恢复和 README 承诺。
 独立审查不能代替测试；每项修复补充相应验证，不增加未确认的新产品范围。
 
-- [ ] **11.3 写验收报告。** VALIDATION 记录 commit、环境、命令、测试结果、浏览器、备份/恢复记录和不能完成的检查。
+- [x] **11.3 写验收报告。** VALIDATION 记录 commit、环境、命令、测试结果、浏览器、备份/恢复记录和不能完成的检查。
 RELEASE-CHECKLIST 逐项对应下面 coverage 表。没有执行的检查标“未验证”，不能写“通过”。
 不提交 `.env`、token、数据库或测试用户凭据；报告仅保留虚构数据和非敏感结果。
 

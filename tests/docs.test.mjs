@@ -45,7 +45,7 @@ test('every image a README shows exists and has a description', async () => {
 
 test('every other document links only to files that exist', async () => {
   const files = ['CONTRIBUTING.md', 'docs/DEPLOYMENT.md', 'docs/OPERATIONS.md', 'docs/THEMES.md',
-    '.github/pull_request_template.md'];
+    'docs/VALIDATION.md', 'docs/RELEASE-CHECKLIST.md', '.github/pull_request_template.md'];
   for (const file of files) {
     const markdown = await readFile(file, 'utf8');
     for (const [, target] of markdown.matchAll(/\]\(([^)]+)\)/g)) {
