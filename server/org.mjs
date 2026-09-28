@@ -80,13 +80,21 @@ function parseUrl(value) {
 
 const isHttps = url => url?.protocol === 'https:' && Boolean(url.hostname) && !url.username && !url.password;
 
+const decoded = value => {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return '';
+  }
+};
+
 /* Where members reach their own organization: an https page or a mailto address. */
 const contactLink = () => (value, field) => {
   const link = text({ max: 300, optional: true })(value, field);
   if (!link) return link;
   const url = parseUrl(link);
   if (isHttps(url)) return link;
-  if (url?.protocol === 'mailto:' && /^[^\s@/?#]+@[^\s@/?#]+\.[^\s@/?#]+$/.test(decodeURIComponent(url.pathname))) return link;
+  if (url?.protocol === 'mailto:' && /^[^\s@/?#]+@[^\s@/?#]+\.[^\s@/?#]+$/.test(decoded(url.pathname))) return link;
   throw invalid(field, 'Use an https:// link or a mailto: address.');
 };
 

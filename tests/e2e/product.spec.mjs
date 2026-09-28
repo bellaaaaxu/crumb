@@ -216,3 +216,24 @@ test('the owner changes settings in Chinese and the member sees the organization
     await fx.close();
   }
 });
+
+test('the ledger downloads as CSV from the settings page', async ({ browser }) => {
+  const fx = await provision(browser, { mode: 'points' });
+  try {
+    await fx.api.request('POST', '/api/admin/grants', { userId: fx.memberId, amount: '100', mode: fx.mode, reason: 'Export me' },
+      { 'idempotency-key': 'e2e-export-grant-0001' });
+    await fx.ownerPage.getByRole('link', { name: 'Settings', exact: true }).click();
+    const [download] = await Promise.all([
+      fx.ownerPage.waitForEvent('download'),
+      fx.ownerPage.getByRole('link', { name: 'Download ledger (CSV)', exact: true }).click(),
+    ]);
+    expect(download.suggestedFilename()).toBe('crumb-ledger.csv');
+    const chunks = [];
+    for await (const chunk of await download.createReadStream()) chunks.push(chunk);
+    const text = Buffer.concat(chunks).toString('utf8');
+    expect(text.startsWith('﻿')).toBe(true);
+    expect(text).toContain('Export me');
+  } finally {
+    await fx.close();
+  }
+});

@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
+import { grant } from '../server/ledger.mjs';
 import { consumeToken, inviteMember, issueReset, renewInvitation, updateMember } from '../server/members.mjs';
 import {
   PASSWORD, authenticatedClient, client, fixture, joinTeam, setupOrganization, startServer,
@@ -313,4 +314,16 @@ test('over HTTP, an admin cannot turn an invitation into an owner account', asyn
     { token: new URL(invite.body.invitationUrl).hash.slice('#invite='.length), password: PASSWORD });
   assert.equal(accepted.status, 400);
   assert.equal(accepted.body.error.code, 'INVALID_TOKEN');
+});
+
+test('names and messages refuse text-direction controls but keep right-to-left text and emoji', t => {
+  const { db, owner, member } = fixture(t);
+  for (const displayName of ['Mina‮gnp.exe', 'Mo⁦', '‪boss‬', 'a⁩b'])
+    assert.throws(() => inviteMember(db, owner, { username: `spoof${randomUUID().slice(0, 8)}`, displayName, role: 'member' }),
+      code('INVALID_INPUT'), JSON.stringify(displayName));
+  assert.throws(() => grant(db, owner, { userId: member.id, units: 10, reason: 'Thanks ‮roirepus', key: 'bidi-reason-key-0001' }),
+    code('INVALID_INPUT'));
+  for (const displayName of ['مينا', 'נועה‏', 'Mina 👩‍💻'])
+    assert.equal(inviteMember(db, owner, { username: `ok${randomUUID().slice(0, 8)}`, displayName, role: 'member' }).user.displayName,
+      displayName);
 });

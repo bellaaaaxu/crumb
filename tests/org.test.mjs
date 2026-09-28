@@ -167,3 +167,9 @@ test('settings and exports over HTTP follow the same roles', async t => {
   assert.match(csv.headers.get('content-type'), /^text\/csv; charset=utf-8/);
   assert.equal(csv.headers.get('content-disposition'), 'attachment; filename="crumb-ledger.csv"');
 });
+
+test('a contact address that cannot be decoded is refused, not a server error', t => {
+  const { db, owner } = fixture(t);
+  for (const adminContact of ['mailto:%E0%A4%A', 'mailto:%zz@example.com'])
+    assert.throws(() => updateOrg(db, owner, { adminContact }), code('INVALID_INPUT'), adminContact);
+});

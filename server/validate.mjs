@@ -4,6 +4,10 @@ import { AppError } from './errors.mjs';
 
 const MULTILINE_CONTROL = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]/;
 const SINGLE_LINE_CONTROL = /[\u0000-\u001F\u007F-\u009F]/;
+/* Embedding, override and isolate controls reorder the text around them, so a
+ * name or message could display as something else. Right-to-left text itself,
+ * and the plain direction marks it may use, are fine. */
+const DIRECTION_CONTROL = /[‪-‮⁦-⁩]/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 export const invalid = (field, message) => new AppError(422, 'INVALID_INPUT', message, { field });
@@ -32,7 +36,7 @@ export const text = ({ min = 0, max, optional = false, multiline = false } = {})
   }
   if (typeof value !== 'string' || !value.isWellFormed()) throw invalid(field, `${field} must be text.`);
   const trimmed = value.trim();
-  if ((multiline ? MULTILINE_CONTROL : SINGLE_LINE_CONTROL).test(trimmed))
+  if ((multiline ? MULTILINE_CONTROL : SINGLE_LINE_CONTROL).test(trimmed) || DIRECTION_CONTROL.test(trimmed))
     throw invalid(field, `${field} contains characters that cannot be shown.`);
   const length = [...trimmed].length;
   if (length < min || length > max) throw invalid(field, `${field} must be ${min} to ${max} characters.`);

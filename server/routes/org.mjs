@@ -3,6 +3,7 @@ import { AppError } from '../errors.mjs';
 import { normalizeLogo, readLogo, removeLogo, setLogo, updateOrg } from '../org.mjs';
 import { requireRole } from '../permissions.mjs';
 import { readObject } from '../validate.mjs';
+import { readQuery } from './read-models.mjs';
 
 const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
 
@@ -34,6 +35,7 @@ export function orgRoutes({ db, clock }) {
 
   /* Public: the sign-in page shows it. Always the re-encoded PNG, never the upload. */
   router.get('/org/logo', (req, res) => {
+    readQuery(req.query, ['v']); // v: the cache-buster the settings page adds after an upload
     const png = readLogo(db);
     if (!png) throw new AppError(404, 'NOT_FOUND', 'No logo has been set.');
     res.type('image/png').send(png);

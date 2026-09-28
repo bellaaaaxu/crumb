@@ -11,6 +11,7 @@ import {
 } from '../auth.mjs';
 import { orgView, readNewOrg, readOrgRow } from '../org.mjs';
 import { object, readObject, secret, text, username } from '../validate.mjs';
+import { readQuery } from './read-models.mjs';
 
 const INVALID_CREDENTIALS = () => new AppError(401, 'INVALID_CREDENTIALS', 'That username and password do not match.');
 
@@ -32,6 +33,7 @@ export function authRoutes({ db, config, clock }) {
   /* Starts a short anonymous session when there is none, so sign-in, setup
    * and the invitation forms all have a CSRF token to send. */
   router.get('/session', (req, res) => {
+    readQuery(req.query, []);
     let { session } = req;
     if (!session) {
       const created = createSession(db, null, clock);

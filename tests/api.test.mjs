@@ -294,3 +294,30 @@ test('signed-out visitors get 401 from every data endpoint', async t => {
     assert.equal((await visitor.request('GET', path)).status, 401, path);
   assert.equal((await visitor.request('POST', '/api/redemptions', { rewardId: 'x' }, key())).status, 401);
 });
+
+test('permission comes before any other check, and unknown query parameters are refused', async t => {
+  const { server, member, memberUser, owner } = await team(t);
+  const { client } = await import('./helpers.mjs');
+  const visitor = client(server.base);
+  await visitor.bootstrap();
+  for (const path of [`/api/admin/members/${memberUser.id}/invitation`, `/api/admin/members/${memberUser.id}/reset`]) {
+    assert.equal((await visitor.request('POST', path, { junk: 1 })).status, 401, path);
+    assert.equal((await member.request('POST', path, { junk: 1 })).status, 403, path);
+  }
+  assert.equal((await visitor.request('GET', '/api/session?debug=1')).status, 422);
+  assert.equal((await visitor.request('GET', '/api/org/logo?debug=1')).status, 422);
+  assert.equal((await visitor.request('GET', '/api/org/logo?v=123')).status, 404, 'the cache-busting parameter is allowed');
+  assert.equal((await owner.request('GET', '/api/session')).status, 200);
+});
+
+test('the CSV export cannot be triggered from another site', async t => {
+  const { server, owner } = await team(t);
+  const exports = () => server.db.prepare(`SELECT count(*) AS n FROM audit WHERE action = 'ledger.export'`).get().n;
+  const crossSite = await owner.request('GET', '/api/admin/ledger.csv', undefined, { 'sec-fetch-site': 'cross-site' });
+  assert.equal(crossSite.status, 403);
+  assert.equal((await owner.request('GET', '/api/admin/ledger.csv', undefined, { 'sec-fetch-site': 'same-site' })).status, 403);
+  assert.equal(exports(), 0, 'a refused export leaves no trace in the activity log');
+  for (const site of ['same-origin', 'none', undefined])
+    assert.equal((await owner.request('GET', '/api/admin/ledger.csv', undefined, { 'sec-fetch-site': site })).status, 200, String(site));
+  assert.equal(exports(), 3);
+});

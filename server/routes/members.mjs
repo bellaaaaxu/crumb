@@ -2,6 +2,7 @@ import express from 'express';
 import { AppError } from '../errors.mjs';
 import { hashPassword } from '../passwords.mjs';
 import { checkToken, consumeToken, inviteMember, issueReset, renewInvitation, updateMember } from '../members.mjs';
+import { MANAGERS, requireRole } from '../permissions.mjs';
 import { readObject, secret } from '../validate.mjs';
 
 const invalidLink = () => new AppError(400, 'INVALID_TOKEN',
@@ -20,12 +21,14 @@ export function memberRoutes({ db, config, clock }) {
   });
 
   router.post('/admin/members/:id/invitation', (req, res) => {
+    requireRole(req.actor, MANAGERS);
     noBody(req);
     const { token } = renewInvitation(db, req.actor, req.params.id, clock);
     res.json({ invitationUrl: link('invite', token) });
   });
 
   router.post('/admin/members/:id/reset', (req, res) => {
+    requireRole(req.actor, MANAGERS);
     noBody(req);
     const { token } = issueReset(db, req.actor, req.params.id, clock);
     res.json({ resetUrl: link('reset', token) });

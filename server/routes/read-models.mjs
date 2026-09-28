@@ -180,6 +180,12 @@ export function readModelRoutes({ db, clock }) {
   router.get('/admin/ledger.csv', (req, res) => {
     requireRole(req.actor, MANAGERS);
     readQuery(req.query, []);
+    // A download link carries the session cookie even when another site opens it, and every export
+    // is logged. Browsers say where a request came from: only Crumb's own pages, or an address typed
+    // into the browser, may start one. (Clients that send no such header are not browsers.)
+    const site = req.get('sec-fetch-site');
+    if (site !== undefined && site !== 'same-origin' && site !== 'none')
+      throw new AppError(403, 'BAD_ORIGIN', 'Start the export from Crumb itself.');
     const csv = exportLedger(db, req.actor, clock);
     res.set('Content-Type', 'text/csv; charset=utf-8');
     // A fixed name: nothing from the request or the organization goes into a header.
