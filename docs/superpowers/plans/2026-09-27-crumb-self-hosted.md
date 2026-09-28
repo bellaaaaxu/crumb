@@ -608,7 +608,7 @@ Playwright 检查 390×844、1440×900，无水平溢出；纯键盘完成登录
 backupDatabase 用 better-sqlite3 `db.backup()`，不直接复制活跃 WAL 主文件；Logo 在 DB 中随备份保存。
 restore 只写不存在的新目标；拒绝源目标相同、未知 schema 和 quick_check 失败。
 
-- [ ] **9.1 写备份与恢复红灯。** fixture 先完成发奖、兑换、Logo 保存、收藏，再在线生成备份；
+- [x] **9.1 写备份与恢复红灯。** fixture 先完成发奖、兑换、Logo 保存、收藏，再在线生成备份；
 备份后继续写入原库，恢复库应保持备份时间点快照，不能读到一半新数据。
 
 ```js
@@ -630,7 +630,7 @@ test('restore preserves business data and invalidates credentials', async t => {
 
 测试损坏文件、已有目标、版本过新、未用邀请和重置 token 被作废；运行 `node --test tests/backup.test.mjs tests/config.test.mjs` 确认红灯。
 
-- [ ] **9.2 实现运维脚本。** backup 写入新文件、quick_check、计算 SHA-256，输出只含文件路径／校验摘要。
+- [x] **9.2 实现运维脚本。** backup 写入新文件、quick_check、计算 SHA-256，输出只含文件路径／校验摘要。
 restore 在同目录临时目标中验证并清空 session/token，保留用户、账本、幂等、收藏和 Logo，最后原子重命名；
 恢复后邀请需要重新生成。拒绝覆盖，文档用新卷恢复后再切换服务，原卷保留供回滚。
 init-secrets 使用 `randomBytes(32).toString('base64url')` 写 `.secrets/setup-token`，wx 防止覆盖，
@@ -691,7 +691,7 @@ trustProxy 只启用一个受控代理跳数，应用没有公网发布端口；
 用临时测试卷完成演练，不操作真实数据；避免 `docker compose down -v` 写进常规升级步骤。
 HTTPS 在可用域名上验证；若当前无域名，仅报告反向代理配置及本地验证结果，不能声称公网 HTTPS 已验收。
 
-- [ ] **9.5 建 CI 和运维文档。** CI 使用 Node 24，执行 npm ci、npm test、Playwright chromium、Docker build 与容器 health check；
+- [x] **9.5 建 CI 和运维文档。** CI 使用 Node 24，执行 npm ci、npm test、Playwright chromium、Docker build 与容器 health check；
 workflow permissions 为 contents:read，不向第三方服务上传成员数据；固定 Actions 已核实 commit SHA。
 上传失败测试截图时仅来自虚构测试数据。
 DEPLOYMENT 覆盖两种奖励模式、首次 token 输入、域名、所需端口及成本边界；OPERATIONS 覆盖

@@ -1,0 +1,35 @@
+# HTTPS in front of Crumb, with certificates from Let's Encrypt via Caddy:
+#   node scripts/init-secrets.mjs --origin https://crumb.example.com
+#   docker compose -f compose.yaml -f compose.https.yaml up -d --build
+# The domain must already point at this server, and ports 80 and 443 must be open.
+services:
+  crumb:
+    environment:
+      PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:?Set PUBLIC_ORIGIN in .env to your https:// address}
+      ALLOW_LOCAL_HTTP: "false"
+      # Caddy is the one proxy in front, so its X-Forwarded-For is trusted for sign-in limits.
+      TRUST_PROXY: "1"
+
+  caddy:
+    # Pinned by digest (Docker Hub, 2026-09-27); change tag and digest together.
+    image: caddy:2@sha256:0c994536bddb66445885237f1a5dcc1916bccea922661c76b4e9fc24061f9b52
+    restart: unless-stopped
+    depends_on:
+      crumb:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:?Set SITE_ADDRESS in .env to your domain, for example crumb.example.com}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  caddy_data:
+    name: crumb_caddy_data
+  caddy_config:
+    name: crumb_caddy_config

@@ -43,7 +43,7 @@ CREATE TABLE sessions (
   token_hash TEXT PRIMARY KEY,
   user_id TEXT REFERENCES users(id),
   csrf_hash TEXT NOT NULL,
-  created_at TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   expires_at TEXT NOT NULL
 );
 CREATE INDEX sessions_by_user ON sessions (user_id);
@@ -54,7 +54,7 @@ CREATE TABLE tokens (
   token_hash TEXT PRIMARY KEY,
   purpose TEXT NOT NULL CHECK (purpose IN ('invite', 'reset')),
   user_id TEXT NOT NULL REFERENCES users(id),
-  created_at TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   expires_at TEXT NOT NULL,
   used_at TEXT
 );

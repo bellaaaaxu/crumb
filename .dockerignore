@@ -1,0 +1,17 @@
+# Never send secrets, data or backups to the Docker build.
+.env
+.env.*
+!.env.example
+.secrets
+data
+backups
+
+# Not needed inside the image.
+.git
+.github
+node_modules
+tests
+test-results
+playwright-report
+docs
+assets/screenshots

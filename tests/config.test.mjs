@@ -1,7 +1,31 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { loadConfig } from '../server/config.mjs';
+
+const read = path => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
+
+test('the deployment files agree with each other', () => {
+  const dockerfile = read('Dockerfile');
+  const compose = read('compose.yaml');
+  const https = read('compose.https.yaml');
+  const nodeImage = /NODE_IMAGE=(node:[^\s@]+@sha256:[0-9a-f]{64})/.exec(dockerfile)?.[1];
+  assert.ok(nodeImage, 'the Dockerfile pins the Node image by digest');
+  assert.ok(read('docs/DEPLOYMENT.md').includes(nodeImage), 'the Docker-only setup command uses the same image');
+  assert.match(https, /image: caddy:2@sha256:[0-9a-f]{64}/);
+  for (const script of dockerfile.match(/scripts\/[a-z-]+\.mjs/g)) assert.ok(existsSync(new URL(`../${script}`, import.meta.url)), script);
+
+  const ignored = read('.dockerignore').split(/\r?\n/);
+  for (const secret of ['.env', '.secrets', 'data', 'backups', '.git', 'node_modules']) assert.ok(ignored.includes(secret), secret);
+
+  const known = ['NODE_ENV', 'PUBLIC_ORIGIN', 'ALLOW_LOCAL_HTTP', 'DATA_DIR', 'SETUP_TOKEN_FILE', 'TRUST_PROXY', 'SITE_ADDRESS'];
+  for (const [, name] of `${compose}\n${https}`.matchAll(/^\s{6}([A-Z_]+):/gm)) assert.ok(known.includes(name), `unknown setting ${name}`);
+  assert.match(compose, /"127\.0\.0\.1:3000:3000"/, 'the app port is published on loopback only');
+  assert.match(compose, /SETUP_TOKEN_FILE: \/run\/secrets\/setup_token/);
+  assert.match(read('Caddyfile'), /reverse_proxy crumb:3000/);
+  assert.doesNotMatch(`${compose}${https}${read('docs/OPERATIONS.md')}`, /down -v(?!\S)(?![^\n]*(deletes|Never))/);
+});
 
 const configError = error => error.code === 'CONFIG';
 
