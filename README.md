@@ -17,7 +17,7 @@ pastry** joins their shelf. Spending the reward never takes one away: the shelf 
 thanks received, not money held.
 
 Crumb runs on your own server, for one organization, with its data in one file you back up
-and control. No analytics, no email service, nothing sent anywhere.
+and control. No analytics, no email service, and the app itself sends nothing anywhere.
 
 <br clear="right">
 
@@ -45,7 +45,7 @@ collection and what comes next, the benefits they can ask for, their requests an
 one stands, and every message of thanks they have received. Each person sees only their own
 account — there are no leaderboards and no comparisons.
 
-**Team leads** — owners and admins — give recognition from anywhere in *Team*:
+**Team leads** — owners and admins — give recognition from the *Team* page:
 
 <img src="assets/screenshots/admin.png" width="100%" alt="The Give recognition dialog: choosing Leo Martins, entering 20.00 in CAD and a message about opening on a snow day">
 
@@ -119,9 +119,11 @@ Everything lives in one SQLite database on your server — people, password hash
 ledger, requests, collections, the activity log and your logo. Back it up with one command
 while Crumb keeps running, and practise restoring it; the CSV export is for reading, not for
 restoring. Crumb collects no analytics and sends nothing to anyone, including this project.
+(With the HTTPS setup, the bundled Caddy proxy contacts Let's Encrypt for its certificate.)
 
 Inside Crumb, *Contact your admin* leads to your organization's own page or address;
-*Feedback on Crumb* leads here. The two never stand in for each other.
+*Feedback on Crumb* leads here, unless an owner points it at their own form. The two never
+stand in for each other.
 
 ## Status and limits
 
@@ -182,10 +184,10 @@ index.html  the public demo (with assets/)
 Crumb began as an internal staff-credit tool for a bakery, in daily use by about thirty
 people. This repository generalises it for any team.
 
-I wrote the specifications, chose and reviewed what came back, and validated every release —
-including the pixel art, which I directed and selected rather than placed cell by cell. I
-don't write the code by hand. The judgment on display is in the data model, the permissions
-and the decisions about what to show.
+For that tool, I wrote the specifications, chose and reviewed what came back, and validated
+every release before rollout — including the pixel art, which I directed and selected rather
+than placed cell by cell. I don't write the code by hand. The judgment on display is in the
+data model, the permissions and the decisions about what to show.
 
 ## License
 

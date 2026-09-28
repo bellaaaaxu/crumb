@@ -1,6 +1,6 @@
 /* Takes the README screenshots from the real app.
  *
- *   node scripts/screenshots.mjs                 writes assets/screenshots/member.png and admin.png
+ *   node scripts/screenshots.mjs                 writes assets/screenshots/member.png, admin.png and redemptions.png
  *   node scripts/screenshots.mjs --all --out DIR also captures every page, for review
  *
  * It starts a throwaway Crumb on a random port with a temporary database,

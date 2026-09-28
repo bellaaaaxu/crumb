@@ -1,6 +1,8 @@
 # HTTPS in front of Crumb, with certificates from Let's Encrypt via Caddy:
 #   node scripts/init-secrets.mjs --origin https://crumb.example.com
-#   docker compose -f compose.yaml -f compose.https.yaml up -d --build
+#   docker compose up -d --build
+# init-secrets puts COMPOSE_FILE=compose.yaml:compose.https.yaml in .env, so every
+# docker compose command in this folder includes this file.
 # The domain must already point at this server, and ports 80 and 443 must be open.
 services:
   crumb:

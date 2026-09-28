@@ -1,11 +1,13 @@
 # Crumb on one machine. First run `node scripts/init-secrets.mjs`, then:
 #   docker compose up -d --build
-# and open http://localhost:3000. For a real server behind HTTPS, add
-# compose.https.yaml (docs/DEPLOYMENT.md).
+# and open http://localhost:3000. For a real server behind HTTPS,
+# `node scripts/init-secrets.mjs --origin https://…` adds compose.https.yaml
+# through COMPOSE_FILE in .env (docs/DEPLOYMENT.md).
 services:
   crumb:
     build: .
-    image: crumb:local
+    # The tag an upgrade rebuilds and a rollback re-tags; the CI drill uses its own.
+    image: ${CRUMB_IMAGE:-crumb:local}
     init: true
     restart: unless-stopped
     # Only this computer can reach the app directly; the HTTPS proxy reaches it over Docker's network.

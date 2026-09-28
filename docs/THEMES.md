@@ -73,6 +73,10 @@ another multiple of the organization's unlock step, the next collectible in that
 order unlocks. Spending, refunds and revokes never remove one. When every key is unlocked,
 My Crumb says the collection is complete, and recognition keeps counting as usual.
 
+Adding keys also catches people up. Someone whose recognition had earned more collectibles
+than the theme had — a complete shelf with steps to spare — gets the new ones on their next
+reward, possibly several at once.
+
 ## Adding a collectible to the default theme
 
 1. In `assets/sprites.js`, add the drawing to `SPRITES`, its names to `NAMES` (`en` and

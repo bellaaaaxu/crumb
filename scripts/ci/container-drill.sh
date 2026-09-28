@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # The deployment and recovery drill from docs/DEPLOYMENT.md and docs/OPERATIONS.md,
-# run for real on a machine with Docker (CI runs it on every pull request).
-# It only touches its own throwaway volumes.
+# run for real on a machine with Docker (CI is set up to run it on every pull request).
+# It uses its own project name, image tag and throwaway volumes, and ignores the
+# folder's .env — but it needs port 3000, so run it on a CI machine or a spare
+# computer, not on the server that runs your Crumb.
 #
 #   bash scripts/ci/container-drill.sh
 #
@@ -11,8 +13,12 @@
 set -euo pipefail
 
 export COMPOSE_PROJECT_NAME=crumb-drill
+export COMPOSE_FILE=compose.yaml
+export CRUMB_IMAGE=crumb:drill
 export CRUMB_DATA_VOLUME=crumb_drill_data
 export CRUMB_BACKUP_VOLUME=crumb_drill_backups
+export PUBLIC_ORIGIN=http://localhost:3000
+export ALLOW_LOCAL_HTTP=true
 RESTORED=crumb_drill_restored
 ORIGIN=http://localhost:3000
 PASSWORD='drill-owner-password-1'
@@ -62,10 +68,10 @@ wait_healthy() {
 
 group "Secrets and Compose configuration"
 node scripts/init-secrets.mjs
-# The container runs as the image's node user (uid 1000). Give that user, and
-# only that user, read access to the one secret it needs.
-sudo chown 1000:1000 .secrets/setup-token
-sudo chmod 0400 .secrets/setup-token
+# No chown: the file stays owned by this runner's user (not uid 1000), exactly as
+# on a server where the deploy user's id is not 1000. Setup below proves the
+# container can still read it.
+[ "$(stat -c %a .secrets)" = 700 ] || fail ".secrets must be closed to other users"
 docker compose config --quiet
 PUBLIC_ORIGIN=https://crumb.example.com SITE_ADDRESS=crumb.example.com \
   docker compose -f compose.yaml -f compose.https.yaml config --quiet
@@ -81,14 +87,14 @@ endgroup
 
 group "One-time setup through the API"
 fresh_session
-token=$(sudo cat .secrets/setup-token)
+token=$(cat .secrets/setup-token)
 setup=$(jq -n --arg t "$token" --arg p "$PASSWORD" '{setupToken:$t, username:"owner", password:$p,
   displayName:"Drill Owner", org:{name:"Drill Team", mode:"points", unitLabel:"points", threshold:"100", locale:"en"}}')
 expect "$(api POST /api/setup "$setup")" 201 "first setup"
 csrf=$(body | jq -r .csrfToken)
 owner_id=$(body | jq -r .user.id)
 expect "$(api POST /api/setup "$setup")" 409 "second setup"
-grant=$(jq -n --arg u "$owner_id" '{userId:$u, amount:"150", reason:"Drill"}')
+grant=$(jq -n --arg u "$owner_id" '{userId:$u, amount:"150", mode:"points", reason:"Drill"}')
 expect "$(api POST /api/admin/grants "$grant" drill-grant-request-0001)" 201 "grant"
 expect "$(api POST /api/admin/grants "$grant" drill-grant-request-0001)" 201 "retried grant"
 endgroup
@@ -109,7 +115,7 @@ endgroup
 group "Restore into a new volume and switch to it"
 docker compose stop crumb
 docker volume create "$RESTORED" >/dev/null
-docker run --rm -v "$RESTORED:/data" -v "$CRUMB_BACKUP_VOLUME:/backups:ro" crumb:local \
+docker run --rm -v "$RESTORED:/data" -v "$CRUMB_BACKUP_VOLUME:/backups:ro" "$CRUMB_IMAGE" \
   node scripts/restore.mjs --from /backups/drill.sqlite --to /data/crumb.sqlite
 CRUMB_DATA_VOLUME=$RESTORED docker compose up -d --wait --wait-timeout 180
 expect "$(api GET /api/me)" 401 "an old session on the restored copy"

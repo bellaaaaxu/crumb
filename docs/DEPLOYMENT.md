@@ -24,7 +24,9 @@ guide does not promise that running it is.
 
 Crumb does not send email, does not need any outside service, and sends nothing about your
 organization anywhere. Invitation and password-reset links are shown to an admin, who passes
-them on however the team normally talks.
+them on however the team normally talks. (With the HTTPS setup below, the Caddy proxy
+contacts Let's Encrypt to obtain and renew the certificate — that is the only outside
+connection, and it is Caddy's, not Crumb's.)
 
 ## Before you start: credit or points?
 
@@ -35,10 +37,13 @@ The first owner chooses how rewards are counted, once:
 - **Points** — whole numbers under a name you choose (for example "100 stars").
 
 You also choose the **unlock step**: each time someone's total recognition passes another
-step of this size, a new pixel collectible joins their shelf. The type, currency and step
-can change until the first reward is recorded. After that they are fixed, so amounts already
-in the ledger keep their meaning. Names, the welcome message, the language and links can
-always change.
+step of this size, a new pixel collectible joins their shelf.
+
+The type and currency can change until the **first benefit gets a price** or the first
+reward is recorded; the unlock step until the first reward. After that they are fixed, so
+amounts already recorded keep their meaning. So settle credit or points, and the currency,
+before you add benefits. Names, the welcome message, the language and links can always
+change.
 
 ## 1. Get the code and create the setup code
 
@@ -62,12 +67,15 @@ docker run --rm -v "$PWD":/work -w /work --user "$(id -u):$(id -g)" \
   node scripts/init-secrets.mjs
 ```
 
-This writes `.secrets/setup-token` (readable only by you) and `.env`. It never prints the
-code and never overwrites existing files. Neither file belongs in version control; both are
-already in `.gitignore`.
+This writes `.secrets/setup-token` and `.env`. It never prints the code and never
+overwrites existing files. Neither file belongs in version control; both are already in
+`.gitignore`.
 
-On Windows, the files are created in your user profile with your user's permissions; keep
-the project folder somewhere other accounts on the machine cannot read.
+The `.secrets` folder is closed to other users on the machine. The code file inside it is
+readable, so the container (which runs as user id 1000) can read it whatever your own user id
+is: Compose mounts that one file into the container, which never needs the folder. On
+Windows these permission bits do not apply; the files get your user's normal permissions, so
+keep the project folder where other accounts on the machine cannot read it.
 
 ## 2. Try it on this computer
 
@@ -93,31 +101,19 @@ on `127.0.0.1:3000`, so other devices on your network cannot reach this local co
    node scripts/init-secrets.mjs --origin https://crumb.example.com
    ```
 
-   `.env` now holds `PUBLIC_ORIGIN=https://crumb.example.com`, `ALLOW_LOCAL_HTTP=false` and
-   `SITE_ADDRESS=crumb.example.com`. If you already ran it without `--origin`, delete `.env`
-   first or edit those three lines.
+   `.env` now holds `PUBLIC_ORIGIN=https://crumb.example.com`, `ALLOW_LOCAL_HTTP=false`,
+   `SITE_ADDRESS=crumb.example.com` and `COMPOSE_FILE=compose.yaml:compose.https.yaml`. The
+   last one makes every `docker compose` command in this folder include the HTTPS proxy —
+   upgrades, backups and restores too. If you already ran it without `--origin`, delete
+   `.env` first.
 
-3. **Let the container read the setup code.** The app runs as the image's unprivileged
-   `node` user, which has user id **1000**, and Docker Compose passes the secret file through
-   with its owner and permissions unchanged. If your deploy user's id is not 1000 (check with
-   `id -u`), give user 1000 — and nobody else — read access:
-
-   ```bash
-   sudo chown 1000:1000 .secrets/setup-token
-   sudo chmod 0400 .secrets/setup-token
-   ```
-
-   (Or keep your ownership and grant read access with
-   `setfacl -m u:1000:r .secrets/setup-token`.) Do not make the file world-readable. If the
-   container cannot read it, the setup page says the setup code file is missing.
-
-4. Start Crumb with Caddy in front. Caddy fetches and renews the certificate by itself:
+3. Start Crumb with Caddy in front. Caddy fetches and renews the certificate by itself:
 
    ```bash
-   docker compose -f compose.yaml -f compose.https.yaml up -d --build
+   docker compose up -d --build
    ```
 
-5. Open `https://crumb.example.com` and finish setup as in step 2.
+4. Open `https://crumb.example.com` and finish setup as in section 2 above.
 
 After setup the code cannot create anything any more; keeping the file is harmless (Compose
 expects it to exist).
@@ -126,8 +122,10 @@ expects it to exist).
 
 - **Team → Members:** invite admins and members. Each invitation gives you a one-time link
   (valid 7 days) to send yourself.
-- **Team → Benefits:** add what people can redeem, with a price in your unit.
-- **Give recognition:** choose a person, an amount and a message. They see it on My Crumb.
+- **Team → Benefits:** add what people can redeem, with a price in your unit. (The first
+  price fixes credit or points and the currency.)
+- **Give recognition** (on the Team overview): choose a person, an amount and a message. They
+  see it on My Crumb.
 - **Settings:** your logo, welcome message, default language, and where "Contact your admin"
   should lead (an `https://` page or a `mailto:` address).
 - Schedule backups now — see [OPERATIONS.md](OPERATIONS.md).
@@ -143,28 +141,39 @@ PUBLIC_ORIGIN=https://crumb.example.com DATA_DIR=/var/lib/crumb npm start
 ```
 
 Put a reverse proxy with HTTPS in front (Caddy, nginx or similar) and set `TRUST_PROXY=1` so
-sign-in limits see the real client address. Run it as an unprivileged user that owns
-`DATA_DIR`. Without a proxy, Crumb listens on `127.0.0.1` only; set `HOST` to change that.
+sign-in limits see the real client address. The proxy must send `X-Forwarded-For` — Caddy
+does by default; with nginx add `proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;`.
+Without it every visitor shares the proxy's address, and one person's failed sign-ins can
+lock everyone out for 15 minutes. Run Crumb as an unprivileged user that owns `DATA_DIR`
+(the database is created readable by that user only). Without a proxy, Crumb listens on
+`127.0.0.1` only; set `HOST` to change that.
 
 ## Settings reference
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
-| `PUBLIC_ORIGIN` | *(required)* | The exact address people use, like `https://crumb.example.com`. Every change request must come from this origin. |
-| `ALLOW_LOCAL_HTTP` | `false` | `true` allows plain `http://` for `localhost` or `127.0.0.1` only. Any other address must be `https://`. |
+| `PUBLIC_ORIGIN` | *(required; `compose.yaml` uses `http://localhost:3000` if `.env` does not set it)* | The exact address people use, like `https://crumb.example.com`. Every change request must come from this origin; a page opened at any other address says where to go instead. |
+| `ALLOW_LOCAL_HTTP` | `false` (`true` in `compose.yaml` unless `.env` says otherwise) | `true` allows plain `http://` for `localhost` or `127.0.0.1` only. Any other address must be `https://`. |
 | `DATA_DIR` | `./data` (`/data` in Docker) | Where `crumb.sqlite` lives. |
 | `SETUP_TOKEN_FILE` | `./.secrets/setup-token` (`/run/secrets/setup_token` in Docker) | The one-time setup code. |
 | `PORT` | `3000` | Port the app listens on. |
 | `HOST` | `127.0.0.1` (`0.0.0.0` in Docker) | Address the app binds to. |
 | `TRUST_PROXY` | `false` | `1` when exactly one reverse proxy sits in front (as in `compose.https.yaml`). |
 | `CRUMB_DATA_VOLUME` | `crumb_data` | Compose only: which Docker volume holds the database. Used when restoring. |
+| `CRUMB_BACKUP_VOLUME` | `crumb_backups` | Compose only: the volume mounted at `/backups`. |
+| `CRUMB_IMAGE` | `crumb:local` | Compose only: the image tag that is built and run. |
+| `COMPOSE_FILE` | *(Compose default)* | Compose's own setting. `init-secrets --origin` sets it to `compose.yaml:compose.https.yaml`. |
+| `SITE_ADDRESS` | *(required with `compose.https.yaml`)* | The domain Caddy gets a certificate for. |
 
 ## Security notes
 
 - Sign-in is by username and password. Passwords are stored only as scrypt hashes. Five
-  failed attempts lock an account for 15 minutes; thirty lock an address.
-- Sessions last at most 12 hours and are cookies Crumb's pages cannot read. Changing a
-  password, resetting it or deactivating someone ends their sessions.
+  failed attempts lock an account for 15 minutes, even with the right password (owner
+  recovery in [OPERATIONS.md](OPERATIONS.md) lifts it for an owner); thirty lock an address,
+  and an IPv6 /64 counts as one address.
+- Sessions last at most 12 hours and are cookies Crumb's pages cannot read. Using a
+  password-reset link, owner recovery and deactivation end that person's sessions. There is
+  no self-service password change in this version: an admin makes a reset link.
 - Every permission is checked by the server. Members can only see their own balance,
   collection, history and requests; there are no leaderboards or cross-member comparisons.
 - The server logs startup, errors by type, and nothing else: no passwords, links, cookies or

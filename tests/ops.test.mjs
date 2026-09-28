@@ -30,7 +30,11 @@ test('init-secrets writes a setup code and .env, never prints the code, and neve
   const env = readFileSync(join(cwd, '.env'), 'utf8');
   assert.match(env, /^PUBLIC_ORIGIN=http:\/\/localhost:3000$/m);
   assert.match(env, /^ALLOW_LOCAL_HTTP=true$/m);
-  if (process.platform !== 'win32') assert.equal(statSync(join(cwd, '.secrets', 'setup-token')).mode & 0o777, 0o600);
+  // The folder is closed; the one file in it is readable, so the container can read it whatever the host user id.
+  if (process.platform !== 'win32') {
+    assert.equal(statSync(join(cwd, '.secrets')).mode & 0o777, 0o700);
+    assert.equal(statSync(join(cwd, '.secrets', 'setup-token')).mode & 0o777, 0o644);
+  }
 
   const second = run('init-secrets.mjs', [], { cwd });
   assert.equal(second.status, 0);
@@ -46,6 +50,8 @@ test('init-secrets prepares an HTTPS deployment when given its address', t => {
   assert.match(env, /^PUBLIC_ORIGIN=https:\/\/crumb\.example\.com$/m);
   assert.match(env, /^ALLOW_LOCAL_HTTP=false$/m);
   assert.match(env, /^SITE_ADDRESS=crumb\.example\.com$/m);
+  assert.match(env, /^COMPOSE_PATH_SEPARATOR=:$/m);
+  assert.match(env, /^COMPOSE_FILE=compose\.yaml:compose\.https\.yaml$/m, 'every compose command includes the HTTPS proxy');
   for (const bad of [['--origin', 'http://crumb.example.com'], ['--origin'], ['--surprise']]) {
     const refused = run('init-secrets.mjs', bad, { cwd: scratch(t) });
     assert.equal(refused.status, 2, bad.join(' '));

@@ -39,8 +39,8 @@ node scripts/theme-manifest.mjs --check    # the collectible manifest matches as
 ```
 
 With Docker available, `bash scripts/ci/container-drill.sh` runs the same drill against the
-real image and Compose files, on throwaway volumes. CI runs all of the above on every pull
-request.
+real image and Compose files, on throwaway volumes. CI is set up to run all of the above on
+every pull request; [docs/VALIDATION.md](docs/VALIDATION.md) records what has actually run.
 
 To use the app locally:
 

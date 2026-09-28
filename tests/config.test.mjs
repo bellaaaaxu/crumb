@@ -27,6 +27,15 @@ test('the deployment files agree with each other', () => {
   for (const [, name] of `${compose}\n${https}`.matchAll(/^\s{6}([A-Z_]+):/gm)) assert.ok(known.includes(name), `unknown setting ${name}`);
   assert.match(compose, /"127\.0\.0\.1:3000:3000"/, 'the app port is published on loopback only');
   assert.match(compose, /SETUP_TOKEN_FILE: \/run\/secrets\/setup_token/);
+  assert.match(compose, /image: \$\{CRUMB_IMAGE:-crumb:local\}/);
+  // Every variable the Compose files read is explained in the deployment guide.
+  const guide = read('docs/DEPLOYMENT.md');
+  for (const [, name] of `${compose}\n${https}`.matchAll(/\$\{([A-Z_]+)/g))
+    assert.ok(guide.includes(`\`${name}\``), `DEPLOYMENT.md explains ${name}`);
+  // The container drill only runs in CI, so check here that it speaks the current API.
+  const drill = read('scripts/ci/container-drill.sh');
+  assert.match(drill, /amount:"150", mode:"points"/, 'the drill sends the unit with an amount');
+  assert.doesNotMatch(drill, /crumb:local|sudo /, 'the drill leaves the real image tag and file owners alone');
   assert.match(read('Caddyfile'), /reverse_proxy crumb:3000/);
   assert.doesNotMatch(`${compose}${https}${read('docs/OPERATIONS.md')}`, /down -v(?!\S)(?![^\n]*(deletes|Never))/);
 });
