@@ -6,6 +6,7 @@ import { AppError } from './errors.mjs';
 import { isBusy } from './db.mjs';
 import { csrfMiddleware, sessionMiddleware } from './auth.mjs';
 import { authRoutes } from './routes/auth.mjs';
+import { memberRoutes } from './routes/members.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const APP_DIR = join(root, 'app');
@@ -90,6 +91,7 @@ export function createApp({ db, config, clock = () => Date.now(), log = console.
   api.use(sessionMiddleware({ db, config, clock }));
   api.use(csrfMiddleware({ config }));
   api.use(authRoutes({ db, config, clock }));
+  api.use(memberRoutes({ db, config, clock }));
   api.use(() => {
     throw new AppError(404, 'NOT_FOUND', 'Not found.');
   });

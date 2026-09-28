@@ -290,7 +290,7 @@ GET session 为匿名建立 CSRF；登录成功返回替换后的 session；初�
 token 原文只在创建返回一次；链接由 route 根据固定 publicOrigin 生成 fragment，GET 链接不能消耗 token。
 helper 增加 `authenticatedClient(t,{role='owner'}={})` 返回 `{api,db,actor,base}`，通过真实 setup/login 得到 cookie。
 
-- [ ] **3.1 写越权和生命周期红灯。** 所有者邀请两名用户并接受，测试管理员不能邀请 admin/owner、重置或停用 owner/admin，
+- [x] **3.1 写越权和生命周期红灯。** 所有者邀请两名用户并接受，测试管理员不能邀请 admin/owner、重置或停用 owner/admin，
 成员不能调用管理 API；测试过期、重用、错误 purpose 及两个并发 accept 只有一个成功。
 
 ```js
@@ -303,7 +303,7 @@ test('last owner cannot be removed', t => {
 
 运行 `node --test tests/members.test.mjs` 验证红灯。
 
-- [ ] **3.2 实现明确的目标角色检查。** admin 只管理 member；owner 可任命角色，但最后一个 active owner 不可降权或停用。
+- [x] **3.2 实现明确的目标角色检查。** admin 只管理 member；owner 可任命角色，但最后一个 active owner 不可降权或停用。
 自己修改显示名不通过角色更新 API；新增未知字段必须被拒绝。发出新重置链接时使旧重置 token 失效。
 公开 route 先廉价检查 token 是否有效，再进行有界密码哈希；consumeToken 接收事先算好的 passwordHash，
 在事务内重新检查未过期且未使用，再更新密码、标记 token 已用并撤销所有 session。
@@ -316,10 +316,10 @@ WHERE token_hash = @hash AND purpose = @purpose
 
 必须检查 changes=1，失败回滚；accept 将 invited 用户激活，reset 不重新激活已停用用户。
 
-- [ ] **3.3 实现停用事务。** 检查目标角色后设置 inactive、删除 session、作废所有 token、取消该用户 pending 兑换，
+- [x] **3.3 实现停用事务。** 检查目标角色后设置 inactive、删除 session、作废所有 token、取消该用户 pending 兑换，
 为每个取消写 audit，不删除账本。Task 5 兑换创建必须再次检查 active，保证与停用事务互斥。
 
-- [ ] **3.4 验证重置与停用。** 真实登录后重置，旧 cookie 401；停用后旧 session 与未用邀请皆不可用；
+- [x] **3.4 验证重置与停用。** 真实登录后重置，旧 cookie 401；停用后旧 session 与未用邀请皆不可用；
 手工在 fixture 建 pending 行验证被取消且历史保留。跑 Task 1–3 测试；提交 `feat: add invitations and member lifecycle`。
 
 ## Task 4：发奖、撤销、幂等和永久收藏

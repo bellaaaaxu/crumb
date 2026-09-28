@@ -169,3 +169,30 @@ export function rawGet(base, path) {
     req.end();
   });
 }
+
+export const tokenFrom = (url, kind) => new URL(url).hash.slice(`#${kind}=`.length);
+
+/* Invites someone through the API, accepts the invitation and signs them in. */
+export async function joinTeam(server, owner, { username, displayName = username, role = 'member' }) {
+  const invite = await owner.request('POST', '/api/admin/invitations', { username, displayName, role });
+  if (invite.status !== 201) throw new Error(`invite failed: ${invite.status} ${JSON.stringify(invite.body)}`);
+  const api = client(server.base);
+  await api.bootstrap();
+  const accepted = await api.request('POST', '/api/invitations/accept',
+    { token: tokenFrom(invite.body.invitationUrl, 'invite'), password: PASSWORD });
+  if (accepted.status !== 200) throw new Error(`accept failed: ${accepted.status} ${JSON.stringify(accepted.body)}`);
+  const login = await api.request('POST', '/api/login', { username, password: PASSWORD });
+  if (login.status !== 200) throw new Error(`login failed: ${login.status} ${JSON.stringify(login.body)}`);
+  api.csrf = login.body.csrfToken;
+  return { api, user: login.body.user };
+}
+
+/* A signed-in client with a real cookie, obtained through setup (and an invitation for non-owners). */
+export async function authenticatedClient(t, { role = 'owner', mode = 'credit' } = {}) {
+  const server = await startServer(t);
+  const { api: owner, user: ownerUser } = await setupOrganization(server, { mode });
+  if (role === 'owner')
+    return { api: owner, db: server.db, actor: { id: ownerUser.id, role: 'owner' }, base: server.base, server, owner };
+  const { api, user } = await joinTeam(server, owner, { username: `${role}.one`, role });
+  return { api, db: server.db, actor: { id: user.id, role }, base: server.base, server, owner };
+}
