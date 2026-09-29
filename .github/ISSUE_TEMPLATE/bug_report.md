@@ -1,14 +1,17 @@
 ---
 name: Bug report
-about: Report a reproducible problem with the Crumb demo
+about: Something in Crumb or its demo does not work as it should
 title: ''
 labels: ''
 assignees: ''
 ---
 
+<!-- Please use invented names and amounts. Never include real people's names, balances,
+     messages, passwords, invitation or reset links, or your organization's database or backups. -->
+
 ## What happened?
 
-Describe the problem and what you expected instead.
+What did you expect, and what happened instead?
 
 ## Steps to reproduce
 
@@ -16,14 +19,14 @@ Describe the problem and what you expected instead.
 2.
 3.
 
-Did you reset the demo first, or use previously saved state?
+## Where
 
-## Environment
+- Crumb version or commit:
+- Where it runs: public demo / Docker Compose / Docker Compose with HTTPS (Caddy) / Node.js directly
+- Browser and device:
+- Credit or points:
 
-- Browser and version:
-- Device or operating system:
-- Live demo or local copy:
+## Logs or screenshots
 
-## Screenshots or additional context
-
-Use invented sample data; do not include real employee information.
+For server errors, `docker compose logs crumb` helps — remove anything about real people first.
+Screenshots should show invented data only.

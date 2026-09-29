@@ -105,8 +105,8 @@ function fit(str, x, y, scale, colour) {
 
 const LX = TX + TILE + 56;
 fit('CRUMB', LX, 132, 16, INK);
-fit('STAFF CREDIT WITH SOMETHING TO COLLECT', LX + 3, 236, 5, SOFT);
-fit('39 PASTRIES   0 DEPENDENCIES', LX + 3, 288, 5, SOFT);
+fit('MAKE APPRECIATION SOMETHING TO KEEP', LX + 3, 236, 5, SOFT);
+fit('OPEN SOURCE   SELF HOSTED', LX + 3, 288, 5, SOFT);
 
 /* A shelf of the real thing, first twelve of the rotation. */
 const N = 12, CELL = 76, GAP = 12, SCALE = 5;
@@ -119,7 +119,7 @@ for (let i = 0; i < N; i += 1) {
   sprite(Pixel.CYCLE[i], x + 8, RY + 8, SCALE);
 }
 
-const caption = 'EVERY 50 DOLLARS RECEIVED UNLOCKS ONE THAT STAYS';
+const caption = 'RECOGNITION UNLOCKS A PASTRY THAT STAYS';
 fit(caption, Math.round((W - textWidth(caption, 5)) / 2), RY + CELL + 34, 5, SOFT);
 
 /* ---- PNG ---- */

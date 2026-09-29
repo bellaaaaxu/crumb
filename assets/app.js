@@ -47,8 +47,8 @@
 
   var KIND_LABEL = {
     initial: 'Opening balance',
-    gift: 'Gift card',
-    purchase: 'Purchase',
+    gift: 'Recognition',
+    purchase: 'Spent',
   };
 
   var DAILY = [
@@ -62,9 +62,9 @@
   /* Balance zero can't say "fully fuelled". This set doesn't nag and doesn't
    * make the empty state feel like a failure. */
   var DAILY_ZERO = [
-    '🥯 A gift card turns into credit here.',
+    '🥯 Recognition turns into credit here.',
     '🍞 Empty for now — go get them.',
-    '✨ The next card you get shows up here.',
+    '✨ The next thank-you you get shows up here.',
     '🥐 No credit yet. Today still goes fine.',
     '🧈 Empty is fine too. Thanks for today.',
   ];
@@ -406,8 +406,8 @@
     });
   }
 
-  /* What the counter handed out, newest first, across everyone. Only gift cards
-   * count — an opening balance is also positive but nobody granted it. */
+  /* What the counter handed out, newest first, across everyone. Only recognition
+   * counts — an opening balance is also positive but nobody granted it. */
   var RECENT_GRANTS = 3;
 
   function renderRecent() {
@@ -617,8 +617,8 @@
     scrim.className = 'sheet-scrim';
     scrim.innerHTML =
       '<div class="sheet" role="dialog" aria-label="Enter the amount">' +
-      '<h3>What did you take?</h3>' +
-      '<p class="avail">The cashier prices it. Available: $' + money(balanceOf(current())) + '</p>' +
+      '<h3>What are you spending?</h3>' +
+      '<p class="avail">Key in the amount. Available: $' + money(balanceOf(current())) + '</p>' +
       '<p class="amount" id="amt"><span class="cur">$</span><span id="amt-val">0.00</span></p>' +
       '<div class="keys" id="keys"></div>' +
       '<p class="sheet-err" id="sheet-err"></p>' +
@@ -782,7 +782,7 @@
     say('<b>Sam</b> is six months in. Six pastries on the shelf, $84.25 to spend.', 0);
 
     later(2600, function () {
-      say('A manager hands over a $50 gift card.', 1);
+      say('A team lead sends her $50 of recognition.', 1);
       press(document.querySelector('[data-grant="50"]'), 500);
     });
 
@@ -793,7 +793,7 @@
     });
 
     later(6600, function () {
-      say('She takes lunch. The cashier prices it; she keys it in herself.', 2);
+      say('She spends some on lunch and keys in the amount herself.', 2);
       sheet = openSheet();
     });
     ['1', '2', '5', '0'].forEach(function (k, n) {
@@ -802,7 +802,7 @@
     later(9100, function () { if (sheet && sheet.isOpen()) sheet.confirm(); });
 
     later(10900, function () {
-      say('The balance drops. <b>The shelf does not.</b> It counts cards received, never money held.', 3);
+      say('The balance drops. <b>The shelf does not.</b> It counts recognition received, never money held.', 3);
       $('slots').classList.remove('pulse');
       void $('slots').offsetWidth;
       $('slots').classList.add('pulse');
@@ -840,8 +840,8 @@
     $('take-control').textContent = 'Replay the tour';
     $('get-note').textContent = 'You’re driving';
     setDots(-1);
-    if (!quiet) say('Yours now — grant a card, spend it, switch person.');
-    else say('Grant a card on the counter and watch the phone.');
+    if (!quiet) say('Yours now — give recognition, spend it, switch person.');
+    else say('Give recognition on the counter and watch the phone.');
   }
 
   /* ---------------------------------------------------------------- scroll reveals
@@ -946,7 +946,7 @@
 
   $('spend').addEventListener('click', function () {
     if (balanceOf(current()) <= 0) {
-      toast('No credit to spend yet — grant a card first', true);
+      toast('No credit to spend yet — give some recognition first', true);
       return;
     }
     openSheet();

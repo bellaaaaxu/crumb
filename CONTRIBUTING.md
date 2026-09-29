@@ -1,61 +1,89 @@
 # Contributing to Crumb
 
-Crumb is a small, interactive staff-credit demo made with HTML, CSS and JavaScript.
-Start with the [README](README.md) to run it locally and understand the design.
+Crumb has two parts in one repository:
+
+- **The self-hosted app** — `server/` (Node.js, Express, SQLite) and `app/` (plain HTML, CSS
+  and ES modules) — with a full test suite.
+- **The public demo** — `index.html` and `assets/` — a single static page with no build step
+  and no dependencies, published on GitHub Pages.
+
+Start with the [README](README.md). Deployment and operations are in [docs/](docs/DEPLOYMENT.md).
 
 ## Useful contributions
 
-- Reproducible bug reports, especially on mobile browsers.
-- Keyboard, screen-reader and reduced-motion improvements.
-- Clearer setup instructions and explanations.
-- Pixel-art or layout fixes that preserve the existing visual style.
+- Reproducible bug reports and **usage stories** — the issue templates ask only what helps.
+- Accessibility: keyboard, screen reader and reduced-motion improvements.
+- Translations. The app ships English and Simplified Chinese; `app/locales/*.js` must keep
+  exactly the same keys (a test checks).
+- Documentation that made you stop and wonder.
+- Pixel art, following [docs/THEMES.md](docs/THEMES.md).
 
-For larger changes, open an issue describing the problem and proposed approach before
-building it. Keep the demo dependency-free and runnable without a build step. A production
-backend or a framework migration would substantially change the scope of this project.
+For larger changes, open an issue first describing the problem and your approach. Some
+things are out of scope on purpose: payroll or cash, buying rewards, performance reviews,
+leaderboards or comparisons between members, automatic rewards, analytics or any data leaving
+the instance, and hosting many organizations in one instance.
 
-## Reporting a bug
+**Never use real people's data** — not in issues, tests, fixtures or screenshots.
 
-Include the browser and device, steps to reproduce, expected behaviour and what happened
-instead. Say whether you started with **Reset the demo** or previously saved state.
-Screenshots help with visual issues. Use invented examples rather than real employee data.
+## Working on the app
 
-## Making a change
-
-1. Fork the repository and clone your fork.
-2. Create a branch for a focused change.
-3. Follow the existing style in the files you edit.
-4. Run the relevant checks below.
-5. Open a pull request explaining the problem, the change and how you checked it.
-   Include before-and-after screenshots for visible changes.
-
-## Checks before a pull request
-
-There is currently no automated test suite. For application changes, check the relevant
-flows in a browser and report your browser and results in the pull request:
-
-- Reset the demo, watch the guided tour and take control manually.
-- Switch between the sample staff members and check their balances and collections.
-- Add gift-card credit, then spend some credit. Spending must not remove collected pastries.
-- Reload the page to check that state persists, then reset to restore the sample data.
-- Check narrow and wide layouts, keyboard operation and reduced-motion behaviour when
-  your change affects them. Check the browser console for errors.
-
-If Node.js is installed, these commands check JavaScript syntax; they do not test browser
-behaviour:
+You need Node.js 24.14 or newer (24.x).
 
 ```bash
-node --check assets/app.js
-node --check assets/sprites.js
-node --check scripts/make-og.mjs
+npm ci
+npm test                                   # unit, API, concurrency and operator-command tests
+npx playwright install chromium
+npm run test:e2e -- --project=chromium     # browser tests, each on its own throwaway server
+node scripts/ci/process-drill.mjs          # start, restart, back up, restore, recover, roll back
+node scripts/theme-manifest.mjs --check    # the collectible manifest matches assets/sprites.js
 ```
 
-The optional social-preview generator uses Node.js built-in modules. If you change the
-preview artwork, regenerate the image and inspect it before including it in your change:
+With Docker available, `bash scripts/ci/container-drill.sh` runs the same drill against the
+real image and Compose files, on throwaway volumes. CI is set up to run all of the above on
+every pull request; [docs/VALIDATION.md](docs/VALIDATION.md) records what has actually run.
+
+To use the app locally:
 
 ```bash
-node scripts/make-og.mjs
+node scripts/init-secrets.mjs                 # one-time setup code and a local .env
+node --env-file=.env server/main.mjs          # then open http://localhost:3000
 ```
 
-Keep discussion constructive and explain design trade-offs. Small, focused changes are
-easier to review.
+`node scripts/screenshots.mjs` regenerates the README screenshots from a throwaway instance
+filled with an invented team.
+
+### Ground rules in the code
+
+- **The server decides.** Every permission and every amount is checked on the server; hiding
+  a button is never the control. Identity comes from the session, never a request body.
+- **Money is integers.** Amounts are integer units (cents or points) from the moment they
+  are parsed; nothing adds up fractional numbers.
+- **The ledger is append-only.** Corrections are new, linked entries with a reason.
+- **One transaction per change**, with its idempotency key, so a retry is never recorded twice.
+- **Text from people goes in through `textContent`.** The app never uses `innerHTML`.
+- **Every visible string is in both locale files.**
+- Follow the style of the file you are in. Comments explain *why*.
+
+## Working on the demo
+
+There is no build step. Open `index.html` directly in a browser, or serve the folder
+(`python3 -m http.server 4173`, or `py -m http.server 4173` on Windows).
+
+The demo keeps its invented state in `localStorage`; **Reset the demo** puts it back. Check the
+tour, taking control, giving recognition, spending (the collection must not shrink),
+switching people and resetting, on narrow and wide screens, from the keyboard and with reduced
+motion. `npx playwright test tests/e2e/demo.spec.mjs` covers the main path.
+
+If you change the preview artwork, run `node scripts/make-og.mjs` and look at
+`assets/og.png` before committing.
+
+## Pull requests
+
+1. Fork the repository and create a branch for one focused change.
+2. Make the change, with tests for anything the server does.
+3. Run the checks above that apply, and say in the pull request what you ran and what
+   happened — including anything you could not run.
+4. For visible changes, include before-and-after screenshots with invented data.
+
+Keep discussion constructive and explain trade-offs. Small, focused changes are easier to
+review.

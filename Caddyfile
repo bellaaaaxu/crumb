@@ -1,0 +1,6 @@
+# Caddy obtains and renews the HTTPS certificate for SITE_ADDRESS by itself,
+# and passes every request to Crumb over Docker's internal network.
+{$SITE_ADDRESS} {
+	encode zstd gzip
+	reverse_proxy crumb:3000
+}

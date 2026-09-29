@@ -1,0 +1,243 @@
+{
+  "themeId": "default",
+  "version": 1,
+  "source": "assets/sprites.js",
+  "keys": [
+    "laopo",
+    "tart",
+    "mungbean",
+    "gaimei",
+    "taro",
+    "caketriangle",
+    "bolo",
+    "mochi",
+    "charsiu",
+    "eggyolk",
+    "swissroll",
+    "sausage",
+    "bridecake",
+    "creambun",
+    "walnut",
+    "mango",
+    "nougat",
+    "coconuttart",
+    "shrimpchip",
+    "boloyau",
+    "papercake",
+    "blackforest",
+    "datepastry",
+    "chickenpie",
+    "almond",
+    "dragonphoenix",
+    "centuryegg",
+    "chestnut",
+    "porttart",
+    "blacksesamemochi",
+    "cheesehotdog",
+    "pumpkintuile",
+    "blacksesamepastry",
+    "pistachiohorn",
+    "cnybox",
+    "mooncake",
+    "radishcake",
+    "tarocake",
+    "ricecake"
+  ],
+  "names": {
+    "laopo": {
+      "en": "Wife Cake",
+      "zh-Hant": "老婆餅",
+      "zh-CN": "老婆饼"
+    },
+    "tart": {
+      "en": "Egg Tart",
+      "zh-Hant": "蛋撻",
+      "zh-CN": "蛋挞"
+    },
+    "mungbean": {
+      "en": "Mung Bean Cake",
+      "zh-Hant": "綠豆糕",
+      "zh-CN": "绿豆糕"
+    },
+    "gaimei": {
+      "en": "Cocktail Bun",
+      "zh-Hant": "雞尾包",
+      "zh-CN": "鸡尾包"
+    },
+    "taro": {
+      "en": "Taro Pastry",
+      "zh-Hant": "芋頭酥",
+      "zh-CN": "芋头酥"
+    },
+    "caketriangle": {
+      "en": "Triangle Cake",
+      "zh-Hant": "三角蛋糕",
+      "zh-CN": "三角蛋糕"
+    },
+    "bolo": {
+      "en": "Pineapple Bun",
+      "zh-Hant": "菠蘿包",
+      "zh-CN": "菠萝包"
+    },
+    "mochi": {
+      "en": "Green Tea Red Bean Mochi",
+      "zh-Hant": "綠茶紅豆糯米糍",
+      "zh-CN": "绿茶红豆糯米糍"
+    },
+    "charsiu": {
+      "en": "BBQ Pork Puff",
+      "zh-Hant": "叉燒酥",
+      "zh-CN": "叉烧酥"
+    },
+    "eggyolk": {
+      "en": "Egg Yolk Pastry",
+      "zh-Hant": "蛋黃酥",
+      "zh-CN": "蛋黄酥"
+    },
+    "swissroll": {
+      "en": "Swiss Roll",
+      "zh-Hant": "瑞士卷",
+      "zh-CN": "瑞士卷"
+    },
+    "sausage": {
+      "en": "Sausage Bun",
+      "zh-Hant": "腸仔包",
+      "zh-CN": "肠仔包"
+    },
+    "bridecake": {
+      "en": "Bridal Cake",
+      "zh-Hant": "嫁女餅",
+      "zh-CN": "嫁女饼"
+    },
+    "creambun": {
+      "en": "Cream Bun",
+      "zh-Hant": "奶油麵包",
+      "zh-CN": "奶油面包"
+    },
+    "walnut": {
+      "en": "Walnut Cookie",
+      "zh-Hant": "核桃酥",
+      "zh-CN": "核桃酥"
+    },
+    "mango": {
+      "en": "Mango Mousse Cake",
+      "zh-Hant": "芒果慕斯蛋糕",
+      "zh-CN": "芒果慕斯蛋糕"
+    },
+    "nougat": {
+      "en": "Salted Yolk Pork Floss Nougat",
+      "zh-Hant": "鹹蛋黃肉鬆牛軋糖",
+      "zh-CN": "咸蛋黄肉松牛轧糖"
+    },
+    "coconuttart": {
+      "en": "Coconut Tart",
+      "zh-Hant": "椰撻",
+      "zh-CN": "椰挞"
+    },
+    "shrimpchip": {
+      "en": "Prawn Cracker",
+      "zh-Hant": "蝦片",
+      "zh-CN": "虾片"
+    },
+    "boloyau": {
+      "en": "Pineapple Bun with Butter",
+      "zh-Hant": "菠蘿油",
+      "zh-CN": "菠萝油"
+    },
+    "papercake": {
+      "en": "Paper-Wrapped Cake",
+      "zh-Hant": "紙包蛋糕",
+      "zh-CN": "纸包蛋糕"
+    },
+    "blackforest": {
+      "en": "Black Forest Cake",
+      "zh-Hant": "黑森林蛋糕",
+      "zh-CN": "黑森林蛋糕"
+    },
+    "datepastry": {
+      "en": "Date & Egg Yolk Pastry",
+      "zh-Hant": "蛋黃棗泥酥",
+      "zh-CN": "蛋黄枣泥酥"
+    },
+    "chickenpie": {
+      "en": "Chicken Pie",
+      "zh-Hant": "雞批",
+      "zh-CN": "鸡批"
+    },
+    "almond": {
+      "en": "Almond Stick",
+      "zh-Hant": "杏仁條",
+      "zh-CN": "杏仁条"
+    },
+    "dragonphoenix": {
+      "en": "Dragon & Phoenix Cake",
+      "zh-Hant": "龍鳳餅",
+      "zh-CN": "龙凤饼"
+    },
+    "centuryegg": {
+      "en": "Century Egg Pastry",
+      "zh-Hant": "皮蛋酥",
+      "zh-CN": "皮蛋酥"
+    },
+    "chestnut": {
+      "en": "Chestnut Cake",
+      "zh-Hant": "栗子蛋糕",
+      "zh-CN": "栗子蛋糕"
+    },
+    "porttart": {
+      "en": "Portuguese Egg Tart",
+      "zh-Hant": "葡式蛋撻",
+      "zh-CN": "葡式蛋挞"
+    },
+    "blacksesamemochi": {
+      "en": "Black Sesame Mochi",
+      "zh-Hant": "黑芝麻糯米糍",
+      "zh-CN": "黑芝麻糯米糍"
+    },
+    "cheesehotdog": {
+      "en": "Cheese Hot Dog Bun",
+      "zh-Hant": "芝士熱狗包",
+      "zh-CN": "芝士热狗包"
+    },
+    "pumpkintuile": {
+      "en": "Pumpkin Seed Tuile",
+      "zh-Hant": "南瓜子薄脆",
+      "zh-CN": "南瓜子薄脆"
+    },
+    "blacksesamepastry": {
+      "en": "Black Sesame Pastry",
+      "zh-Hant": "黑芝麻酥",
+      "zh-CN": "黑芝麻酥"
+    },
+    "pistachiohorn": {
+      "en": "Pistachio Cream Horn",
+      "zh-Hant": "開心果奶油號角",
+      "zh-CN": "开心果奶油号角"
+    },
+    "cnybox": {
+      "en": "New Year Candy Box",
+      "zh-Hant": "賀年全盒",
+      "zh-CN": "贺年全盒"
+    },
+    "mooncake": {
+      "en": "Lotus & Egg Yolk Mooncake",
+      "zh-Hant": "蓮蓉蛋黃月餅",
+      "zh-CN": "莲蓉蛋黄月饼"
+    },
+    "radishcake": {
+      "en": "Turnip Cake",
+      "zh-Hant": "蘿蔔糕",
+      "zh-CN": "萝卜糕"
+    },
+    "tarocake": {
+      "en": "Taro & Sausage Cake",
+      "zh-Hant": "芋頭臘腸糕",
+      "zh-CN": "芋头腊肠糕"
+    },
+    "ricecake": {
+      "en": "Coconut Brown Sugar Nian Gao",
+      "zh-Hant": "椰汁黃糖年糕",
+      "zh-CN": "椰汁黄糖年糕"
+    }
+  }
+}

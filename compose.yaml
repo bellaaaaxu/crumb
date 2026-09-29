@@ -1,0 +1,43 @@
+# Crumb on one machine. First run `node scripts/init-secrets.mjs`, then:
+#   docker compose up -d --build
+# and open http://localhost:3000. For a real server behind HTTPS,
+# `node scripts/init-secrets.mjs --origin https://…` adds compose.https.yaml
+# through COMPOSE_FILE in .env (docs/DEPLOYMENT.md).
+services:
+  crumb:
+    build: .
+    # The tag an upgrade rebuilds and a rollback re-tags; the CI drill uses its own.
+    image: ${CRUMB_IMAGE:-crumb:local}
+    init: true
+    restart: unless-stopped
+    # Only this computer can reach the app directly; the HTTPS proxy reaches it over Docker's network.
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      NODE_ENV: production
+      PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:-http://localhost:3000}
+      ALLOW_LOCAL_HTTP: ${ALLOW_LOCAL_HTTP:-true}
+      DATA_DIR: /data
+      SETUP_TOKEN_FILE: /run/secrets/setup_token
+    secrets:
+      - setup_token
+    volumes:
+      - data:/data
+      - backups:/backups
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+
+secrets:
+  setup_token:
+    file: ./.secrets/setup-token
+
+# Fixed names, so backups, restores and rollbacks can refer to them directly.
+volumes:
+  data:
+    name: ${CRUMB_DATA_VOLUME:-crumb_data}
+  backups:
+    name: ${CRUMB_BACKUP_VOLUME:-crumb_backups}

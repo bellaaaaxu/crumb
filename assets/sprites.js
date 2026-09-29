@@ -595,7 +595,7 @@ const Pixel = (function () {
    * Changing the count reshuffles everybody's existing collection (forSlot is % len). */
   const CYCLE = ["laopo", "tart", "mungbean", "gaimei", "taro", "caketriangle", "bolo", "mochi", "charsiu", "eggyolk", "swissroll", "sausage", "bridecake", "creambun", "walnut", "mango", "nougat", "coconuttart", "shrimpchip", "boloyau", "papercake", "blackforest", "datepastry", "chickenpie", "almond", "dragonphoenix", "centuryegg", "chestnut", "porttart", "blacksesamemochi", "cheesehotdog", "pumpkintuile", "blacksesamepastry"];
 
-  /* Drawn and named, but deliberately outside the rotation — reserved for seasonal skins. */
+  /* Named sprites outside this demo's rotation. The self-hosted app's collection includes them (themes/default.json). */
   const LIMITED = ["pistachiohorn", "cnybox", "mooncake", "radishcake", "tarocake", "ricecake"];
 
   const NAMES = {
