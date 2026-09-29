@@ -163,6 +163,9 @@ async function main() {
     const phone = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, reducedMotion: 'reduce' });
     const memberPage = await signIn(phone, 'mina');
     await memberPage.getByTestId('available-balance').waitFor();
+    // The README shows the page as it looks every day, after the one-time home-screen tip.
+    if (captureAll) await shoot(memberPage, 'member-home-tip', false);
+    await memberPage.getByRole('button', { name: 'Got it', exact: true }).click();
     await shoot(memberPage, 'member', false);
 
     const desk = await browser.newContext({ viewport: { width: 1200, height: 800 }, deviceScaleFactor: 2, reducedMotion: 'reduce' });
@@ -197,6 +200,11 @@ async function main() {
       await linkPage.goto(signinUrl);
       await linkPage.getByRole('button', { name: 'Sign in on this device', exact: true }).waitFor();
       await shoot(linkPage, 'sign-in-link-phone');
+      await ownerPage.goto(`${origin}/#/team/members`);
+      await ownerPage.getByRole('button', { name: 'New sign-in link for Dana Reyes', exact: true }).click();
+      await ownerPage.getByRole('dialog').getByRole('button', { name: 'Make a new link', exact: true }).click();
+      await ownerPage.locator('.qr-image').waitFor();
+      await shoot(ownerPage, 'link-panel-qr');
       await memberPage.evaluate(() => { document.querySelector('.language select').value = 'zh-CN'; });
       await memberPage.locator('.language select').selectOption('zh-CN');
       await shoot(memberPage, 'member-zh');

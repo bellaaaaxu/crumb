@@ -121,10 +121,13 @@ expects it to exist).
 ## After setup
 
 - **Team → Members:** invite admins and members. Each invitation gives you a one-time link
-  (valid 7 days) to send yourself. A team member opens theirs on their phone and is signed
-  in, with no password; an admin or owner uses theirs to choose a password. When a member
-  changes or loses their phone, or their link expired, **New sign-in link** makes another
-  (after asking) and signs the old phone out.
+  (valid 7 days) and its QR code. In person, the person scans the code with their phone's
+  camera; otherwise send it — **Save QR code** on a computer, **Share QR code** on a phone —
+  and a long press on the picture opens it on their phone, or copy the link instead. A team
+  member is then signed in, with no password; an admin or owner uses theirs to choose a
+  password. When a member changes or loses their phone, or their link expired, **New sign-in
+  link** makes another (after asking) and signs the old phone out. The first time a team
+  member signs in, My Crumb suggests putting it on their home screen.
 - **Team → Benefits:** add what people can redeem, with a price in your unit. (The first
   price fixes credit or points and the currency.)
 - **Give recognition** (on the Team overview): choose a person, an amount and a message. They
@@ -181,10 +184,18 @@ lock everyone out for 15 minutes. Run Crumb as an unprivileged user that owns `D
   making a new one, signs them out everywhere else — which is also how a lost phone is cut off
   (or deactivate the account). Signing out on purpose also means asking for a new link, so the
   page asks a member before signing them out.
+- A QR code is the link itself: whoever uses it first is signed in, so send the picture as
+  privately as you would the link. It is made on your server; neither goes to any outside
+  service.
 - Each browser counts as its own device. A link opened inside a chat app's built-in browser
-  (WeChat or WhatsApp, say) signs in that browser, not Safari or Chrome on the same phone, so
-  tell people to open Crumb the same way each time. Tapping the used link again in the chat
-  simply opens Crumb while that browser is still signed in.
+  (WeChat or WhatsApp, say) signs in that browser, not Safari or Chrome on the same phone —
+  and that includes a QR code scanned or long-pressed in WeChat, whose page then says to open
+  it in the browser first. Tapping the used link again in the chat simply opens Crumb while
+  that browser is still signed in.
+- The home-screen icon opens Crumb in the browser (its manifest says `display: browser`), so
+  it shares the browser's sign-in. On iPhone, where adding a site can make it a separate web
+  app with its own storage, the tip tells people to turn off "Open as Web App"; a separate
+  app that starts signed out explains how to add the icon again.
 - An owner's or admin's session lasts at most 12 hours; a team member's device stays signed
   in for up to 180 days. Sessions are cookies Crumb's pages cannot read. Using a
   password-reset link, a role change, owner recovery and deactivation end that person's
@@ -194,8 +205,9 @@ lock everyone out for 15 minutes. Run Crumb as an unprivileged user that owns `D
   collection, history and requests; there are no leaderboards or cross-member comparisons.
 - The server logs startup, errors by type, and nothing else: no passwords, links, cookies or
   request bodies.
-- The browser keeps two things for Crumb in its local storage: the chosen language, and — for
-  a change whose answer never arrived — a random request key with a one-way fingerprint of the
-  change (never names, amounts or messages), so sending it again after a reload is not recorded
-  twice. Those keys go once an answer arrives, and after seven days in any case.
+- The browser keeps three things for Crumb in its local storage: the chosen language, whether
+  a team member dismissed the home-screen tip, and — for a change whose answer never arrived —
+  a random request key with a one-way fingerprint of the change (never names, amounts or
+  messages), so sending it again after a reload is not recorded twice. Those keys go once an
+  answer arrives, and after seven days in any case.
 - Crumb has no analytics and sends no data to anyone, including the Crumb project.

@@ -81,8 +81,9 @@ These are examples of how it can be used, not a list of teams that use it.
   never removes one, and neither does correcting a mistaken reward.
 - **Roles**: owner, admin and member. Team members sign in with a personal link — no
   password to remember — and their phone stays signed in for up to 180 days; a new link
-  signs a lost phone out. Owners and admins use a password. Links are shown to an admin to
-  pass on (sign-in and invitation links last 7 days, password resets 30 minutes) — Crumb
+  signs a lost phone out. Owners and admins use a password. Every link is shown to an admin
+  with its QR code: the person scans it in person, or it is sent as a picture that a long
+  press opens. Sign-in and invitation links last 7 days, password resets 30 minutes — Crumb
   sends no email.
 - **Records that stay put**: an append-only ledger and activity log. A reward, request,
   confirmation or refund that is retried after a dropped connection is still recorded once,
@@ -168,7 +169,8 @@ laopo: { palette: { X: '#5C3A1D', b: '#E0A73C', a: '#F3D488', s: '#8A5A22' }, ro
 
 ## How it is put together
 
-Node.js 24 with Express and SQLite (better-sqlite3); sharp re-encodes uploaded logos. The
+Node.js 24 with Express and SQLite (better-sqlite3); sharp re-encodes uploaded logos and
+draws the QR codes that uqr works out, on your own server. The
 interface is plain HTML, CSS and ES modules — no framework and no build step. Tests use
 Node's test runner and Playwright; deployment uses Docker Compose and Caddy.
 

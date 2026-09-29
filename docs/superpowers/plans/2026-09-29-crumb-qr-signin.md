@@ -10,6 +10,8 @@
 
 **Spec:** [已确认设计](../specs/2026-09-29-crumb-qr-signin-design.md)。
 
+**Status:** 任务 1–7 已在分支 `feature/self-hosted` 实施（2026-09-29），每条新规则都先写失败的测试；任务 8 的文档与截图脚本已更新，全新克隆的验证与审查结果记录在 `docs/VALIDATION.md`。尚未合并。
+
 ## 文件
 
 - 新建 `server/qr.mjs`：`qrPng(text)` → PNG data URL 或 `null`。
@@ -34,7 +36,7 @@
 - Create: `server/qr.mjs`, `tests/qr.test.mjs`
 - Modify: `package.json`, `package-lock.json`, `tests/helpers.mjs`
 
-- [ ] **Step 1: 安装两个依赖（精确版本）**
+- [x] **Step 1: 安装两个依赖（精确版本）**
 
 ```bash
 npm install --save-exact uqr@0.1.3
@@ -43,7 +45,7 @@ npm install --save-exact --save-dev jsqr@1.4.0
 
 检查 `package.json`：`dependencies` 里有 `"uqr": "0.1.3"`，`devDependencies` 里有 `"jsqr": "1.4.0"`。
 
-- [ ] **Step 2: 在 `tests/helpers.mjs` 加 `readQr`**
+- [x] **Step 2: 在 `tests/helpers.mjs` 加 `readQr`**
 
 在文件顶部 import 区加：
 
@@ -65,7 +67,7 @@ export async function readQr(image) {
 }
 ```
 
-- [ ] **Step 3: 写失败的测试 `tests/qr.test.mjs`**
+- [x] **Step 3: 写失败的测试 `tests/qr.test.mjs`**
 
 ```js
 /* QR codes for links: they must read back as exactly the link, or not be made at all. */
@@ -97,12 +99,12 @@ test('text too long for any QR code gives no picture instead of an error', async
 });
 ```
 
-- [ ] **Step 4: 运行，确认失败**
+- [x] **Step 4: 运行，确认失败**
 
 Run: `node --test tests/qr.test.mjs`
 Expected: FAIL，报 `Cannot find module` … `server/qr.mjs`。
 
-- [ ] **Step 5: 写 `server/qr.mjs`**
+- [x] **Step 5: 写 `server/qr.mjs`**
 
 ```js
 /* A QR code for a link, as a PNG data URL: scanned from the admin's screen, or sent as a
@@ -135,12 +137,12 @@ export async function qrPng(text) {
 }
 ```
 
-- [ ] **Step 6: 运行，确认通过**
+- [x] **Step 6: 运行，确认通过**
 
 Run: `node --test tests/qr.test.mjs`
 Expected: 3 pass。若第一条失败且 `readQr` 返回 `null`，打印 `encode('x', { ecc: 'M', border: 0 }).data.length`，确认 `data` 是正方形布尔数组、不含白边。
 
-- [ ] **Step 7: 提交**
+- [x] **Step 7: 提交**
 
 ```bash
 git add package.json package-lock.json server/qr.mjs tests/qr.test.mjs tests/helpers.mjs
@@ -152,7 +154,7 @@ git commit -m "feat: make QR codes for links on the server"
 **Files:**
 - Modify: `server/routes/members.mjs`, `tests/members.test.mjs`
 
-- [ ] **Step 1: 写失败的测试（加到 `tests/members.test.mjs` 末尾）**
+- [x] **Step 1: 写失败的测试（加到 `tests/members.test.mjs` 末尾）**
 
 在文件顶部从 `./helpers.mjs` 的 import 里加上 `readQr`，然后：
 
@@ -174,12 +176,12 @@ test('every link an admin makes comes with a QR code that reads back as that lin
 });
 ```
 
-- [ ] **Step 2: 运行，确认失败**
+- [x] **Step 2: 运行，确认失败**
 
 Run: `node --test --test-name-pattern="QR code that reads back" tests/members.test.mjs`
 Expected: FAIL（`qr` 为 `undefined`）。
 
-- [ ] **Step 3: 改 `server/routes/members.mjs`**
+- [x] **Step 3: 改 `server/routes/members.mjs`**
 
 顶部加 `import { qrPng } from '../qr.mjs';`，四个接口改成：
 
@@ -217,12 +219,12 @@ Expected: FAIL（`qr` 为 `undefined`）。
   });
 ```
 
-- [ ] **Step 4: 运行，确认通过，且其余不受影响**
+- [x] **Step 4: 运行，确认通过，且其余不受影响**
 
 Run: `npm test`
 Expected: 全部通过（Windows 上 2 个跳过）。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add server/routes/members.mjs tests/members.test.mjs
@@ -234,7 +236,7 @@ git commit -m "feat: every link an admin makes comes with its QR code"
 **Files:**
 - Modify: `app/views/admin.js`, `app/app.css`, `app/locales/en.js`, `app/locales/zh-CN.js`, `tests/e2e/product.spec.mjs`
 
-- [ ] **Step 1: 写失败的浏览器测试（加到 `tests/e2e/product.spec.mjs` 末尾）**
+- [x] **Step 1: 写失败的浏览器测试（加到 `tests/e2e/product.spec.mjs` 末尾）**
 
 顶部 import 改为：`import { readFileSync } from 'node:fs';` 和 `import { client, readQr, tokenFrom } from '../helpers.mjs';`。
 
@@ -297,12 +299,12 @@ test('on a phone the QR code goes straight to the share sheet, as the same pictu
 });
 ```
 
-- [ ] **Step 2: 运行，确认失败**
+- [x] **Step 2: 运行，确认失败**
 
 Run: `npx playwright test tests/e2e/product.spec.mjs -g "QR code"`
 Expected: 2 failed（找不到二维码图片）。
 
-- [ ] **Step 3: 改 `app/views/admin.js`**
+- [x] **Step 3: 改 `app/views/admin.js`**
 
 把现有 `linkPanel` 整个替换成下面三个函数加一个常量，放在原位置：
 
@@ -383,7 +385,7 @@ const qrFor = (result, person) => ({ qr: result.qr, name: person.displayName, fi
 - 「密码重置链接」：`linkPanel(t('members.resetLinkLabel'), result.resetUrl, t('members.resetNote', { name: person.displayName }), qrFor(result, person))`
 - 邀请表单提交后：两个 `linkPanel(...)` 调用末尾都加 `qrFor(result, result.user)`。
 
-- [ ] **Step 4: 文案（两种语言同步加在 `members.signinLink` 之后）**
+- [x] **Step 4: 文案（两种语言同步加在 `members.signinLink` 之后）**
 
 `app/locales/en.js`：
 
@@ -403,19 +405,19 @@ const qrFor = (result, person) => ({ qr: result.qr, name: person.displayName, fi
   'members.qrShare': '分享二维码',
 ```
 
-- [ ] **Step 5: 样式（加在 `app/app.css` 的 `.link-input` 之后）**
+- [x] **Step 5: 样式（加在 `app/app.css` 的 `.link-input` 之后）**
 
 ```css
 .qr { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; }
 .qr-image { width: 240px; max-width: 100%; height: auto; image-rendering: pixelated; background: #fff; border-radius: 8px; }
 ```
 
-- [ ] **Step 6: 运行，确认通过**
+- [x] **Step 6: 运行，确认通过**
 
 Run: `npx playwright test tests/e2e/product.spec.mjs -g "QR code"` → 2 passed；
 再跑 `npx playwright test` 和 `npm test`，全部通过。
 
-- [ ] **Step 7: 提交**
+- [x] **Step 7: 提交**
 
 ```bash
 git add app/views/admin.js app/app.css app/locales/en.js app/locales/zh-CN.js tests/e2e/product.spec.mjs
@@ -427,7 +429,7 @@ git commit -m "feat: show each link as a QR code to scan, save or share"
 **Files:**
 - Modify: `app/views/auth.js`, `app/locales/en.js`, `app/locales/zh-CN.js`, `tests/e2e/product.spec.mjs`
 
-- [ ] **Step 1: 写失败的浏览器测试**
+- [x] **Step 1: 写失败的浏览器测试**
 
 ```js
 test('opened inside WeChat, the link page says to open it in the browser first, without blocking', async ({ browser }) => {
@@ -454,12 +456,12 @@ test('opened inside WeChat, the link page says to open it in the browser first, 
 });
 ```
 
-- [ ] **Step 2: 运行，确认失败**
+- [x] **Step 2: 运行，确认失败**
 
 Run: `npx playwright test tests/e2e/product.spec.mjs -g "inside WeChat"`
 Expected: FAIL（找不到提示）。
 
-- [ ] **Step 3: 改 `app/views/auth.js`**
+- [x] **Step 3: 改 `app/views/auth.js`**
 
 在 `const USERNAME = …` 之前加：
 
@@ -474,12 +476,12 @@ const inWeChat = () => /MicroMessenger/i.test(navigator.userAgent);
     inWeChat() ? el('p', { text: t('signin.wechat'), attrs: { class: 'notice' } }) : null,
 ```
 
-- [ ] **Step 4: 文案（加在 `signin.noAnswer` 之后）**
+- [x] **Step 4: 文案（加在 `signin.noAnswer` 之后）**
 
 en: `'signin.wechat': 'You opened this inside WeChat. Tap ··· at the top right, choose Open in Browser, and sign in there, so Crumb can go on your home screen.',`
 zh: `'signin.wechat': '你是在微信里打开的。请点右上角「···」，选择「在浏览器打开」，在浏览器里登录，这样才能把 Crumb 放到桌面。',`
 
-- [ ] **Step 5: 运行，确认通过；提交**
+- [x] **Step 5: 运行，确认通过；提交**
 
 Run: `npx playwright test tests/e2e/product.spec.mjs -g "inside WeChat"` → 1 passed。
 
@@ -493,7 +495,7 @@ git commit -m "feat: tell people who open a sign-in link in WeChat to open it in
 **Files:**
 - Modify: `app/dom.js`, `app/views/member.js`, `app/app.css`, `app/locales/en.js`, `app/locales/zh-CN.js`, `tests/e2e/product.spec.mjs`
 
-- [ ] **Step 1: 写失败的浏览器测试**
+- [x] **Step 1: 写失败的浏览器测试**
 
 ```js
 test('a team member is offered the home screen until they dismiss it; an owner never is', async ({ browser }) => {
@@ -530,12 +532,12 @@ test('opened from the home screen, Crumb does not suggest adding it again', asyn
 });
 ```
 
-- [ ] **Step 2: 运行，确认失败**
+- [x] **Step 2: 运行，确认失败**
 
 Run: `npx playwright test tests/e2e/product.spec.mjs -g "home screen"`
 Expected: 第一条 FAIL（没有卡片）；第二条此时可能已通过（卡片还不存在），实现后要用改坏代码的办法再确认它能抓住问题。
 
-- [ ] **Step 3: `app/dom.js` 末尾加**
+- [x] **Step 3: `app/dom.js` 末尾加**
 
 ```js
 /* True when Crumb was opened from a home-screen icon as a separate web app. On some phones
@@ -544,7 +546,7 @@ export const openedAsHomeScreenApp = () =>
   window.navigator.standalone === true || Boolean(window.matchMedia?.('(display-mode: standalone)').matches);
 ```
 
-- [ ] **Step 4: `app/views/member.js`**
+- [x] **Step 4: `app/views/member.js`**
 
 把 `openedAsHomeScreenApp` 加进从 `../dom.js` 的 import（`button`、`el`、`uid` 已在或一并加上）。在 `renderMember` 之前加：
 
@@ -587,7 +589,7 @@ function homeTip(ctx) {
 
 在 `renderMember` 的 `main.replaceChildren(...[` 里，`me.org.welcome ? … : null,` 之后加一行 `homeTip(ctx),`。
 
-- [ ] **Step 5: 文案**
+- [x] **Step 5: 文案**
 
 en：
 
@@ -609,7 +611,7 @@ zh：
   'home.done': '知道了',
 ```
 
-- [ ] **Step 6: 样式（`app/app.css`，放在 `.notice` 之后）**
+- [x] **Step 6: 样式（`app/app.css`，放在 `.notice` 之后）**
 
 ```css
 .home-tip {
@@ -619,13 +621,13 @@ zh：
 .home-tip .btn { align-self: flex-start; }
 ```
 
-- [ ] **Step 7: 运行，确认通过；改坏确认**
+- [x] **Step 7: 运行，确认通过；改坏确认**
 
 Run: `npx playwright test tests/e2e/product.spec.mjs -g "home screen"` → 2 passed。
 临时把 `|| openedAsHomeScreenApp()` 删掉再跑，第二条必须失败；改回。
 再跑 `npx playwright test`（含手机宽度不横向滚动的检查）→ 全部通过。
 
-- [ ] **Step 8: 提交**
+- [x] **Step 8: 提交**
 
 ```bash
 git add app/dom.js app/views/member.js app/app.css app/locales/en.js app/locales/zh-CN.js tests/e2e/product.spec.mjs
@@ -638,7 +640,7 @@ git commit -m "feat: suggest putting Crumb on the home screen to team members"
 - Create: `scripts/make-icons.mjs`, `app/manifest.webmanifest`, `app/icons/icon-180.png`, `app/icons/icon-192.png`, `app/icons/icon-512.png`, `tests/home-screen.test.mjs`
 - Modify: `app/index.html`
 
-- [ ] **Step 1: 写失败的测试 `tests/home-screen.test.mjs`**
+- [x] **Step 1: 写失败的测试 `tests/home-screen.test.mjs`**
 
 ```js
 /* The home-screen icon: a manifest that keeps it opening in the browser, and real PNG icons. */
@@ -671,12 +673,12 @@ test('the manifest and icons are served, and the icon opens in the browser', asy
 });
 ```
 
-- [ ] **Step 2: 运行，确认失败**
+- [x] **Step 2: 运行，确认失败**
 
 Run: `node --test tests/home-screen.test.mjs`
 Expected: FAIL（`/manifest.webmanifest` 404）。
 
-- [ ] **Step 3: 写 `scripts/make-icons.mjs` 并运行**
+- [x] **Step 3: 写 `scripts/make-icons.mjs` 并运行**
 
 ```js
 /* Builds the home-screen icons in app/icons/ from the same sprite table the app draws from,
@@ -721,7 +723,7 @@ for (const size of [180, 192, 512]) await icon(size);
 
 Run: `node scripts/make-icons.mjs`，打开三个 PNG 看一眼：奶油底色、居中的像素老婆饼。
 
-- [ ] **Step 4: 写 `app/manifest.webmanifest`**
+- [x] **Step 4: 写 `app/manifest.webmanifest`**
 
 ```json
 {
@@ -740,7 +742,7 @@ Run: `node scripts/make-icons.mjs`，打开三个 PNG 看一眼：奶油底色�
 }
 ```
 
-- [ ] **Step 5: `app/index.html` 在 favicon 那行之后加**
+- [x] **Step 5: `app/index.html` 在 favicon 那行之后加**
 
 ```html
 <!-- The home-screen icon. The manifest keeps it opening in the browser, which holds the
@@ -749,7 +751,7 @@ Run: `node scripts/make-icons.mjs`，打开三个 PNG 看一眼：奶油底色�
 <link rel="apple-touch-icon" href="/icons/icon-180.png">
 ```
 
-- [ ] **Step 6: 运行，确认通过；提交**
+- [x] **Step 6: 运行，确认通过；提交**
 
 Run: `node --test tests/home-screen.test.mjs` → pass；`npm test` → 全部通过。
 
@@ -763,7 +765,7 @@ git commit -m "feat: home-screen icon that opens Crumb in the browser"
 **Files:**
 - Modify: `app/views/auth.js`, `app/locales/en.js`, `app/locales/zh-CN.js`, `tests/e2e/product.spec.mjs`
 
-- [ ] **Step 1: 写失败的浏览器测试**
+- [x] **Step 1: 写失败的浏览器测试**
 
 ```js
 test('opened as a separate app from the home screen and signed out, the sign-in page says how to fix the icon', async ({ browser }) => {
@@ -787,12 +789,12 @@ test('opened as a separate app from the home screen and signed out, the sign-in 
 });
 ```
 
-- [ ] **Step 2: 运行，确认失败**
+- [x] **Step 2: 运行，确认失败**
 
 Run: `npx playwright test tests/e2e/product.spec.mjs -g "separate app"`
 Expected: FAIL。
 
-- [ ] **Step 3: 改 `app/views/auth.js`**
+- [x] **Step 3: 改 `app/views/auth.js`**
 
 从 `../dom.js` 的 import 加上 `openedAsHomeScreenApp`。在 `login()` 的 `root.replaceChildren(frame(...[` 里，`auth.memberHint` 那一行之后加：
 
@@ -800,12 +802,12 @@ Expected: FAIL。
     openedAsHomeScreenApp() ? el('p', { text: t('auth.homeScreenApp'), attrs: { class: 'notice' } }) : null,
 ```
 
-- [ ] **Step 4: 文案（加在 `auth.memberHint` 之后）**
+- [x] **Step 4: 文案（加在 `auth.memberHint` 之后）**
 
 en: `'auth.homeScreenApp': 'This home-screen icon opens Crumb as a separate app, which does not share the sign-in of your browser. Delete the icon and add Crumb to the home screen again from the browser; if you see Open as Web App, turn it off. Not signed in there either? Ask your admin for a new code.',`
 zh: `'auth.homeScreenApp': '这个桌面图标把 Crumb 当成独立 App 打开，它和浏览器不共用登录。请删掉这个图标，在浏览器里重新「添加到主屏幕」；如果看到「作为网页 App 打开」，把它关掉。浏览器里也没登录？请管理员给你一个新的二维码。',`
 
-- [ ] **Step 5: 运行，确认通过；提交**
+- [x] **Step 5: 运行，确认通过；提交**
 
 Run: `npx playwright test tests/e2e/product.spec.mjs -g "separate app"` → 1 passed。
 
@@ -819,7 +821,7 @@ git commit -m "feat: explain a home-screen app that starts signed out"
 **Files:**
 - Modify: `scripts/screenshots.mjs`, `README.md`, `README.zh-CN.md`, `docs/DEPLOYMENT.md`, `docs/VALIDATION.md`, `docs/RELEASE-CHECKLIST.md`
 
-- [ ] **Step 1: 截图脚本**：`--all` 模式里，`sign-in-link-phone` 那张之后，用管理员页面给 Dana 生成新的登录链接并截 `link-panel-qr`：
+- [x] **Step 1: 截图脚本**：`--all` 模式里，`sign-in-link-phone` 那张之后，用管理员页面给 Dana 生成新的登录链接并截 `link-panel-qr`：
 
 ```js
       await ownerPage.goto(`${origin}/#/team/members`);
@@ -831,9 +833,9 @@ git commit -m "feat: explain a home-screen app that starts signed out"
 
 Run: `node scripts/screenshots.mjs --all --out <临时目录>`，看 `link-panel-qr.png`、`member-full.png`（顶部有卡片）。
 
-- [ ] **Step 2: README（中英）**：角色那条说明成员用专属链接或二维码登录；「How it is put together」加一句 uqr 在服务器上生成二维码。
-- [ ] **Step 3: `docs/DEPLOYMENT.md`**：After setup 说明二维码两种用法；安全说明补充二维码与链接相同、私下发送；微信扫码或长按识别会在微信里打开；桌面图标用浏览器打开，iPhone 上关掉「作为网页 App 打开」；浏览器本地存储多了「是否已关掉桌面提示」。
-- [ ] **Step 4: `docs/VALIDATION.md`**：与计划的差异里加 2026-09-29 的扫码与桌面图标决定、两个新依赖；未验证里加真 iPhone、安卓的扫码、长按识别、桌面图标是否共用登录；测试覆盖表加 `tests/qr.test.mjs`、`tests/home-screen.test.mjs`。
-- [ ] **Step 5: `docs/RELEASE-CHECKLIST.md`**：登录那一行提到二维码；「Before calling 0.1 ready」加一项「在真 iPhone 上确认：扫码登录，添加到主屏幕后点图标仍是登录状态」。
-- [ ] **Step 6: 全量验证**：`npm test`、`npx playwright test`、`node scripts/ci/process-drill.mjs`、`node scripts/theme-manifest.mjs --check`、`git diff --check`，再从全新克隆跑一遍，结果写进 VALIDATION。
-- [ ] **Step 7: 提交、独立审查、推送到草稿 PR、更新 PR 说明**（不合并 main）。
+- [x] **Step 2: README（中英）**：角色那条说明成员用专属链接或二维码登录；「How it is put together」加一句 uqr 在服务器上生成二维码。
+- [x] **Step 3: `docs/DEPLOYMENT.md`**：After setup 说明二维码两种用法；安全说明补充二维码与链接相同、私下发送；微信扫码或长按识别会在微信里打开；桌面图标用浏览器打开，iPhone 上关掉「作为网页 App 打开」；浏览器本地存储多了「是否已关掉桌面提示」。
+- [x] **Step 4: `docs/VALIDATION.md`**：与计划的差异里加 2026-09-29 的扫码与桌面图标决定、两个新依赖；未验证里加真 iPhone、安卓的扫码、长按识别、桌面图标是否共用登录；测试覆盖表加 `tests/qr.test.mjs`、`tests/home-screen.test.mjs`。
+- [x] **Step 5: `docs/RELEASE-CHECKLIST.md`**：登录那一行提到二维码；「Before calling 0.1 ready」加一项「在真 iPhone 上确认：扫码登录，添加到主屏幕后点图标仍是登录状态」。
+- [x] **Step 6: 全量验证**：`npm test`、`npx playwright test`、`node scripts/ci/process-drill.mjs`、`node scripts/theme-manifest.mjs --check`、`git diff --check`，再从全新克隆跑一遍，结果写进 VALIDATION。
+- [x] **Step 7: 提交、独立审查、推送到草稿 PR、更新 PR 说明**（不合并 main）。

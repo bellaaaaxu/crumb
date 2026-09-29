@@ -86,6 +86,7 @@ there, not recorded here.
 | Backup, restore, owner recovery | `tests/backup.test.mjs`, `tests/ops.test.mjs`, the drills | See the record below. |
 | Member and team journeys | `tests/e2e/product.spec.mjs` | Credit and points, two browser contexts as two devices, a team member joining with a sign-in link and a new link signing the old phone out, an admin joining with a password, deactivation, settings in Chinese; answers lost, cut short, or lost and followed by a reload. For sign-in links also: signing out, a used link opened again, a tap whose answer is cut short or lost, and a link page replaced while it loads. |
 | Phone and laptop layout, keyboard, reduced motion, HTML-looking input | `tests/e2e/accessibility.spec.mjs` | 390 px and 1440 px widths, no sideways scrolling, no CSP violations. |
+| QR codes and the home-screen icon | `tests/qr.test.mjs`, `tests/members.test.mjs`, `tests/home-screen.test.mjs`, `tests/e2e/product.spec.mjs` | Every kind of link comes with a QR code that reads back as exactly that link (decoded with jsqr, as a phone camera would); a saved or shared picture does too; the home-screen tip shows for team members only, until dismissed, and never inside a home-screen app; the WeChat and separate-app notes; the manifest opens in the browser and the icons are PNGs of the right sizes. |
 | Public demo, documents and source | `tests/e2e/demo.spec.mjs`, `tests/docs.test.mjs`, `tests/source.test.mjs` | Local links and images resolve; no invisible direction or byte-order characters. External links are not fetched by the tests. |
 
 ### Tests shown to catch the bug they are for
@@ -213,6 +214,8 @@ password screening.
   fingerprint of the change, its kind and a time; never names, amounts or messages; gone once
   answered or after seven days. The design allowed `localStorage` only for the demo and
   non-sensitive interface preferences; the maintainer approved this change on 2026-09-28.
+  It also remembers, per browser, that a team member dismissed the home-screen tip (an
+  interface preference).
 - **Incomplete answers:** a success whose body does not arrive whole is treated as no answer
   (`INCOMPLETE_ANSWER`), so the change can be retried safely.
 - **Restore keeps the backup's database version** instead of upgrading it, and refuses copies
@@ -245,6 +248,14 @@ password screening.
   person out: a member who had joined and is made an admin chooses a password through a reset
   link (one who never joined gets a new invitation), and an admin made a member loses their
   password. A member is asked before signing out, and an admin before making a new link.
+- **QR codes and the home screen (decided by the maintainer on 2026-09-29):** every one-time
+  link is shown with its QR code, to scan in person or send as a picture (a phone opens it
+  with a long press); the link and "Copy link" stay. The four link endpoints also return
+  `qr`, a PNG data URL made on the server. Team members are shown a one-time tip to put Crumb
+  on their home screen; a manifest with `display: browser` and PNG icons (made by
+  `scripts/make-icons.mjs` from the sprite table) keep that icon in the browser, which holds
+  the sign-in. Team member sign-ins stay at a fixed 180 days (decided the same day). New
+  dependencies: `uqr` 0.1.3 (MIT) at run time, `jsqr` 1.4.0 (Apache-2.0) in tests only.
 - **Hand-over:** the plan's last step asks to attach an artifact to the pull request; no
   such tool exists in this environment, so the screenshots are in the pull request's
   description instead.
@@ -266,6 +277,10 @@ password screening.
   covered only by reading the code; the browser tests drop or cut short the answer instead.
 - **Browsers and assistive technology:** only Chromium was used; no Firefox, Safari or
   mobile browsers; no real screen reader.
+- **Real phones:** scanning a code with a phone camera, opening a sent picture with a long
+  press (in WeChat, Photos or another app), the share sheet, and whether a home-screen icon
+  on iPhone stays signed in. The tests decode the picture with jsqr and stand in for the
+  share sheet; WeChat and home-screen apps are simulated by their browser signs.
 - **Stopping mid-request:** the container drill's restart stops Crumb with SIGTERM while it is
   idle; stopping it with requests in flight was not tried.
 - **Links that only work after merging:** the demo's "Deploy it for your team" link, the
@@ -297,5 +312,7 @@ password screening.
 - If the answer to the tap on "Sign in on this device" is lost after the server used the
   link, and the cookie never reached the phone, the link is spent: the page says to ask the
   admin for a new one. (When the cookie did arrive, the page notices and goes straight in.)
+- A QR code scanned or long-pressed in WeChat opens in WeChat's own browser. The page says to
+  open it in the browser first but does not stop anyone; a sign-in made there stays there.
 - A change sent again from a different browser or device after a lost answer is not
   recognised as a retry: request keys live in the browser that sent the change.

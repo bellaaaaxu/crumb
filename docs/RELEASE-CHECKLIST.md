@@ -13,7 +13,7 @@ been run at all — nothing is marked passed on the strength of reading the code
 | Requirement | Status | Evidence |
 | --- | --- | --- |
 | For any kind of team; MIT; the non-goals stated | Passed | README (EN/ZH) and demo checked by `tests/docs.test.mjs`; `LICENSE`; non-goals in README "What each side sees" and CONTRIBUTING. The README makes no claim about how many people used the original tool. |
-| Setup once, three roles, invitations, resets, permissions, sessions | Passed | `tests/auth.test.mjs` (setup once, even with two at the same time; sessions; limits; CSRF; owner and admin sessions capped at 12 hours), `tests/members.test.mjs` (roles, links, team members' sign-in links, last owner, deactivation), `tests/permissions.test.mjs`, `tests/api.test.mjs` (every management endpoint refuses members), E2E setup, sign-in link and invitation journeys. Team members sign in with a link instead of a password: a change from the design's §4 decided on 2026-09-29 (see VALIDATION.md) |
+| Setup once, three roles, invitations, resets, permissions, sessions | Passed | `tests/auth.test.mjs` (setup once, even with two at the same time; sessions; limits; CSRF; owner and admin sessions capped at 12 hours), `tests/members.test.mjs` (roles, links, team members' sign-in links, last owner, deactivation), `tests/permissions.test.mjs`, `tests/api.test.mjs` (every management endpoint refuses members), E2E setup, sign-in link and invitation journeys, with each link also shown as a QR code (`tests/qr.test.mjs`, `tests/home-screen.test.mjs`). Team members sign in with a link instead of a password: a change from the design's §4 decided on 2026-09-29 (see VALIDATION.md) |
 | Credit or points, currency, rules locking, exact amounts | Passed | `tests/units.test.mjs` (browser and server parsers agree), `tests/org.test.mjs` (locks), `tests/ledger.test.mjs` (unit changed meanwhile), E2E journeys in both units, E2E settings lock notices |
 | One ledger, revoke, refund, retries, two devices at once | Passed | `tests/ledger.test.mjs`, `tests/redemptions.test.mjs`, `tests/concurrency.test.mjs` (worker threads, separate connections), `tests/api.test.mjs` (retries, busy database), `tests/pending.test.mjs` (retry keys across reloads), E2E tests with answers lost, cut short, or lost before a reload |
 | Reserve, final states, deactivation cancels, price snapshot | Passed | `tests/redemptions.test.mjs`, `tests/concurrency.test.mjs`, `tests/members.test.mjs` (deactivation cancels pending requests), the price-changed tests (`tests/redemptions.test.mjs`, `tests/api.test.mjs`, and in the browser) |
@@ -51,7 +51,9 @@ been run at all — nothing is marked passed on the strength of reading the code
 - [x] Agree to keeping request keys in the browser, and remove the README's unconfirmed
       statements about the original tool (done on 2026-09-28).
 - [x] Decide how team members sign in: with a personal link, no password (decided on
-      2026-09-29).
+      2026-09-29), shown as a QR code too, and kept for a fixed 180 days.
+- [ ] On a real iPhone and an Android phone: scan a code, open a sent picture with a long
+      press, sign in, add Crumb to the home screen, and check the icon opens it still signed in.
 - [ ] Decide the open items listed under "Known limits" in VALIDATION.md.
 - [ ] Try the HTTPS setup on a real domain once, including a backup and a restore.
 - [ ] After merging, check that the demo, the README links and the GitHub Pages site work,
