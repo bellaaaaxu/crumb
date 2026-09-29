@@ -58,5 +58,6 @@ been run at all — nothing is marked passed on the strength of reading the code
 - [ ] The same on an Android phone, and opening a sent picture with a long press.
 - [ ] Decide the open items listed under "Known limits" in VALIDATION.md.
 - [ ] Try the HTTPS setup on a real domain once, including a backup and a restore.
-- [ ] After merging, check that the demo, the README links and the GitHub Pages site work,
-      and that GitHub Pages does not publish the app folder as a page that cannot work.
+- [ ] After merging, check that the demo, the README links and the GitHub Pages site work.
+      The app folder that GitHub Pages also publishes now says it needs its own server (tested
+      with a local server laid out like GitHub Pages).

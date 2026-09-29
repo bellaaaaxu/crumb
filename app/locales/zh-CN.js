@@ -352,6 +352,10 @@ export default {
 
   'error.generic': '出了点问题，请重试。',
   'error.boot': '无法连接 Crumb，请刷新页面重试。',
+  'static.title': 'Crumb 要运行在你自己的服务器上',
+  'static.explain': '这是自托管应用的页面，这里没有 Crumb 服务器在运行。可以先看演示，或者看看怎样为团队部署 Crumb。',
+  'static.demo': '看演示',
+  'static.deploy': '如何为团队部署',
   'error.INCOMPLETE_ANSWER': 'Crumb 的回复没有完整送达。请再试一次——这是安全的，不会重复记录。',
   'error.NETWORK': '连接不上 Crumb。请检查网络后重试——重试是安全的。',
   'error.RETRY_LATER': 'Crumb 正忙，请稍后重试——重试是安全的。',

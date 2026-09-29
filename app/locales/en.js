@@ -352,6 +352,10 @@ export default {
 
   'error.generic': 'Something went wrong. Please try again.',
   'error.boot': 'Crumb could not be reached. Reload the page to try again.',
+  'static.title': 'Crumb runs on a server of your own',
+  'static.explain': 'This page is the self-hosted app, and no Crumb server answers here. Try the demo, or see how to run Crumb for your team.',
+  'static.demo': 'Try the demo',
+  'static.deploy': 'How to run it for your team',
   'error.NETWORK': 'Could not reach Crumb. Check the connection and try again — trying again is safe.',
   'error.INCOMPLETE_ANSWER': 'The answer from Crumb did not arrive completely. Try again — it is safe: nothing is recorded twice.',
   'error.RETRY_LATER': 'Crumb is busy right now. Try again in a moment — it is safe to retry.',

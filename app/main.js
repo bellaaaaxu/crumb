@@ -12,6 +12,7 @@ import { renderSettings } from './views/settings.js';
 
 /* Feedback about Crumb itself goes to the project, unless the organization set its own form. */
 const PROJECT_FEEDBACK = 'https://github.com/bellaaaaxu/crumb/issues/new/choose';
+const PROJECT_README = 'https://github.com/bellaaaaxu/crumb#readme';
 
 const root = document.getElementById('app');
 const state = { session: null, link: null, notice: null, loginName: '', generation: 0 };
@@ -279,13 +280,29 @@ function render() {
   else renderSettings(main, ctx);
 }
 
+/* These files with no Crumb server behind them: the project's GitHub Pages site publishes the
+ * whole repository, this folder included. Say what the page is instead of "try again". */
+function noServer() {
+  document.title = t('static.title');
+  return el('main', { attrs: { id: 'main', class: 'auth', tabindex: '-1' } }, [
+    el('div', { attrs: { class: 'auth-card' } }, [
+      el('h1', { text: t('static.title'), attrs: { class: 'page-title' } }),
+      el('p', { text: t('static.explain') }),
+      el('p', {}, [el('a', { text: t('static.demo'), attrs: { href: '../', class: 'btn btn-primary' } })]),
+      el('p', {}, [el('a', { text: t('static.deploy'), attrs: { href: PROJECT_README } })]),
+    ]),
+  ]);
+}
+
 async function boot() {
   setLocale(preferredLocale());
   state.link = takeLinkFromFragment();
   try {
     await loadSession();
-  } catch {
-    root.replaceChildren(el('p', { text: t('error.boot'), attrs: { class: 'boot', role: 'alert' } }));
+  } catch (failure) {
+    root.replaceChildren(failure instanceof ApiError && failure.status === 404
+      ? noServer()
+      : el('p', { text: t('error.boot'), attrs: { class: 'boot', role: 'alert' } }));
     return;
   }
   setLocale(preferredLocale(state.session.org?.locale));

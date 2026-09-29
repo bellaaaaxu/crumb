@@ -14,8 +14,8 @@ test('the manifest and icons are served, and the icon opens in the browser', asy
   assert.equal(body.display, 'browser');
   assert.equal(body.start_url, '/');
   const index = await rawGet(server.base, '/');
-  assert.match(index.text, /<link rel="manifest" href="[/]manifest[.]webmanifest">/);
-  assert.match(index.text, /<link rel="apple-touch-icon" href="[/]icons[/]icon-180[.]png">/);
+  assert.match(index.text, /<link rel="manifest" href="manifest[.]webmanifest">/);
+  assert.match(index.text, /<link rel="apple-touch-icon" href="icons[/]icon-180[.]png">/);
   const icons = [['/icons/icon-180.png', 180], ...body.icons.map(icon => [icon.src, Number(icon.sizes.split('x')[0])])];
   assert.deepEqual(icons.map(([, size]) => size), [180, 192, 512]);
   for (const [path, size] of icons) {

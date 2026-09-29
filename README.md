@@ -112,6 +112,10 @@ docker compose up -d --build
 Open <http://localhost:3000>, paste the one-time setup code (`cat .secrets/setup-token`),
 choose credit or points, and create the owner account.
 
+To look around first, with Node.js 24 and no Docker: `npm ci`, then `npm run demo`. It opens
+an invented team, "Corner Café (sample team)", at <http://localhost:3000> and prints the
+owner's sign-in and a team member's sign-in link; everything is deleted when you stop it.
+
 For your team you need a server with Docker and Docker Compose v2, about 1 GB of memory, and
 a domain name so Crumb can run on HTTPS. [The deployment guide](docs/DEPLOYMENT.md) walks
 through it; [the operations guide](docs/OPERATIONS.md) covers backups, restores, upgrades and

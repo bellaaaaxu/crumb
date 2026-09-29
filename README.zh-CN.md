@@ -94,6 +94,10 @@ docker compose up -d --build
 打开 <http://localhost:3000>，粘贴一次性设置码（`cat .secrets/setup-token`），选择福利额度或积分，
 然后创建所有者账户。
 
+想先看看、电脑上有 Node.js 24 而没有 Docker：先 `npm ci`，再 `npm run demo`。它会在
+<http://localhost:3000> 打开一个虚构的英文示例团队「Corner Café (sample team)」，并显示所有者的登录方式和一位成员的登录链接；
+停止后数据全部删除。
+
 正式给团队使用，需要一台装有 Docker 和 Docker Compose v2 的服务器、约 1 GB 内存，
 以及一个域名以便启用 HTTPS。具体步骤见[部署指南](docs/DEPLOYMENT.md)（英文）；
 备份、恢复、升级和所有者找回见[运维指南](docs/OPERATIONS.md)（英文）。
