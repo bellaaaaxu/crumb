@@ -2,14 +2,14 @@
 
 *Translated from the Chinese original, [2026-09-29-crumb-qr-signin-design.zh-CN.md](2026-09-29-crumb-qr-signin-design.zh-CN.md).*
 
-Status: confirmed by the maintainer (2026-09-29), and implemented (see the status line of the plan and `docs/VALIDATION.md`).
+Status: approved (2026-09-29), and implemented (see the status line of the plan and `docs/VALIDATION.md`).
 Prerequisite: team members have already switched to personal sign-in links with no password (decided the same day; see `docs/VALIDATION.md`).
 
 ## 1. Goals and Confirmed Decisions
 
 When an admin gives a team member a sign-in link, the QR code now comes first: the employee signs in by scanning it in person with their phone camera.
 
-The maintainer has confirmed:
+Decisions:
 
 - The QR code comes first, while the link and "Copy link" are kept for employees who are not present.
 - After an employee's first sign-in, prompt them to add Crumb to their phone's home screen and open it from the icon from then on.
@@ -24,7 +24,7 @@ after signing in, the employee can put Crumb on their home screen, and tapping t
 
 - All one-time links share one panel: team member sign-in links, admin invitations and password resets.
   The QR code appears at the very top of the panel (about 240×240 pixels); below it, as before, are the link, "Copy link", the existing instructions and "Done".
-- The QR code can be used in two ways (added by the maintainer on 2026-09-29: the QR code can be sent straight to the employee, who long-presses the image on their own phone to recognize and open it):
+- The QR code can be used in two ways (added on 2026-09-29: the QR code can be sent straight to the employee, who long-presses the image on their own phone to recognize and open it):
   - In person: the employee scans the code on the admin's screen with their phone camera.
   - Not present: send the QR code image to the employee (WeChat, WhatsApp, etc.), and the employee long-presses the image on their phone to recognize it.
   The panel instructions cover both: "In person, ask {name} to scan with their phone camera; if they are not present, send them the QR code and they long-press the image on their phone to recognize it".
@@ -101,6 +101,6 @@ Saving and sharing use the same PNG: the page decodes the base64 into a file wit
 
 ## 7. Not Verified and Not Doing
 
-- **Not verified on a real phone**: whether iPhone's "Add to Home Screen" shares sign-in with Safari needs the maintainer to try once on their own iPhone;
+- **Not verified on a real phone**: whether iPhone's "Add to Home Screen" shares sign-in with Safari needs one try on a real iPhone;
   there is no real Android device, so it is recorded as unverified.
 - Not doing: an in-app QR code scanner (camera), offline use, push notifications, per-organization custom home-screen names and icons.

@@ -13,7 +13,7 @@ here is marked as passing unless it was actually run. The per-requirement view i
   container drill — the Docker image was built and taken through setup, restart, backup,
   restore into a new volume, owner recovery and rollback.
 - **Checked by hand on one iPhone:** signing in by QR code with the camera and through
-  WeChat, and the home-screen icon (reported by the maintainer; see "Real phone check").
+  WeChat, and the home-screen icon (see "Real phone check").
 - **Not checked:** HTTPS through Caddy on a real domain (only its Compose configuration was
   validated), arm64, Docker Desktop, Android phones, and browsers other than Chromium apart
   from that one iPhone.
@@ -128,15 +128,15 @@ there, not recorded here.
 
 ## Real phone check
 
-On 2026-09-29 the maintainer tried the QR codes on their own iPhone, against a temporary
-Crumb (commit `8523d47`, invented data) running on a computer on the same network:
+On 2026-09-29 the QR codes were tried by hand on one iPhone, against a temporary Crumb
+(commit `8523d47`, invented data) running on a computer on the same network:
 
 - scanned the code on the computer screen with the iPhone camera, signed in with one tap,
   added Crumb to the home screen, and opened it from the icon still signed in;
 - scanned a new code with WeChat, followed the note to open it in the browser, and signed in
   there.
 
-Both passed, as the maintainer reported. Not recorded: the iOS version, whether "Open as Web
+Both passed. Not recorded: the iOS version, whether "Open as Web
 App" was offered when adding the icon, and what WeChat calls its menu item. No Android phone
 was tried, and a picture opened with a long press was not tried separately from scanning.
 
@@ -236,9 +236,8 @@ marked:
 | (Reading) Share failures were silent; a QR failure left no trace; the WeChat note was not read with the button | A failed share saves; the failure is logged by type only; the notes describe the button |
 | (Reading) Documents: "neither goes to any outside service" beside advice to send it by chat; "the first time" for a tip shown until dismissed; the DOM helper comment | Reworded |
 
-Decided by the maintainer on 2026-09-28: request keys stay in the browser as described below,
-and the README's two unconfirmed statements about the original tool ("in daily use by about
-thirty people", "validated every release before rollout") were removed. Still to decide
+Decided on 2026-09-28: request keys stay in the browser as described below, and two
+unconfirmed statements about the original tool were removed from the README. Still to decide
 (documented as limits below): the account lock design, managers rewarding themselves,
 anonymous sessions, the loopback port under HTTPS, invitation links in browser history and
 password screening.
@@ -255,7 +254,7 @@ password screening.
   changes whose answer never arrived — per signed-in person, a random key, a one-way
   fingerprint of the change, its kind and a time; never names, amounts or messages; gone once
   answered or after seven days. The design allowed `localStorage` only for the demo and
-  non-sensitive interface preferences; the maintainer approved this change on 2026-09-28.
+  non-sensitive interface preferences; this change was decided on 2026-09-28.
   It also remembers, per browser, that a team member dismissed the home-screen tip (an
   interface preference).
 - **Incomplete answers:** a success whose body does not arrive whole is treated as no answer
@@ -274,11 +273,9 @@ password screening.
 - **Screens:** roles change through a dialog; admins can cancel a request; the settings page
   says which rule is fixed; a page opened at the wrong address says where to go.
 - **Documents:** the README shows three screenshots, and no longer says how many people used
-  the original tool or that every release of it was validated (the maintainer could not
-  confirm either).
-- **How team members sign in (decided by the maintainer on 2026-09-29):** the design (§4)
-  has everyone sign in with a username and password. The maintainer's original design never
-  asked staff for a password, so team members now sign in with a personal link an admin makes: it works
+  the original tool or that every release of it was validated (neither could be confirmed).
+- **How team members sign in (decided on 2026-09-29):** the design (§4) has everyone sign in
+  with a username and password. Team members now sign in with a personal link an admin makes: it works
   once, within 7 days; the device then stays signed in for up to 180 days; a member is signed
   in on one device at a time, and a new link signs the old device out. Owners and admins keep
   passwords and 12-hour sessions. New endpoints: `POST /api/admin/members/:id/signin-link`,
@@ -290,7 +287,7 @@ password screening.
   person out: a member who had joined and is made an admin chooses a password through a reset
   link (one who never joined gets a new invitation), and an admin made a member loses their
   password. A member is asked before signing out, and an admin before making a new link.
-- **QR codes and the home screen (decided by the maintainer on 2026-09-29):** every one-time
+- **QR codes and the home screen (decided on 2026-09-29):** every one-time
   link is shown with its QR code, to scan in person or send as a picture (a phone opens it
   with a long press); the link and "Copy link" stay. The four link endpoints also return
   `qr`, a PNG data URL made on the server. Team members are shown a one-time tip to put Crumb

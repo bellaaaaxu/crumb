@@ -54,7 +54,7 @@ been run at all — nothing is marked passed on the strength of reading the code
       2026-09-29), shown as a QR code too, and kept for a fixed 180 days.
 - [x] On a real iPhone: scan a code, sign in, add Crumb to the home screen and open it from the
       icon still signed in; in WeChat, scan a code, follow the note to open it in the browser,
-      and sign in there (passed, reported by the maintainer on 2026-09-29).
+      and sign in there (passed on 2026-09-29).
 - [ ] The same on an Android phone, and opening a sent picture with a long press.
 - [ ] Decide the open items listed under "Known limits" in VALIDATION.md.
 - [ ] Try the HTTPS setup on a real domain once, including a backup and a restore.
