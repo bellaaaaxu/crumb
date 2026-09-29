@@ -185,10 +185,53 @@ async function overview(container, ctx) {
 
 /* ---------------------------------------------------------------- members */
 
+/* A QR code the server made for a link: only ever a PNG data URL. */
+const QR_SHAPE = /^data:image[/]png;base64,[A-Za-z0-9+/]+=*$/;
+
+/* The picture as a file, decoded here: fetching a data: URL would need a wider connect-src. */
+function pngFile(dataUrl, name) {
+  const bytes = Uint8Array.from(atob(dataUrl.slice(dataUrl.indexOf(',') + 1)), char => char.charCodeAt(0));
+  return new File([bytes], name, { type: 'image/png' });
+}
+
+/* The link as a QR code: scanned from this screen in person, or sent as a picture, which a
+ * phone opens with a long press. A phone hands it straight to a chat app; a computer saves it. */
+function qrBlock(qr, name, fileName) {
+  const file = pngFile(qr, fileName);
+  const canShare = typeof navigator.canShare === 'function' && navigator.canShare({ files: [file] });
+  const send = button(t(canShare ? 'members.qrShare' : 'members.qrSave'), {
+    on: {
+      click: async () => {
+        if (!canShare) {
+          const save = el('a', { attrs: { href: qr, download: fileName, hidden: true } });
+          document.body.append(save);
+          save.click();
+          save.remove();
+          return;
+        }
+        try {
+          await navigator.share({ files: [file] });
+        } catch {
+          // Closing the share sheet without choosing an app is not an error.
+        }
+      },
+    },
+  });
+  return el('figure', { attrs: { class: 'qr' } }, [
+    el('img', { attrs: { src: qr, alt: t('members.qrAlt', { name }), class: 'qr-image', width: 240, height: 240 } }),
+    el('figcaption', { text: t('members.qrCaption', { name }), attrs: { class: 'small' } }),
+    send,
+  ]);
+}
+
+/* What the panel needs to show a link's QR code for a person. */
+const qrFor = (result, person) => ({ qr: result.qr, name: person.displayName, fileName: `crumb-${person.username}.png` });
+
 /* One-time links are shown once, with a copy button, and can be dismissed. */
-function linkPanel(label, url, note) {
+function linkPanel(label, url, note, { qr = null, name = '', fileName = 'crumb.png' } = {}) {
   const link = field({ label, name: 'link', value: url, attrs: { readonly: true, class: 'link-input' } });
   const panel = el('div', { attrs: { class: 'link-panel' } }, [
+    typeof qr === 'string' && QR_SHAPE.test(qr) ? qrBlock(qr, name, fileName) : null,
     link.wrapper,
     el('p', { text: note, attrs: { class: 'muted small' } }),
     el('div', { attrs: { class: 'row-actions' } }, [
@@ -268,7 +311,8 @@ function memberRow(ctx, person, money, refresh, showLink) {
           send: key => request(`${memberPath}/signin-link`, { method: 'POST', key }),
           // Whether they had joined comes from the server: this list may be older than that.
           done: result => showLink(linkPanel(t('members.signinLink'), result.signinUrl,
-            t(result.user.status === 'active' ? 'members.signinRenewNote' : 'members.signinNote', { name: person.displayName }))),
+            t(result.user.status === 'active' ? 'members.signinRenewNote' : 'members.signinNote', { name: person.displayName }),
+            qrFor(result, person))),
         }),
       },
     }));
@@ -278,7 +322,8 @@ function memberRow(ctx, person, money, refresh, showLink) {
       attrs: { 'aria-label': t('members.newInviteNamed', { name: person.displayName }) },
       on: {
         click: () => oneTap(ctx, `invite:${person.id}`, { path: `${memberPath}/invitation` },
-          result => showLink(linkPanel(t('members.inviteLink'), result.invitationUrl, t('members.inviteNote', { name: person.displayName })))),
+          result => showLink(linkPanel(t('members.inviteLink'), result.invitationUrl, t('members.inviteNote', { name: person.displayName }),
+            qrFor(result, person)))),
       },
     }));
   }
@@ -287,7 +332,8 @@ function memberRow(ctx, person, money, refresh, showLink) {
       attrs: { 'aria-label': t('members.resetLinkNamed', { name: person.displayName }) },
       on: {
         click: () => oneTap(ctx, `reset:${person.id}`, { path: `${memberPath}/reset` },
-          result => showLink(linkPanel(t('members.resetLinkLabel'), result.resetUrl, t('members.resetNote', { name: person.displayName })))),
+          result => showLink(linkPanel(t('members.resetLinkLabel'), result.resetUrl, t('members.resetNote', { name: person.displayName }),
+            qrFor(result, person)))),
       },
     }));
   }
@@ -398,8 +444,8 @@ async function members(container, ctx) {
             method: 'POST', body: { displayName: name.control.value, username: handle, role: role.control.value },
           });
           showLink(result.signinUrl
-            ? linkPanel(t('members.signinLink'), result.signinUrl, t('members.signinNote', { name: result.user.displayName }))
-            : linkPanel(t('members.inviteLink'), result.invitationUrl, t('members.inviteNote', { name: result.user.displayName })));
+            ? linkPanel(t('members.signinLink'), result.signinUrl, t('members.signinNote', { name: result.user.displayName }), qrFor(result, result.user))
+            : linkPanel(t('members.inviteLink'), result.invitationUrl, t('members.inviteNote', { name: result.user.displayName }), qrFor(result, result.user)));
           form.reset();
           await refresh();
         } catch (failure) {

@@ -275,6 +275,8 @@ fieldset.group > legend { font-size: 0.8rem; letter-spacing: 0.12em; text-transf
   border: 2px dashed var(--gold-deep); border-radius: 14px; background: #fff8e6;
 }
 .link-input { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.85rem; }
+.qr { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; }
+.qr-image { width: 240px; max-width: 100%; height: auto; image-rendering: pixelated; background: #fff; border-radius: 8px; }
 .logo-preview {
   width: 96px; height: 96px; object-fit: contain; padding: 6px;
   background: var(--paper); border: 2px solid var(--line); border-radius: 14px;

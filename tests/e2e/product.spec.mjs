@@ -1,6 +1,7 @@
+import { readFileSync } from 'node:fs';
 import { test, expect } from '@playwright/test';
 import { PASSWORD, provision, startCrumb } from './fixtures.mjs';
-import { client, tokenFrom } from '../helpers.mjs';
+import { client, readQr, tokenFrom } from '../helpers.mjs';
 
 test('member requests a benefit and owner completes it', async ({browser}) => {
   const fx = await provision(browser,{mode:'points'});
@@ -752,6 +753,64 @@ test('a link page replaced while it loads never shows or uses the old link', asy
     await page.getByRole('button', { name: 'Sign in on this device', exact: true }).click();
     await expect(page.locator('.who')).toHaveText('Lee Chan');
     await context.close();
+  } finally {
+    await fx.close();
+  }
+});
+
+/* ---------------------------------------------------------------- QR codes */
+
+test('the link panel shows the link as a QR code, which saves as a picture of the same link', async ({ browser }) => {
+  const fx = await provision(browser, { mode: 'points' });
+  try {
+    const { ownerPage } = fx;
+    // A computer: no system share sheet, so the picture is saved.
+    await ownerPage.context().addInitScript(() => Object.defineProperty(navigator, 'canShare', { value: undefined, configurable: true }));
+    await ownerPage.reload();
+    await ownerPage.getByRole('link', { name: 'Members', exact: true }).click();
+    await ownerPage.getByLabel('Name', { exact: true }).fill('Sam Okafor');
+    await ownerPage.getByLabel('Username').fill('sam');
+    await ownerPage.getByRole('button', { name: 'Create invitation', exact: true }).click();
+    const link = await ownerPage.getByLabel('Sign-in link', { exact: true }).inputValue();
+    const image = ownerPage.getByRole('img', { name: 'QR code of the link for Sam Okafor' });
+    expect(await readQr(await image.getAttribute('src'))).toBe(link);
+    await expect(ownerPage.locator('.link-panel')).toContainText('long press');
+    const [download] = await Promise.all([
+      ownerPage.waitForEvent('download'),
+      ownerPage.getByRole('button', { name: 'Save QR code', exact: true }).click(),
+    ]);
+    expect(download.suggestedFilename()).toBe('crumb-sam.png');
+    expect(await readQr(readFileSync(await download.path()))).toBe(link);
+  } finally {
+    await fx.close();
+  }
+});
+
+test('on a phone the QR code goes straight to the share sheet, as the same picture', async ({ browser }) => {
+  const fx = await provision(browser, { mode: 'points' });
+  try {
+    const { ownerPage } = fx;
+    await ownerPage.context().addInitScript(() => {
+      Object.defineProperty(navigator, 'canShare', { value: () => true, configurable: true });
+      Object.defineProperty(navigator, 'share', {
+        configurable: true,
+        value: async ({ files }) => {
+          window.shared = await Promise.all(files.map(async file => ({
+            name: file.name, type: file.type, bytes: Array.from(new Uint8Array(await file.arrayBuffer())),
+          })));
+        },
+      });
+    });
+    await ownerPage.goto(`${fx.origin}/#/team/members`);
+    await ownerPage.reload();
+    await ownerPage.getByRole('button', { name: 'New sign-in link for Mina Park', exact: true }).click();
+    await ownerPage.getByRole('dialog').getByRole('button', { name: 'Make a new link', exact: true }).click();
+    const link = await ownerPage.getByLabel('Sign-in link', { exact: true }).inputValue();
+    await ownerPage.getByRole('button', { name: 'Share QR code', exact: true }).click();
+    await expect.poll(() => ownerPage.evaluate(() => window.shared?.length ?? 0)).toBe(1);
+    const shared = await ownerPage.evaluate(() => window.shared);
+    expect(shared.map(file => [file.name, file.type])).toEqual([['crumb-mina.png', 'image/png']]);
+    expect(await readQr(Buffer.from(shared[0].bytes))).toBe(link);
   } finally {
     await fx.close();
   }
