@@ -23,15 +23,15 @@ here is marked as passing unless it was actually run. The per-requirement view i
 
 | | Local | CI |
 | --- | --- | --- |
-| Commit | `96199ea` (fresh clone) | `67a174b`, [run 36412250215](https://github.com/bellaaaaxu/crumb/actions/runs/36412250215) |
-| Date | 2026-09-28 | 2026-09-28 |
+| Commit | `afbde8e` (fresh clone) | `67a174b`, [run 36412250215](https://github.com/bellaaaaxu/crumb/actions/runs/36412250215) |
+| Date | 2026-09-29 | 2026-09-28 |
 | Machine | Windows 11 Pro 10.0.26200 | GitHub Actions `ubuntu-24.04` (image 20260920.314.1), x64 |
 | Node.js | 24.14.0, npm 11.9.0 | 24.14.0 for the tests; 24.21.0 inside the image |
 | SQLite, images | 3.53.4 (better-sqlite3 13.0.3); sharp 0.35.5 with libvips 8.18.7 | the same packages |
 | Browser | Chromium 153.0.8010.12 (Playwright 1.63.0) | the same |
 | Docker | **not installed** | the runner's Docker Engine and Compose |
 
-The commit after `96199ea` only adds this report and the checklist.
+The commit after `afbde8e` only records these results in this report.
 
 ## Results from a fresh clone (local)
 
@@ -40,8 +40,8 @@ A new clone of the branch into an empty temporary folder, with no files carried 
 | Step | Command | Result |
 | --- | --- | --- |
 | Install the locked dependencies | `npm ci` | passed — nothing compiled (see `.npmrc`) |
-| Unit, API, concurrency and operations tests | `npm test` | 164 tests: 162 passed, **2 skipped** (file permissions and umask, which Windows does not have; both pass in CI) |
-| Browser tests | `npm run test:e2e` | 30 of 30 passed (Chromium only) |
+| Unit, API, concurrency and operations tests | `npm test` | 177 tests: 175 passed, **2 skipped** (file permissions and umask, which Windows does not have; both pass in CI) |
+| Browser tests | `npm run test:e2e` | 37 of 37 passed (Chromium only) |
 | Operations drill with real server processes | `node scripts/ci/process-drill.mjs` | 20 of 20 checks passed |
 | Collectible manifest | `node scripts/theme-manifest.mjs --check` | current (39 collectibles) |
 | Whitespace in the change | `git diff --check 705ae23..HEAD` | clean |
