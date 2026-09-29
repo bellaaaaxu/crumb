@@ -121,6 +121,7 @@ export default {
   'redeem.after': 'Available after this request: {amount}',
   'redeem.confirm': 'Confirm request',
   'redeem.sent': 'Requested {name}. An admin will confirm it.',
+  'redeem.unconfirmed': 'A request you made at {time} was not confirmed by Crumb. Asking again for the same benefit finishes that attempt instead of making a second request. Your requests show what went through.',
   'redeem.alreadySent': 'Your request for {name} had already gone through, so it was not made twice.',
 
   'status.pending': 'Awaiting confirmation',
@@ -170,6 +171,7 @@ export default {
   'grant.messageHint': 'Optional, but it is the part they will remember. They see it with the reward.',
   'grant.send': 'Send reward',
   'grant.sent': 'Sent {amount} to {name}.',
+  'grant.unconfirmed': 'A reward you sent at {time} was not confirmed by Crumb. Sending the same person, amount and message again finishes that attempt instead of adding a second reward. If you are not sure, check History first.',
   'grant.alreadySent': '{amount} to {name} had already been recorded, so it was not added twice. Send it again if you meant a second one.',
   'grant.unlocked': 'It unlocked {count} new collectible(s).',
 
@@ -218,6 +220,7 @@ export default {
   'benefits.open': 'Open for requests',
   'benefits.add': 'Add benefit',
   'benefits.added': '{name} added.',
+  'benefits.unconfirmed': 'A benefit you added at {time} was not confirmed by Crumb. Adding exactly the same one again finishes that attempt instead of adding it twice.',
   'benefits.alreadyAdded': '{name} had already been added, so it was not added twice.',
   'benefits.catalog': 'Catalog',
   'benefits.none': 'No benefits yet.',
@@ -314,6 +317,7 @@ export default {
   'error.generic': 'Something went wrong. Please try again.',
   'error.boot': 'Crumb could not be reached. Reload the page to try again.',
   'error.NETWORK': 'Could not reach Crumb. Check the connection and try again — trying again is safe.',
+  'error.INCOMPLETE_ANSWER': 'The answer from Crumb did not arrive completely. Try again — it is safe: nothing is recorded twice.',
   'error.RETRY_LATER': 'Crumb is busy right now. Try again in a moment — it is safe to retry.',
   'error.INTERNAL': 'Something went wrong on the server. Try again, and tell your admin if it keeps happening.',
   'error.INVALID_CREDENTIALS': 'That username and password do not match.',

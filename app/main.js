@@ -1,7 +1,7 @@
 /* Crumb — the self-hosted app. Boots from GET /api/session: the server, not
  * the page, says who is signed in and what their role is. */
 
-import { ApiError, request, setCsrf } from './api.js';
+import { ApiError, request, setActor, setCsrf } from './api.js';
 import { button, closeAllDialogs, el, safeUrl, toast, uid } from './dom.js';
 import { LANGUAGES, getLocale, has, preferredLocale, rememberLocale, setLocale, t } from './i18n.js';
 import { spriteCanvas } from './pixels.js';
@@ -28,6 +28,8 @@ function takeLinkFromFragment() {
 async function loadSession() {
   const session = await request('/api/session');
   setCsrf(session.csrfToken);
+  // Unanswered request keys are kept per person, so someone else signing in here never reuses them.
+  setActor(session.user?.id);
   state.session = session;
   return session;
 }

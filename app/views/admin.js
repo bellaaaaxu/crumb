@@ -1,11 +1,11 @@
 /* Team management for owners and admins. The server re-checks every permission;
  * hiding a button here is a courtesy, not the control. */
 
-import { keyFor, request, requestAll, settleKey, wasRefused } from '../api.js';
+import { keyFor, request, requestAll, settleKey, unconfirmedSince, wasRefused } from '../api.js';
 import { button, copyText, el, field, formError, openDialog, radios, toast, uid } from '../dom.js';
 import { formatDate, formatDateTime, getLocale, has, t } from '../i18n.js';
 import { amountToUnits, formatUnits, unitsToInput } from '../format.js';
-import { badge, card, historyTitle, loading, pager, signedAmount } from './member.js';
+import { badge, card, historyTitle, loading, pager, signedAmount, unconfirmedNotice } from './member.js';
 
 const moneyFor = org => units => formatUnits(units, org, getLocale());
 const amountHint = org => t(org.mode === 'credit' ? 'amount.creditHint' : 'amount.pointsHint', { currency: org.currency, unit: org.unitLabel });
@@ -51,16 +51,19 @@ function actionDialog(ctx, { title, intro = [], fields = [], extra = [], submitL
         if (validate && !validate()) return;
         const id = action();
         submit.disabled = true;
+        let result;
         try {
-          const result = await send(keyFor(id));
-          settleKey(id);
-          opened.close();
-          done(result);
+          result = await send(await keyFor(id));
         } catch (failure) {
-          if (wasRefused(failure)) settleKey(id);
+          if (wasRefused(failure)) await settleKey(id);
           submit.disabled = false;
           ctx.fail(failure, error);
+          return;
         }
+        // A definite answer: only now does the key go, and nothing after this is a failed request.
+        await settleKey(id);
+        opened.close();
+        done(result);
       },
     },
   }, [
@@ -78,16 +81,17 @@ function actionDialog(ctx, { title, intro = [], fields = [], extra = [], submitL
 /* One-tap row actions keep their idempotency key until the server gives a
  * definite answer, so tapping again after a dropped connection is a retry. */
 async function oneTap(ctx, action, { method = 'POST', path, body }, onDone) {
+  let result;
   try {
-    const result = await request(path, { method, body, key: keyFor(action) });
-    settleKey(action);
-    onDone(result);
-    return true;
+    result = await request(path, { method, body, key: await keyFor(action) });
   } catch (failure) {
-    if (wasRefused(failure)) settleKey(action);
+    if (wasRefused(failure)) await settleKey(action);
     ctx.fail(failure);
     return false;
   }
+  await settleKey(action);
+  onDone(result);
+  return true;
 }
 
 /* ---------------------------------------------------------------- recognition */
@@ -112,8 +116,10 @@ async function openGrant(ctx, done) {
   });
   const amount = field({ label: t('grant.amount'), name: 'amount', hint: amountHint(org), attrs: { inputmode: org.mode === 'credit' ? 'decimal' : 'numeric', autocomplete: 'off' } });
   const message = field({ label: t('grant.message'), name: 'reason', multiline: true, hint: t('grant.messageHint'), attrs: { maxlength: 500 } });
+  const earlier = unconfirmedSince('grant');
   actionDialog(ctx, {
     title: t('grant.title'),
+    intro: earlier.length ? [unconfirmedNotice('grant.unconfirmed', earlier)] : [],
     fields: [member, amount, message],
     submitLabel: t('grant.send'),
     validate() {
@@ -430,19 +436,24 @@ async function benefits(container, ctx) {
         // Same benefit, same key: adding it again after a lost answer does not create a second one.
         const action = `benefit:${JSON.stringify(body)}`;
         add.disabled = true;
+        let reward;
         try {
-          const reward = await request('/api/admin/rewards', { method: 'POST', body, key: keyFor(action) });
-          settleKey(action);
-          toast(t(reward.replayed ? 'benefits.alreadyAdded' : 'benefits.added', { name: reward.name }));
-          ctx.render();
+          reward = await request('/api/admin/rewards', { method: 'POST', body, key: await keyFor(action) });
         } catch (failure) {
-          if (wasRefused(failure)) settleKey(action);
+          if (wasRefused(failure)) await settleKey(action);
           add.disabled = false;
           ctx.fail(failure, error);
+          return;
         }
+        await settleKey(action);
+        toast(t(reward.replayed ? 'benefits.alreadyAdded' : 'benefits.added', { name: reward.name }));
+        ctx.render();
       },
     },
-  }, [...draft.fields.map(item => item.wrapper), draft.openWrapper, error.node, add]);
+  }, [
+    ...(unconfirmedSince('benefit').length ? [unconfirmedNotice('benefits.unconfirmed', unconfirmedSince('benefit'))] : []),
+    ...draft.fields.map(item => item.wrapper), draft.openWrapper, error.node, add,
+  ]);
 
   const rows = items.map(reward => el('li', { attrs: { class: 'row' } }, [
     el('div', { attrs: { class: 'row-main' } }, [
@@ -503,14 +514,15 @@ async function redemptions(container, ctx) {
   const complete = async item => {
     const action = `complete:${item.id}`;
     try {
-      await request(`/api/admin/redemptions/${item.id}/complete`, { method: 'POST', key: keyFor(action) });
-      settleKey(action);
-      toast(t('redemptions.completedToast', { reward: item.rewardName, name: item.member.displayName }));
-      ctx.render();
+      await request(`/api/admin/redemptions/${item.id}/complete`, { method: 'POST', key: await keyFor(action) });
     } catch (failure) {
-      if (wasRefused(failure)) settleKey(action);
+      if (wasRefused(failure)) await settleKey(action);
       ctx.fail(failure);
+      return;
     }
+    await settleKey(action);
+    toast(t('redemptions.completedToast', { reward: item.rewardName, name: item.member.displayName }));
+    ctx.render();
   };
   const decline = item => {
     const reason = field({ label: t('common.reason'), name: 'reason', multiline: true, hint: t('redemptions.declineHint', { name: item.member.displayName }), attrs: { maxlength: 500 } });

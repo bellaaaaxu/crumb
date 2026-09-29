@@ -2,9 +2,9 @@
  * history. Everything here is read from the server for the signed-in person
  * only; there is nothing about anyone else on this page. */
 
-import { keyFor, request, settleKey, wasRefused } from '../api.js';
+import { keyFor, request, settleKey, unconfirmedSince, wasRefused } from '../api.js';
 import { button, el, formError, openDialog, toast, uid } from '../dom.js';
-import { formatDate, getLocale, t } from '../i18n.js';
+import { formatDate, formatDateTime, getLocale, t } from '../i18n.js';
 import { formatUnits } from '../format.js';
 import { spriteCanvas } from '../pixels.js';
 
@@ -112,16 +112,13 @@ function confirmRedeem(ctx, me, reward, money) {
         event.preventDefault();
         error.clear();
         confirm.disabled = true;
+        let result;
         try {
-          const result = await request('/api/redemptions', {
-            method: 'POST', body: { rewardId: reward.id, expectedCostUnits: reward.costUnits }, key: keyFor(action),
+          result = await request('/api/redemptions', {
+            method: 'POST', body: { rewardId: reward.id, expectedCostUnits: reward.costUnits }, key: await keyFor(action),
           });
-          settleKey(action);
-          dialog.close();
-          toast(t(result.replayed ? 'redeem.alreadySent' : 'redeem.sent', { name: reward.name }));
-          ctx.render();
         } catch (failure) {
-          if (wasRefused(failure)) settleKey(action);
+          if (wasRefused(failure)) await settleKey(action);
           confirm.disabled = false;
           if (failure.code === 'PRICE_CHANGED') {
             // Nothing was reserved. Show the new price rather than asking again at the old one.
@@ -131,16 +128,29 @@ function confirmRedeem(ctx, me, reward, money) {
             return;
           }
           ctx.fail(failure, error);
+          return;
         }
+        await settleKey(action);
+        dialog.close();
+        toast(t(result.replayed ? 'redeem.alreadySent' : 'redeem.sent', { name: reward.name }));
+        ctx.render();
       },
     },
   }, [
+    unconfirmedSince('redeem').length ? unconfirmedNotice('redeem.unconfirmed', unconfirmedSince('redeem')) : null,
     el('p', { text: t('redeem.explain', { price: money(reward.costUnits) }) }),
     el('p', { text: t('redeem.after', { amount: money(me.balance.availableUnits - reward.costUnits) }), attrs: { class: 'muted' } }),
     error.node,
     el('div', { attrs: { class: 'dialog-actions' } }, [cancel, confirm]),
   ]);
   dialog = openDialog({ title: t('redeem.title', { name: reward.name }), content: form }).dialog;
+}
+
+/* A change of this kind went out and no answer came back — perhaps before the page was
+ * reloaded. Says when, and what sending the same change again will do. */
+export function unconfirmedNotice(key, times) {
+  const time = formatDateTime(new Date(times.at(-1)).toISOString());
+  return el('p', { text: t(key, { time }), attrs: { class: 'notice', role: 'note' } });
 }
 
 function benefitsCard(ctx, me, rewards, money) {
@@ -168,14 +178,15 @@ function benefitsCard(ctx, me, rewards, money) {
 async function cancelRequest(ctx, item) {
   const action = `cancel:${item.id}`;
   try {
-    await request(`/api/redemptions/${item.id}/cancel`, { method: 'POST', key: keyFor(action) });
-    settleKey(action);
-    toast(t('me.requestCancelled', { name: item.rewardName }));
-    ctx.render();
+    await request(`/api/redemptions/${item.id}/cancel`, { method: 'POST', key: await keyFor(action) });
   } catch (failure) {
-    if (wasRefused(failure)) settleKey(action);
+    if (wasRefused(failure)) await settleKey(action);
     ctx.fail(failure);
+    return;
   }
+  await settleKey(action);
+  toast(t('me.requestCancelled', { name: item.rewardName }));
+  ctx.render();
 }
 
 function requestRow(ctx, item, money) {

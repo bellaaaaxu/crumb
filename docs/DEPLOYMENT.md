@@ -178,4 +178,8 @@ lock everyone out for 15 minutes. Run Crumb as an unprivileged user that owns `D
   collection, history and requests; there are no leaderboards or cross-member comparisons.
 - The server logs startup, errors by type, and nothing else: no passwords, links, cookies or
   request bodies.
+- The browser keeps two things for Crumb in its local storage: the chosen language, and — for
+  a change whose answer never arrived — a random request key with a one-way fingerprint of the
+  change (never names, amounts or messages), so sending it again after a reload is not recorded
+  twice. Those keys go once an answer arrives, and after seven days in any case.
 - Crumb has no analytics and sends no data to anyone, including the Crumb project.

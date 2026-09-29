@@ -121,6 +121,7 @@ export default {
   'redeem.after': '申请后可用：{amount}',
   'redeem.confirm': '确认申请',
   'redeem.sent': '已申请 {name}，等待管理员确认。',
+  'redeem.unconfirmed': '你在 {time} 提交的一个申请没有得到 Crumb 的确认。再次申请同一项福利，会完成那一次，而不会多提交一个。已提交成功的申请可以在“我的申请”里看到。',
   'redeem.alreadySent': '你对 {name} 的申请之前已经提交成功，这次没有重复提交。',
 
   'status.pending': '等待确认',
@@ -170,6 +171,7 @@ export default {
   'grant.messageHint': '选填，但这是对方会记住的部分，会和奖励一起显示给对方。',
   'grant.send': '发放奖励',
   'grant.sent': '已给 {name} 发放 {amount}。',
+  'grant.unconfirmed': '你在 {time} 发出的一笔奖励没有得到 Crumb 的确认。再次发送同一个人、同样的数额和留言，会完成那一次，而不会多发一笔。不确定的话，先到“记录”里看看。',
   'grant.alreadySent': '给 {name} 的 {amount} 之前已经记下了，这次没有重复记录。如果确实要再发一次，请再发送一次。',
   'grant.unlocked': '解锁了 {count} 件新收藏。',
 
@@ -218,6 +220,7 @@ export default {
   'benefits.open': '开放申请',
   'benefits.add': '添加福利',
   'benefits.added': '已添加 {name}。',
+  'benefits.unconfirmed': '你在 {time} 添加的一项福利没有得到 Crumb 的确认。再次添加完全相同的一项，会完成那一次，而不会重复添加。',
   'benefits.alreadyAdded': '{name} 之前已经添加了，这次没有重复添加。',
   'benefits.catalog': '福利目录',
   'benefits.none': '还没有福利。',
@@ -313,6 +316,7 @@ export default {
 
   'error.generic': '出了点问题，请重试。',
   'error.boot': '无法连接 Crumb，请刷新页面重试。',
+  'error.INCOMPLETE_ANSWER': 'Crumb 的回复没有完整送达。请再试一次——这是安全的，不会重复记录。',
   'error.NETWORK': '连接不上 Crumb。请检查网络后重试——重试是安全的。',
   'error.RETRY_LATER': 'Crumb 正忙，请稍后重试——重试是安全的。',
   'error.INTERNAL': '服务器出了问题。请重试；如果一直这样，请告诉管理员。',

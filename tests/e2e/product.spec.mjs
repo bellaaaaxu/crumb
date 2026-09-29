@@ -415,3 +415,124 @@ test('settings say which rule is fixed, and why', async ({ browser }) => {
     await fx.close();
   }
 });
+
+/* ------------------------------------------------ answers that never arrived whole */
+
+const grantRows = fx => fx.db.prepare(`SELECT count(*) AS n FROM ledger WHERE kind = 'grant'`).get().n;
+const pendingRequests = fx => fx.db.prepare(`SELECT count(*) AS n FROM redemptions WHERE status = 'pending'`).get().n;
+
+async function giveHundred(page, fx) {
+  await page.getByRole('button', { name: 'Give recognition', exact: true }).click();
+  await page.getByLabel('Team member').selectOption(fx.memberId);
+  await page.getByLabel('Amount', { exact: true }).fill('100');
+  await page.getByLabel('Message', { exact: true }).fill('Thanks for the Sunday shift');
+  await page.getByRole('button', { name: 'Send reward', exact: true }).click();
+}
+
+async function askForCoffee(page) {
+  await page.getByRole('button', { name: 'Redeem Coffee', exact: true }).click();
+  await page.getByRole('button', { name: 'Confirm request', exact: true }).click();
+}
+
+// The server records the change; the answer then arrives with a body cut short.
+const cutShort = async route => route.fulfill({ response: await route.fetch(), body: '{' });
+// The server records the change; the connection then drops before the answer arrives.
+const lost = async route => {
+  await route.fetch();
+  await route.abort('connectionreset');
+};
+
+test('a success whose answer arrives cut short is not taken as done: sending again records the reward once', async ({ browser }) => {
+  const fx = await provision(browser, { mode: 'points' });
+  try {
+    const { ownerPage } = fx;
+    await ownerPage.route('**/api/admin/grants', cutShort, { times: 1 });
+    await giveHundred(ownerPage, fx);
+    await expect(ownerPage.getByRole('dialog').getByRole('alert')).toContainText('did not arrive completely');
+    expect(grantRows(fx)).toBe(1);
+    await ownerPage.getByRole('dialog').getByRole('button', { name: 'Cancel', exact: true }).click();
+    await giveHundred(ownerPage, fx);
+    await expect(ownerPage.getByRole('status').filter({ hasText: 'had already been recorded' })).toBeVisible();
+    expect(grantRows(fx)).toBe(1);
+  } finally {
+    await fx.close();
+  }
+});
+
+test('a request or a new benefit whose answer arrives cut short is not made twice either', async ({ browser }) => {
+  const fx = await provision(browser, { mode: 'points' });
+  try {
+    await fx.api.request('POST', '/api/admin/grants', { userId: fx.memberId, amount: '100', mode: fx.mode, reason: 'Thanks' },
+      { 'idempotency-key': 'e2e-cut-short-grant-00001' });
+    const { memberPage, ownerPage } = fx;
+    await memberPage.reload();
+    await memberPage.route('**/api/redemptions', cutShort, { times: 1 });
+    await askForCoffee(memberPage);
+    await expect(memberPage.getByRole('dialog').getByRole('alert')).toContainText('did not arrive completely');
+    await memberPage.getByRole('dialog').getByRole('button', { name: 'Cancel', exact: true }).click();
+    await askForCoffee(memberPage);
+    await expect(memberPage.getByRole('status').filter({ hasText: 'had already gone through' })).toBeVisible();
+    expect(pendingRequests(fx)).toBe(1);
+
+    await ownerPage.goto(`${fx.origin}/#/team/benefits`);
+    await ownerPage.route('**/api/admin/rewards', cutShort, { times: 1 });
+    const addTea = async () => {
+      await ownerPage.getByLabel('Name', { exact: true }).fill('Tea');
+      await ownerPage.getByLabel('Price', { exact: true }).fill('15');
+      await ownerPage.getByRole('button', { name: 'Add benefit', exact: true }).click();
+    };
+    await addTea();
+    await expect(ownerPage.getByRole('alert').filter({ hasText: 'did not arrive completely' })).toBeVisible();
+    await addTea();
+    await expect(ownerPage.getByRole('status').filter({ hasText: 'had already been added' })).toBeVisible();
+    expect(fx.db.prepare(`SELECT count(*) AS n FROM rewards WHERE name = 'Tea'`).get().n).toBe(1);
+  } finally {
+    await fx.close();
+  }
+});
+
+test('after a lost answer and a reload, the same reward finishes the first attempt, and a second one is still possible', async ({ browser }) => {
+  const fx = await provision(browser, { mode: 'points' });
+  try {
+    const { ownerPage } = fx;
+    await ownerPage.route('**/api/admin/grants', lost, { times: 1 });
+    await giveHundred(ownerPage, fx);
+    await expect(ownerPage.getByRole('dialog').getByRole('alert')).toContainText('Could not reach Crumb');
+    expect(grantRows(fx)).toBe(1);
+    await ownerPage.reload();
+    // The page still knows an attempt was left unconfirmed, and says what sending again will do.
+    await ownerPage.getByRole('button', { name: 'Give recognition', exact: true }).click();
+    await expect(ownerPage.getByRole('dialog')).toContainText('was not confirmed by Crumb');
+    await ownerPage.getByRole('dialog').getByRole('button', { name: 'Cancel', exact: true }).click();
+    await giveHundred(ownerPage, fx);
+    await expect(ownerPage.getByRole('status').filter({ hasText: 'had already been recorded' })).toBeVisible();
+    expect(grantRows(fx)).toBe(1);
+    // Once that is settled, the same reward sent on purpose is a second one.
+    await giveHundred(ownerPage, fx);
+    await expect(ownerPage.getByRole('status').filter({ hasText: 'Sent 100 points to Mina Park.' })).toBeVisible();
+    expect(grantRows(fx)).toBe(2);
+  } finally {
+    await fx.close();
+  }
+});
+
+test('after a lost answer and a reload, asking for the same benefit finishes the first request', async ({ browser }) => {
+  const fx = await provision(browser, { mode: 'points' });
+  try {
+    await fx.api.request('POST', '/api/admin/grants', { userId: fx.memberId, amount: '100', mode: fx.mode, reason: 'Thanks' },
+      { 'idempotency-key': 'e2e-reload-request-grant-1' });
+    const { memberPage } = fx;
+    await memberPage.reload();
+    await memberPage.route('**/api/redemptions', lost, { times: 1 });
+    await askForCoffee(memberPage);
+    await expect(memberPage.getByRole('dialog').getByRole('alert')).toContainText('Could not reach Crumb');
+    await memberPage.reload();
+    await memberPage.getByRole('button', { name: 'Redeem Coffee', exact: true }).click();
+    await expect(memberPage.getByRole('dialog')).toContainText('was not confirmed by Crumb');
+    await memberPage.getByRole('button', { name: 'Confirm request', exact: true }).click();
+    await expect(memberPage.getByRole('status').filter({ hasText: 'had already gone through' })).toBeVisible();
+    expect(pendingRequests(fx)).toBe(1);
+  } finally {
+    await fx.close();
+  }
+});
