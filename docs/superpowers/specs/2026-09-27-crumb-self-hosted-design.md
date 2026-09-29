@@ -1,194 +1,196 @@
-# Crumb：可自行部署的团队认可与奖励工具
+# Crumb: A Self-Hostable Team Recognition and Rewards Tool
 
-状态：用户已确认，进入实施计划编制；尚未进入实现。
+*Translated from the Chinese original, [2026-09-27-crumb-self-hosted-design.zh-CN.md](2026-09-27-crumb-self-hosted-design.zh-CN.md).*
 
-## 1. 目标与已确认方向
+Status: confirmed by the maintainer, and implemented on branch `feature/self-hosted` (the implementation and validation record is `docs/VALIDATION.md`).
 
-Crumb 面向希望把感谢和奖励变成持续体验的组织与团队，不限制企业规模或行业。
-咖啡厅、奶茶店、零售门店和办公室是使用场景，而非品牌边界。
+## 1. Goals and Confirmed Direction
 
-核心流程：管理员发出认可 → 成员获得奖励 → 兑换实际福利 → 留下永久收藏。
+Crumb is for organizations and teams that want to turn thanks and rewards into an ongoing experience, with no limit on company size or industry.
+Cafés, bubble tea shops, retail stores and offices are use cases, not brand boundaries.
 
-已确认：每个组织首次设置时选择福利额度或积分，第一版只使用一种单位。
-延续 MIT 开源许可，允许下载、修改和自行部署。
+Core flow: an admin gives recognition → the team member receives a reward → requests a real benefit → keeps a permanent collection.
 
-成功标准：一个新组织能够按文档启动独立实例、建立管理员、邀请成员、发放奖励、
-完成一次兑换，并在重启服务后保留完整记录。陌生访客能从 README 理解产品、
-进入演示、找到部署步骤并提交反馈。
+Confirmed: each organization chooses credit or points at first setup; the first version uses only one unit.
+It stays under the MIT open-source license, allowing download, modification and self-hosting.
 
-以下权限、兑换状态、运维与页面细节已随本设计稿获得用户确认。
+Success criteria: a new organization can follow the documentation to start its own instance, set up an admin, invite team members, give rewards,
+complete one redemption, and keep complete records after the service restarts. A first-time visitor can understand the product from the README,
+open the demo, find the deployment steps and submit feedback.
 
-## 2. 第一版边界
+The permission, redemption status, operations and page details below were confirmed by the maintainer along with this design document.
 
-一个部署实例服务一个组织，组织拥有自己的数据。支持多个管理员和成员，
-不承诺复杂的集团、多门店隔离、分级审批、企业统一登录或大规模并发能力。
-组织内部可采用同一奖励规则；确实需要不同规则或数据隔离的团队可分别部署。
+## 2. Scope of the First Version
 
-第一版包含真实账号、共享数据库、奖励账本、兑换目录、收藏、组织设置、
-数据导出、备份恢复说明、公开演示、README 落地页及反馈入口。
+One deployed instance serves one organization, and the organization owns its data. Multiple admins and team members are supported;
+there is no commitment to complex corporate groups, multi-store isolation, tiered approvals, enterprise single sign-on or large-scale concurrency.
+Within an organization the same reward rules can be used; teams that truly need different rules or data isolation can deploy separately.
 
-不包含工资或支付系统、现金提现、奖励购买、绩效考核、公开排行榜、自动发奖、
-复杂任务引擎、托管多租户平台、移动端原生应用。
+The first version includes real accounts, a shared database, a reward ledger, a redemption catalog, collections, organization settings,
+data export, backup and restore instructions, a public demo, a README landing page and feedback entry points.
 
-## 3. 三个产品入口
+It does not include payroll or payment systems, cash withdrawal, buying rewards, performance reviews, public leaderboards, automatic rewards,
+a complex task engine, a hosted multi-tenant platform, or native mobile apps.
 
-### 成员端：我的 Crumb
+## 3. Three Product Entry Points
 
-- 查看可用奖励、兑换预留、收到的认可、收藏柜和历史记录。
-- 浏览企业配置的福利，提交兑换申请，查看处理状态，取消尚未完成的申请。
-- 只访问自己的奖励与认可记录；不提供员工之间的余额比较。
-- 优先适配手机，支持键盘操作、屏幕阅读器与减少动态效果设置。
+### Team Member View: My Crumb
 
-### 管理端：团队管理
+- View available rewards, rewards reserved for redemptions, recognition received, the collection cabinet and history.
+- Browse the benefits the company has configured, request a benefit, check its processing status, and cancel requests that are not yet completed.
+- Access only their own reward and recognition records; no balance comparison between employees is offered.
+- Mobile-first, with support for keyboard use, screen readers and the reduced-motion setting.
 
-- 邀请、停用成员，处理账号恢复。
-- 向指定成员发放正数奖励，可附感谢理由；理由鼓励填写但不是必填项。
-- 管理福利名称、说明、兑换价格及是否开放兑换。
-- 确认已交付的福利，拒绝或取消未完成申请，查看操作记录。
-- 更正错误发放并记录原因，不能直接改写或删除历史账目。
+### Admin View: Team Management
 
-### 组织设置
+- Invite and deactivate team members; handle account recovery.
+- Give a positive reward to a chosen team member, optionally with a reason for the thanks; the reason is encouraged but not required.
+- Manage benefit names, descriptions, redemption prices and whether each is open for redemption.
+- Confirm benefits that have been delivered, reject or cancel unfinished requests, and view the activity log.
+- Correct mistaken rewards and record the reason; past ledger entries cannot be directly rewritten or deleted.
 
-- 组织名称、Logo、欢迎语、语言、奖励单位与收藏解锁门槛。
-- 管理员权限、成员管理、组织内部联系方式和反馈链接。
-- 账本导出、备份与恢复说明。
+### Organization Settings
 
-## 4. 权限与账号
+- Organization name, logo, welcome message, language, reward unit and collection unlock threshold.
+- Admin permissions, team member management, the organization's internal contact details and the feedback link.
+- Ledger export, and backup and restore instructions.
 
-角色分为组织所有者、管理员、成员。
-所有者可修改组织设置和管理员权限；管理员管理成员、发奖及处理兑换；
-成员只能访问自己的信息和提交自己的兑换申请。
-管理员不能授予所有者权限；最后一位有效所有者不能被停用或移除。
+## 4. Permissions and Accounts
 
-首次启动通过部署时生成的一次性设置凭据建立所有者，完成后关闭公开初始化。
-采用用户名和密码登录，密码仅保存安全哈希，登录有速率限制。
+Roles are organization owner, admin and team member.
+Owners can change organization settings and admin permissions; admins manage team members, give rewards and handle redemptions;
+team members can only access their own information and submit their own benefit requests.
+Admins cannot grant owner permissions; the last active owner cannot be deactivated or removed.
 
-> 2026-09-29 维护者决定：普通成员改用管理员生成的个人登录链接，不设密码；所有者和管理员仍用用户名和密码。
-> 详见 `docs/VALIDATION.md` 的「Where this differs from the plan」。
+On first launch, the owner is created with a one-time setup credential generated at deployment; public initialization is closed once this is done.
+Sign-in uses a username and password; only a secure hash of the password is stored, and sign-in is rate-limited.
 
-邀请和密码重置采用短期、单次有效链接，由管理员复制给本人，第一版不依赖邮件服务。
-重置密码或停用账号后撤销已有会话；不允许公开注册加入组织。
-组织外访问需要 HTTPS；部署指南提供反向代理配置和域名接入步骤。
+> 2026-09-29 maintainer decision: regular team members now use a personal sign-in link generated by an admin, with no password; owners and admins still use a username and password.
+> See "Where this differs from the plan" in `docs/VALIDATION.md`.
 
-所有权限和金额校验由服务端执行，隐藏按钮不作为权限控制。
-会话使用 HttpOnly Cookie，生产 HTTPS 下启用 Secure，变更请求需要 CSRF 防护。
+Invitations and password resets use short-lived, single-use links that an admin copies to the person; the first version does not depend on an email service.
+Resetting a password or deactivating an account revokes existing sessions; public sign-up to join an organization is not allowed.
+Access from outside the organization requires HTTPS; the deployment guide provides reverse proxy configuration and domain setup steps.
 
-## 5. 奖励规则与数据精度
+All permission and amount checks are done on the server; hiding buttons is not used as access control.
+Sessions use an HttpOnly cookie, with Secure enabled under production HTTPS; state-changing requests require CSRF protection.
 
-首次设置二选一：
+## 5. Reward Rules and Data Precision
 
-- 福利额度：选择币种，第一版支持 CAD、USD、CNY 的两位小数表示；
-  内部统一按最小单位整数保存，不使用浮点数累积余额。额度只用于组织内部福利。
-- 积分：自定义显示名称，例如「星星」，只支持整数发放与兑换。
+At first setup, choose one of two:
 
-组织有账目后不能通过设置切换模式、币种或解锁门槛。
-奖励名称、品牌和欢迎语可继续修改；规则迁移不属于第一版。
-服务端拒绝零值、负数发放、过多小数位、非数字和超过安全上限的输入。
+- Credit: choose a currency; the first version supports CAD, USD and CNY, shown with two decimal places;
+  internally, amounts are always stored as integers in the smallest unit, and balances are never accumulated with floating-point numbers. Credit is only for the organization's internal benefits.
+- Points: a custom display name, for example "Stars"; only whole numbers can be given and redeemed.
 
-账本采用追加记录，保存成员、数值、类型、操作者、服务端时间、原因、关联业务及请求标识。
-余额来源于账本；奖励发放、兑换完成及更正都可以追溯。
-请求重试不重复入账，跨步骤写入在数据库事务内完成。
+Once an organization has ledger entries, the mode, currency or unlock threshold cannot be switched in settings.
+The reward name, branding and welcome message can still be changed; rule migration is not part of the first version.
+The server rejects zero values, negative rewards, too many decimal places, non-numeric values and input above the safe limit.
 
-## 6. 兑换状态与并发
+The ledger is append-only and stores the team member, amount, type, actor, server time, reason, related business record and request ID.
+Balances are derived from the ledger; rewards given, completed redemptions and corrections can all be traced.
+Retried requests are not recorded twice, and multi-step writes are done inside a database transaction.
 
-申请状态：待确认、已完成、已取消、已拒绝。
+## 6. Redemption Status and Concurrency
 
-提交时冻结福利名称和价格快照，并预留所需奖励。
-可用奖励 = 账本余额 − 待确认申请预留总额。
-服务端在同一事务中检查可用奖励并创建申请，避免同时申请导致超额兑换。
+Request statuses: pending confirmation, completed, cancelled, rejected.
 
-管理员确认线下交付后，原子地追加扣减记录、释放预留并完成申请。
-取消或拒绝只释放预留，不产生消费记录；每次状态转换记录操作者和时间。
-重复确认不再次扣款，终态不能重新确认。
+On submission, a snapshot of the benefit name and price is frozen, and the required rewards are reserved.
+Available rewards = ledger balance − total reserved by pending requests.
+The server checks available rewards and creates the request in the same transaction, so simultaneous requests cannot cause over-redemption.
 
-修改或下架福利不改变已有申请的快照。第一版不管理商品库存。
-成员被停用后不能登录，其待确认申请自动取消并释放预留，历史记录保留。
+After an admin confirms delivery outside the app, the system atomically appends a deduction entry, releases the reservation and completes the request.
+Cancelling or rejecting only releases the reservation and creates no spending entry; every status change records the actor and time.
+Confirming again does not deduct again, and a request in a final state cannot be confirmed again.
 
-错误发奖通过关联原记录的撤销分录纠正，必须填写原因；一个发奖记录只能撤销一次。
-撤销不允许使可用余额低于零；已用掉的奖励需要管理员先线下处理，第一版不自动追债。
-错误确认的兑换允许管理员追加一次关联退款分录，保留原兑换与退款记录。
+Editing or withdrawing a benefit does not change the snapshots of existing requests. The first version does not manage stock.
+A deactivated team member cannot sign in; their pending requests are automatically cancelled and the reservations released, and their history is kept.
 
-## 7. 认可与永久收藏
+A mistaken reward is corrected with a revoke entry linked to the original record, and a reason is required; a reward entry can only be revoked once.
+A revoke cannot bring the available balance below zero; rewards already spent must first be handled by an admin outside the app, and the first version does not automatically recover debts.
+For a redemption confirmed by mistake, an admin may append one linked refund entry, keeping both the original redemption and the refund record.
 
-收藏基于累计有效发奖解锁，不按当前可用余额计算；兑换和退款不改变累计认可值。
-已解锁收藏作为独立的解锁记录保存，不能仅根据当前余额重新生成。
+## 7. Recognition and Permanent Collection
 
-正常消费不移除收藏。为兑现永久收藏承诺，撤销误发也保留已经解锁的收藏，
-但撤销金额从后续解锁计算的有效累计发奖中扣除，达到下一个门槛后才继续解锁。
-感谢理由显示在成员认可记录中；撤销时明确标记其状态，不悄悄消失。
+Collection items unlock based on cumulative valid rewards, not on the current available balance; redemptions and refunds do not change the cumulative recognition value.
+Unlocked collection items are stored as separate unlock records and cannot be regenerated from the current balance alone.
 
-第一版复用现有像素素材，提供默认主题及文档化的主题扩展方式。
-不将尚未制作的咖啡、茶饮或其他主题写成已有功能。
-每个成员使用稳定的收藏顺序；首版主题图鉴收集完毕后显示已集齐，后续奖励仍正常发放。
-组织品牌与收藏主题分开配置，默认主题不限制使用行业。
+Normal spending does not remove collection items. To keep the promise of a permanent collection, revoking a mistaken reward also keeps collection items already unlocked,
+but the revoked amount is deducted from the valid cumulative rewards used for later unlock calculations, and unlocking continues only once the next threshold is reached.
+The reason for the thanks appears in the team member's recognition record; when revoked, its status is clearly marked rather than quietly disappearing.
 
-## 8. 技术结构与部署交付
+The first version reuses the existing pixel art assets and provides a default theme plus a documented way to extend themes.
+Coffee, tea drink or other themes that have not been made yet are not described as existing features.
+Each team member has a stable collection order; once the first-version theme's catalog is fully collected, it shows as complete, and later rewards are still given as normal.
+Organization branding and the collection theme are configured separately; the default theme does not limit which industries can use it.
 
-保留现有静态演示及像素绘制资源，演示仍可在 GitHub Pages 独立运行。
-真实应用增加独立服务端和持久化数据库，演示数据不会自动导入生产实例。
-建议首版采用 Node.js 服务端、SQLite 数据库和 Docker Compose，降低独立实例的运维负担。
-具体库和版本在实现计划中核实并锁定。
+## 8. Technical Structure and Deployment Deliverables
 
-服务边界：身份与权限、组织配置、成员与邀请、奖励账本、福利兑换、收藏和导出。
-前端通过 API 操作共享数据；浏览器 localStorage 只用于演示或非敏感界面偏好。
-真实账目不依赖客户端保存。
+The existing static demo and pixel drawing resources are kept; the demo can still run on its own on GitHub Pages.
+The real app adds a separate server and a persistent database; demo data is never automatically imported into a production instance.
+For the first version, a Node.js server, an SQLite database and Docker Compose are recommended, to lower the operating burden of a standalone instance.
+Specific libraries and versions are checked and pinned in the implementation plan.
 
-提供容器构建文件、Compose 示例、环境变量示例、数据库迁移和健康检查。
-数据库保存在持久化卷，重建或升级应用不丢数据；首版单实例运行，不提供水平扩容承诺。
-应用不把数据库或备份放在静态可下载目录；日志不输出密码、邀请令牌或会话。
+Service boundaries: identity and permissions, organization configuration, team members and invitations, the reward ledger, benefit redemption, collections and export.
+The front end works with shared data through the API; browser localStorage is only used for the demo or for non-sensitive interface preferences.
+Real ledger entries do not depend on being stored on the client.
 
-交付步骤包括：下载代码、配置域名与凭据、启动、初始化管理员、备份、恢复、升级。
-提供一致性数据库备份命令以及新实例恢复流程；CSV 导出不能代替完整备份。
-导出时防止表格公式注入。部署到第三方服务可能产生费用，文档不承诺免费运行。
+Provide a container build file, a Compose example, an environment variable example, database migrations and a health check.
+The database is kept on a persistent volume, so rebuilding or upgrading the app loses no data; the first version runs as a single instance, with no commitment to horizontal scaling.
+The app never puts the database or backups in a statically downloadable directory; logs never output passwords, invitation tokens or sessions.
 
-## 9. README 与公开体验
+Delivery steps include: download the code, configure the domain and credentials, start, initialize the admin, back up, restore, upgrade.
+Provide a consistent database backup command and a process for restoring to a new instance; CSV export cannot replace a full backup.
+Exports guard against spreadsheet formula injection. Deploying to third-party services may cost money; the documentation does not promise it runs for free.
 
-主标语：Make appreciation something to keep.
-说明：Open-source recognition and rewards for teams. Self-hosted, with data under your control.
+## 9. README and Public Experience
 
-英文主 README 面向传播，提供中文 README，并保持核心部署信息一致。
-项目首页内容顺序：
+Main tagline: Make appreciation something to keep.
+Description: Open-source recognition and rewards for teams. Self-hosted, with data under your control.
 
-1. 一句话价值、真实产品截图、体验演示／部署／反馈三个入口。
-2. 一个从感谢、发奖到兑换并保留收藏的短故事。
-3. 成员端与管理端截图，解释实际操作。
-4. 咖啡厅、零售、办公室等使用案例，不暗示已有这些客户。
-5. 当前可用功能、运行要求、快速部署入口及详细运维指南。
-6. 自托管与数据说明、版本状态、限制、贡献和许可。
+The main English README is aimed at outreach; a Chinese README is also provided, and the core deployment information is kept consistent between them.
+Order of content on the project home page:
 
-公开演示同步使用更广的定位并提供部署和项目反馈入口。
-演示明确标记虚构数据与演示身份切换，不能让访客误以为公开页面管理真实员工账户。
-所有传播截图来自实际实现；路线图与已交付能力分开，不添加虚构用户数或效果指标。
-社交分享标题、描述和预览卡保持一致。
+1. A one-line value statement, real product screenshots, and three entry points: try the demo / deploy / give feedback.
+2. A short story going from thanks and a reward to a redemption, with the collection kept.
+3. Screenshots of the team member view and the admin view, explaining the actual steps.
+4. Use cases such as cafés, retail and offices, without implying these are existing customers.
+5. Features available now, requirements to run, a quick deployment entry point and a detailed operations guide.
+6. Self-hosting and data notes, version status, limitations, contributing and license.
 
-## 10. 反馈路径
+The public demo also uses the broader positioning and provides entry points for deployment and project feedback.
+The demo clearly labels the made-up data and the demo identity switcher, so visitors cannot mistakenly think the public page manages real employee accounts.
+All promotional screenshots come from the actual implementation; the roadmap is kept separate from delivered capabilities, and no made-up user counts or outcome metrics are added.
+Social sharing titles, descriptions and preview cards are kept consistent.
 
-项目反馈分为故障、功能建议、使用经验，以 GitHub 模板提供最少必要的问题。
-故障模板收集版本、部署方式、复现步骤；使用反馈收集场景、价值和阻碍，
-不要求员工姓名、账本明细或组织敏感信息。
+## 10. Feedback Paths
 
-支持配置外部表单链接，供不使用 GitHub 的用户反馈；在未配置时只展示真实可用的 GitHub 入口。
-不代替用户创建第三方表单账户，也不放置不可用的占位链接。
+Project feedback is split into bugs, feature suggestions and usage experience, with GitHub templates asking only the minimum necessary questions.
+The bug template collects the version, deployment method and steps to reproduce; usage feedback collects the scenario, value and obstacles,
+without asking for employee names, ledger details or sensitive organization information.
 
-部署实例内「联系管理员」指向本组织联系方式；「反馈 Crumb」指向上游项目。
-两者标签与去向明确区分。没有静默遥测，不自动上传成员数据、日志或使用统计。
+An external form link can be configured for feedback from users who do not use GitHub; when it is not configured, only the GitHub entry point, which actually works, is shown.
+Third-party form accounts are not created on the user's behalf, and no non-working placeholder links are added.
 
-## 11. 验收与验证
+Inside a deployed instance, "Contact admin" points to the organization's own contact details; "Feedback on Crumb" points to the upstream project.
+The two are clearly distinguished by label and destination. There is no silent telemetry, and no automatic upload of team member data, logs or usage statistics.
 
-- 干净环境按指南完成部署，初始化只允许一次，重启保留记录。
-- 两个不同设备登录后读取相同服务端状态；成员不能读取或修改他人数据。
-- 管理员发奖后成员看到奖励与感谢；额度和积分分别验证精度与输入边界。
-- 并发兑换不透支，重复发奖／确认请求不重复入账，取消正确释放预留。
-- 发奖撤销、兑换退款、停用成员均保留可审计的历史与正确余额。
-- 正常兑换不损失收藏，重启或重新登录不改变已解锁收藏。
-- 密码重置、邀请过期、停用账号、会话撤销与 CSRF 拦截有自动化验证。
-- HTML 输入按文本安全显示；品牌上传限制类型、大小和路径，禁止可执行内容。
-- 完成实际数据库备份并恢复到新实例，对照成员、账本、兑换和收藏数据。
-- 浏览器验证管理员与成员完整流程，检查手机布局、键盘访问和减少动态效果。
-- README 中部署命令实际运行，链接可达，截图与已实现功能匹配。
+## 11. Acceptance and Verification
 
-## 12. 实施顺序
+- Deployment in a clean environment following the guide succeeds; initialization is allowed only once; records are kept after a restart.
+- Two different devices, once signed in, read the same server state; team members cannot read or change other people's data.
+- After an admin gives a reward, the team member sees the reward and the thanks; precision and input limits are verified separately for credit and for points.
+- Concurrent redemptions do not overdraw; repeated reward/confirm requests are not recorded twice; cancelling correctly releases the reservation.
+- Revoking a reward, refunding a redemption and deactivating a team member all keep an auditable history and correct balances.
+- Normal redemptions do not lose collection items; restarting or signing in again does not change unlocked collection items.
+- Password reset, invitation expiry, account deactivation, session revocation and CSRF blocking have automated verification.
+- HTML input is displayed safely as text; branding uploads are restricted by type, size and path, and executable content is forbidden.
+- Make a real database backup and restore it to a new instance, comparing team member, ledger, redemption and collection data.
+- Verify the full admin and team member flows in a browser, checking mobile layout, keyboard access and reduced motion.
+- The deployment commands in the README are actually run, links are reachable, and screenshots match the implemented features.
 
-先建设账号、配置和持久化账本，再实现兑换与收藏；随后完成管理界面、
-部署与恢复流程，最后依据实际产品制作 README、演示和反馈入口。
-详细文件、接口、测试与迁移任务在本设计稿确认后的实施计划中给出。
+## 12. Implementation Order
+
+First build accounts, configuration and the persistent ledger, then implement redemption and collections; next, complete the admin interface,
+the deployment and restore process, and finally make the README, demo and feedback entry points based on the actual product.
+Detailed file, interface, test and migration tasks are given in the implementation plan that follows confirmation of this design document.

@@ -1,62 +1,62 @@
-# Crumb QR Code Sign-In and "Add to Home Screen" Implementation Plan
+# Crumb 扫码登录与「添加到主屏幕」 Implementation Plan
 
-*Translated from the Chinese original, [2026-09-29-crumb-qr-signin.zh-CN.md](2026-09-29-crumb-qr-signin.zh-CN.md).*
+*本文件是中文原稿。英文版：[2026-09-29-crumb-qr-signin.md](2026-09-29-crumb-qr-signin.md)。*
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Every one-time link an admin generates comes with a QR code (scanned in person or sent as a picture), and after signing in, team members are prompted to put Crumb on their phone's home screen.
+**Goal:** 管理员生成的每个一次性链接都附带一个二维码（当面扫或当图片发送），成员登录后被提示把 Crumb 放到手机桌面。
 
-**Architecture:** When generating a link, the server uses `uqr` to compute the QR code's grid of modules and the existing `sharp` to draw it as a PNG, which is returned with the API response as a data URL; the page only puts it into an `<img>`, and when saving or sharing, decodes the base64 into a file locally. The home-screen icon relies on a static `manifest.webmanifest` (`display: browser`, sharing the sign-in with the browser) and on PNG icons that a script generates and that are committed to the repository.
+**Architecture:** 服务器在生成链接时用 `uqr` 算出二维码格子、用已有的 `sharp` 画成 PNG，作为 data URL 随接口返回；页面只把它放进 `<img>`，保存或分享时在本地把 base64 解码成文件。桌面图标靠静态的 `manifest.webmanifest`（`display: browser`，与浏览器共用登录）和由脚本生成、提交进仓库的 PNG 图标。
 
-**Tech Stack:** Node.js 24, Express 5, sharp 0.35.5 (existing), uqr 0.1.3 (new, runtime), jsqr 1.4.0 (new, used only in tests); a UI written in native ES modules; node:test and Playwright.
+**Tech Stack:** Node.js 24、Express 5、sharp 0.35.5（已有）、uqr 0.1.3（新，运行时）、jsqr 1.4.0（新，只在测试中用）；原生 ES 模块界面；node:test 与 Playwright。
 
-**Spec:** [Approved design](../specs/2026-09-29-crumb-qr-signin-design.md).
+**Spec:** [已确认设计](../specs/2026-09-29-crumb-qr-signin-design.zh-CN.md)。
 
-**Status:** Implemented on branch `feature/self-hosted` (2026-09-29), with a failing test written first for every new rule. After the seventh review (a Claude agent, `367cb9c`), a few things were revised: "Save QR code" is always shown, and "Share QR code" is added when sharing is possible; in WeChat, the sign-in link stays in the address bar until it is used or the page is left; that explanation is shown only in the iPhone home-screen app (see `docs/VALIDATION.md`). The fresh clone results on `ad4273d` and the review records are both in `docs/VALIDATION.md`. Pushed to the draft PR, not yet merged.
+**Status:** 已在分支 `feature/self-hosted` 实施（2026-09-29），每条新规则都先写失败的测试。第七轮审查（Claude 代理，`367cb9c`）之后又修订了几处：「保存二维码」总是显示、能分享时再加「分享二维码」；微信里登录链接留在地址栏直到用掉或离开；只在 iPhone 桌面 App 里显示那段说明（见 `docs/VALIDATION.md`）。全新克隆在 `ad4273d` 上的结果与审查记录都在 `docs/VALIDATION.md`。已推送到草稿 PR，尚未合并。
 
-## Files
+## 文件
 
-- Create `server/qr.mjs`: `qrPng(text)` → a PNG data URL or `null`.
-- Modify `server/routes/members.mjs`: the four link-generating endpoints also return `qr`.
-- Modify `tests/helpers.mjs`: `readQr(image)`, which scans a PNG back into text (sharp + jsqr).
-- Create `tests/qr.test.mjs`; modify `tests/members.test.mjs`.
-- Modify `app/dom.js`: `openedAsHomeScreenApp()`.
-- Modify `app/views/admin.js`: `linkPanel` shows the QR code and "Save/Share QR code".
-- Modify `app/views/auth.js`: the WeChat notice on the link page; the explanation about the separate web app (home-screen app) on the sign-in page.
-- Modify `app/views/member.js`: the Add to Home Screen tip.
-- Modify `app/app.css`, `app/locales/en.js`, `app/locales/zh-CN.js`, `app/index.html`.
-- Create `app/manifest.webmanifest`, `scripts/make-icons.mjs`, `app/icons/icon-{180,192,512}.png`, `tests/home-screen.test.mjs`.
-- Modify `tests/e2e/product.spec.mjs`, `scripts/screenshots.mjs`, the README (Chinese and English), `docs/DEPLOYMENT.md`, `docs/VALIDATION.md`, `docs/RELEASE-CHECKLIST.md`.
+- 新建 `server/qr.mjs`：`qrPng(text)` → PNG data URL 或 `null`。
+- 改 `server/routes/members.mjs`：四个生成链接的接口多返回 `qr`。
+- 改 `tests/helpers.mjs`：`readQr(image)`，把 PNG 扫回文字（sharp + jsqr）。
+- 新建 `tests/qr.test.mjs`；改 `tests/members.test.mjs`。
+- 改 `app/dom.js`：`openedAsHomeScreenApp()`。
+- 改 `app/views/admin.js`：`linkPanel` 显示二维码与「保存/分享二维码」。
+- 改 `app/views/auth.js`：链接页的微信提示；登录页的独立网页 App 说明。
+- 改 `app/views/member.js`：添加到主屏幕卡片。
+- 改 `app/app.css`、`app/locales/en.js`、`app/locales/zh-CN.js`、`app/index.html`。
+- 新建 `app/manifest.webmanifest`、`scripts/make-icons.mjs`、`app/icons/icon-{180,192,512}.png`、`tests/home-screen.test.mjs`。
+- 改 `tests/e2e/product.spec.mjs`、`scripts/screenshots.mjs`、README（中英）、`docs/DEPLOYMENT.md`、`docs/VALIDATION.md`、`docs/RELEASE-CHECKLIST.md`。
 
-Note: do not use apostrophes (`'`) in the English UI text, because the locale files use single-quoted strings; and do not write `\u` escapes in any file (the tools turn them into real characters, and `tests/source.test.mjs` will catch them).
+注意：英文文案里不要用撇号（`'`），语言文件是单引号字符串；也不要在任何文件里写 `\u` 转义（工具会把它变成真字符，`tests/source.test.mjs` 会拦）。
 
 ---
 
-### Task 1: Dependencies and server-side QR codes
+### Task 1: 依赖与服务器端二维码
 
 **Files:**
 - Create: `server/qr.mjs`, `tests/qr.test.mjs`
 - Modify: `package.json`, `package-lock.json`, `tests/helpers.mjs`
 
-- [x] **Step 1: Install the two dependencies (exact versions)**
+- [x] **Step 1: 安装两个依赖（精确版本）**
 
 ```bash
 npm install --save-exact uqr@0.1.3
 npm install --save-exact --save-dev jsqr@1.4.0
 ```
 
-Check `package.json`: `dependencies` contains `"uqr": "0.1.3"`, and `devDependencies` contains `"jsqr": "1.4.0"`.
+检查 `package.json`：`dependencies` 里有 `"uqr": "0.1.3"`，`devDependencies` 里有 `"jsqr": "1.4.0"`。
 
-- [x] **Step 2: Add `readQr` to `tests/helpers.mjs`**
+- [x] **Step 2: 在 `tests/helpers.mjs` 加 `readQr`**
 
-Add to the import section at the top of the file:
+在文件顶部 import 区加：
 
 ```js
 import sharp from 'sharp';
 import jsqr from 'jsqr';
 ```
 
-Add at the end of the file:
+在文件末尾加：
 
 ```js
 const decodeQr = jsqr.default ?? jsqr;
@@ -69,7 +69,7 @@ export async function readQr(image) {
 }
 ```
 
-- [x] **Step 3: Write the failing test `tests/qr.test.mjs`**
+- [x] **Step 3: 写失败的测试 `tests/qr.test.mjs`**
 
 ```js
 /* QR codes for links: they must read back as exactly the link, or not be made at all. */
@@ -101,12 +101,12 @@ test('text too long for any QR code gives no picture instead of an error', async
 });
 ```
 
-- [x] **Step 4: Run it and confirm it fails**
+- [x] **Step 4: 运行，确认失败**
 
 Run: `node --test tests/qr.test.mjs`
-Expected: FAIL, reporting `Cannot find module` … `server/qr.mjs`.
+Expected: FAIL，报 `Cannot find module` … `server/qr.mjs`。
 
-- [x] **Step 5: Write `server/qr.mjs`**
+- [x] **Step 5: 写 `server/qr.mjs`**
 
 ```js
 /* A QR code for a link, as a PNG data URL: scanned from the admin's screen, or sent as a
@@ -139,26 +139,26 @@ export async function qrPng(text) {
 }
 ```
 
-- [x] **Step 6: Run it and confirm it passes**
+- [x] **Step 6: 运行，确认通过**
 
 Run: `node --test tests/qr.test.mjs`
-Expected: 3 pass. If the first one fails and `readQr` returns `null`, print `encode('x', { ecc: 'M', border: 0 }).data.length` and confirm that `data` is a square boolean array with no white border.
+Expected: 3 pass。若第一条失败且 `readQr` 返回 `null`，打印 `encode('x', { ecc: 'M', border: 0 }).data.length`，确认 `data` 是正方形布尔数组、不含白边。
 
-- [x] **Step 7: Commit**
+- [x] **Step 7: 提交**
 
 ```bash
 git add package.json package-lock.json server/qr.mjs tests/qr.test.mjs tests/helpers.mjs
 git commit -m "feat: make QR codes for links on the server"
 ```
 
-### Task 2: The link-generating endpoints return a QR code
+### Task 2: 生成链接的接口返回二维码
 
 **Files:**
 - Modify: `server/routes/members.mjs`, `tests/members.test.mjs`
 
-- [x] **Step 1: Write the failing test (append it to the end of `tests/members.test.mjs`)**
+- [x] **Step 1: 写失败的测试（加到 `tests/members.test.mjs` 末尾）**
 
-Add `readQr` to the import from `./helpers.mjs` at the top of the file, then:
+在文件顶部从 `./helpers.mjs` 的 import 里加上 `readQr`，然后：
 
 ```js
 test('every link an admin makes comes with a QR code that reads back as that link', async t => {
@@ -178,14 +178,14 @@ test('every link an admin makes comes with a QR code that reads back as that lin
 });
 ```
 
-- [x] **Step 2: Run it and confirm it fails**
+- [x] **Step 2: 运行，确认失败**
 
 Run: `node --test --test-name-pattern="QR code that reads back" tests/members.test.mjs`
-Expected: FAIL (`qr` is `undefined`).
+Expected: FAIL（`qr` 为 `undefined`）。
 
-- [x] **Step 3: Modify `server/routes/members.mjs`**
+- [x] **Step 3: 改 `server/routes/members.mjs`**
 
-Add `import { qrPng } from '../qr.mjs';` at the top, and change the four endpoints to:
+顶部加 `import { qrPng } from '../qr.mjs';`，四个接口改成：
 
 ```js
   router.post('/admin/invitations', async (req, res) => {
@@ -221,26 +221,26 @@ Add `import { qrPng } from '../qr.mjs';` at the top, and change the four endpoin
   });
 ```
 
-- [x] **Step 4: Run it and confirm it passes and nothing else is affected**
+- [x] **Step 4: 运行，确认通过，且其余不受影响**
 
 Run: `npm test`
-Expected: all pass (2 skipped on Windows).
+Expected: 全部通过（Windows 上 2 个跳过）。
 
-- [x] **Step 5: Commit**
+- [x] **Step 5: 提交**
 
 ```bash
 git add server/routes/members.mjs tests/members.test.mjs
 git commit -m "feat: every link an admin makes comes with its QR code"
 ```
 
-### Task 3: The admin panel shows the QR code, which can be saved or shared
+### Task 3: 管理员面板显示二维码，可保存或分享
 
 **Files:**
 - Modify: `app/views/admin.js`, `app/app.css`, `app/locales/en.js`, `app/locales/zh-CN.js`, `tests/e2e/product.spec.mjs`
 
-- [x] **Step 1: Write the failing browser tests (append them to the end of `tests/e2e/product.spec.mjs`)**
+- [x] **Step 1: 写失败的浏览器测试（加到 `tests/e2e/product.spec.mjs` 末尾）**
 
-Change the imports at the top to: `import { readFileSync } from 'node:fs';` and `import { client, readQr, tokenFrom } from '../helpers.mjs';`.
+顶部 import 改为：`import { readFileSync } from 'node:fs';` 和 `import { client, readQr, tokenFrom } from '../helpers.mjs';`。
 
 ```js
 /* ---------------------------------------------------------------- QR codes */
@@ -301,14 +301,14 @@ test('on a phone the QR code goes straight to the share sheet, as the same pictu
 });
 ```
 
-- [x] **Step 2: Run them and confirm they fail**
+- [x] **Step 2: 运行，确认失败**
 
 Run: `npx playwright test tests/e2e/product.spec.mjs -g "QR code"`
-Expected: 2 failed (the QR code image is not found).
+Expected: 2 failed（找不到二维码图片）。
 
-- [x] **Step 3: Modify `app/views/admin.js`**
+- [x] **Step 3: 改 `app/views/admin.js`**
 
-Replace the whole existing `linkPanel` with the three functions and one constant below, in the same place:
+把现有 `linkPanel` 整个替换成下面三个函数加一个常量，放在原位置：
 
 ```js
 /* A QR code the server made for a link: only ever a PNG data URL. */
@@ -381,15 +381,15 @@ function linkPanel(label, url, note, { qr = null, name = '', fileName = 'crumb.p
 const qrFor = (result, person) => ({ qr: result.qr, name: person.displayName, fileName: `crumb-${person.username}.png` });
 ```
 
-Then pass the fourth argument in all four places where it is called:
-- The `done` of the "New sign-in link" dialog: `linkPanel(t('members.signinLink'), result.signinUrl, t(result.user.status === 'active' ? 'members.signinRenewNote' : 'members.signinNote', { name: person.displayName }), qrFor(result, person))`
-- "New invitation link": `linkPanel(t('members.inviteLink'), result.invitationUrl, t('members.inviteNote', { name: person.displayName }), qrFor(result, person))`
-- "Password reset link": `linkPanel(t('members.resetLinkLabel'), result.resetUrl, t('members.resetNote', { name: person.displayName }), qrFor(result, person))`
-- After the invitation form is submitted: add `qrFor(result, result.user)` at the end of both `linkPanel(...)` calls.
+然后四处调用都传第四个参数：
+- 「新的登录链接」对话框的 `done`：`linkPanel(t('members.signinLink'), result.signinUrl, t(result.user.status === 'active' ? 'members.signinRenewNote' : 'members.signinNote', { name: person.displayName }), qrFor(result, person))`
+- 「新的邀请链接」：`linkPanel(t('members.inviteLink'), result.invitationUrl, t('members.inviteNote', { name: person.displayName }), qrFor(result, person))`
+- 「密码重置链接」：`linkPanel(t('members.resetLinkLabel'), result.resetUrl, t('members.resetNote', { name: person.displayName }), qrFor(result, person))`
+- 邀请表单提交后：两个 `linkPanel(...)` 调用末尾都加 `qrFor(result, result.user)`。
 
-- [x] **Step 4: UI text (add it in both languages, right after `members.signinLink`)**
+- [x] **Step 4: 文案（两种语言同步加在 `members.signinLink` 之后）**
 
-`app/locales/en.js`:
+`app/locales/en.js`：
 
 ```js
   'members.qrAlt': 'QR code of the link for {name}',
@@ -398,7 +398,7 @@ Then pass the fourth argument in all four places where it is called:
   'members.qrShare': 'Share QR code',
 ```
 
-`app/locales/zh-CN.js`:
+`app/locales/zh-CN.js`：
 
 ```js
   'members.qrAlt': '{name} 的链接二维码',
@@ -407,31 +407,31 @@ Then pass the fourth argument in all four places where it is called:
   'members.qrShare': '分享二维码',
 ```
 
-- [x] **Step 5: Styles (add them after `.link-input` in `app/app.css`)**
+- [x] **Step 5: 样式（加在 `app/app.css` 的 `.link-input` 之后）**
 
 ```css
 .qr { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; }
 .qr-image { width: 240px; max-width: 100%; height: auto; image-rendering: pixelated; background: #fff; border-radius: 8px; }
 ```
 
-- [x] **Step 6: Run them and confirm they pass**
+- [x] **Step 6: 运行，确认通过**
 
-Run: `npx playwright test tests/e2e/product.spec.mjs -g "QR code"` → 2 passed;
-then run `npx playwright test` and `npm test`; all pass.
+Run: `npx playwright test tests/e2e/product.spec.mjs -g "QR code"` → 2 passed；
+再跑 `npx playwright test` 和 `npm test`，全部通过。
 
-- [x] **Step 7: Commit**
+- [x] **Step 7: 提交**
 
 ```bash
 git add app/views/admin.js app/app.css app/locales/en.js app/locales/zh-CN.js tests/e2e/product.spec.mjs
 git commit -m "feat: show each link as a QR code to scan, save or share"
 ```
 
-### Task 4: WeChat notice on the link page
+### Task 4: 链接页的微信提示
 
 **Files:**
 - Modify: `app/views/auth.js`, `app/locales/en.js`, `app/locales/zh-CN.js`, `tests/e2e/product.spec.mjs`
 
-- [x] **Step 1: Write the failing browser test**
+- [x] **Step 1: 写失败的浏览器测试**
 
 ```js
 test('opened inside WeChat, the link page says to open it in the browser first, without blocking', async ({ browser }) => {
@@ -458,46 +458,46 @@ test('opened inside WeChat, the link page says to open it in the browser first, 
 });
 ```
 
-- [x] **Step 2: Run it and confirm it fails**
+- [x] **Step 2: 运行，确认失败**
 
 Run: `npx playwright test tests/e2e/product.spec.mjs -g "inside WeChat"`
-Expected: FAIL (the notice is not found).
+Expected: FAIL（找不到提示）。
 
-- [x] **Step 3: Modify `app/views/auth.js`**
+- [x] **Step 3: 改 `app/views/auth.js`**
 
-Add before `const USERNAME = …`:
+在 `const USERNAME = …` 之前加：
 
 ```js
 /* WeChat opens links and scanned codes in its own browser: a sign-in there stays there. */
 const inWeChat = () => /MicroMessenger/i.test(navigator.userAgent);
 ```
 
-In the final `paint([...])` of `signInWithLink`, add after `before ? … : null,` and before `form,`:
+在 `signInWithLink` 最后的 `paint([...])` 里，`before ? … : null,` 之后、`form,` 之前加：
 
 ```js
     inWeChat() ? el('p', { text: t('signin.wechat'), attrs: { class: 'notice' } }) : null,
 ```
 
-- [x] **Step 4: UI text (add it after `signin.noAnswer`)**
+- [x] **Step 4: 文案（加在 `signin.noAnswer` 之后）**
 
 en: `'signin.wechat': 'You opened this inside WeChat. Tap ··· at the top right, choose Open in Browser, and sign in there, so Crumb can go on your home screen.',`
 zh: `'signin.wechat': '你是在微信里打开的。请点右上角「···」，选择「在浏览器打开」，在浏览器里登录，这样才能把 Crumb 放到桌面。',`
 
-- [x] **Step 5: Run it and confirm it passes; commit**
+- [x] **Step 5: 运行，确认通过；提交**
 
-Run: `npx playwright test tests/e2e/product.spec.mjs -g "inside WeChat"` → 1 passed.
+Run: `npx playwright test tests/e2e/product.spec.mjs -g "inside WeChat"` → 1 passed。
 
 ```bash
 git add app/views/auth.js app/locales/en.js app/locales/zh-CN.js tests/e2e/product.spec.mjs
 git commit -m "feat: tell people who open a sign-in link in WeChat to open it in the browser"
 ```
 
-### Task 5: The "Add to Home Screen" tip on the team member page
+### Task 5: 成员页的「添加到主屏幕」卡片
 
 **Files:**
 - Modify: `app/dom.js`, `app/views/member.js`, `app/app.css`, `app/locales/en.js`, `app/locales/zh-CN.js`, `tests/e2e/product.spec.mjs`
 
-- [x] **Step 1: Write the failing browser tests**
+- [x] **Step 1: 写失败的浏览器测试**
 
 ```js
 test('a team member is offered the home screen until they dismiss it; an owner never is', async ({ browser }) => {
@@ -534,12 +534,12 @@ test('opened from the home screen, Crumb does not suggest adding it again', asyn
 });
 ```
 
-- [x] **Step 2: Run them and confirm they fail**
+- [x] **Step 2: 运行，确认失败**
 
 Run: `npx playwright test tests/e2e/product.spec.mjs -g "home screen"`
-Expected: the first one FAILs (there is no tip); the second may already pass at this point (the tip does not exist yet), so after implementing, confirm by deliberately breaking the code that it catches the problem.
+Expected: 第一条 FAIL（没有卡片）；第二条此时可能已通过（卡片还不存在），实现后要用改坏代码的办法再确认它能抓住问题。
 
-- [x] **Step 3: Add at the end of `app/dom.js`**
+- [x] **Step 3: `app/dom.js` 末尾加**
 
 ```js
 /* True when Crumb was opened from a home-screen icon as a separate web app. On some phones
@@ -550,7 +550,7 @@ export const openedAsHomeScreenApp = () =>
 
 - [x] **Step 4: `app/views/member.js`**
 
-Add `openedAsHomeScreenApp` to the import from `../dom.js` (`button`, `el` and `uid` are already there, or add them at the same time). Add before `renderMember`:
+把 `openedAsHomeScreenApp` 加进从 `../dom.js` 的 import（`button`、`el`、`uid` 已在或一并加上）。在 `renderMember` 之前加：
 
 ```js
 const HOME_TIP = 'crumb.homeTip';
@@ -589,11 +589,11 @@ function homeTip(ctx) {
 }
 ```
 
-In `renderMember`'s `main.replaceChildren(...[`, add a line `homeTip(ctx),` after `me.org.welcome ? … : null,`.
+在 `renderMember` 的 `main.replaceChildren(...[` 里，`me.org.welcome ? … : null,` 之后加一行 `homeTip(ctx),`。
 
-- [x] **Step 5: UI text**
+- [x] **Step 5: 文案**
 
-en:
+en：
 
 ```js
   'home.title': 'Put Crumb on your home screen',
@@ -603,7 +603,7 @@ en:
   'home.done': 'Got it',
 ```
 
-zh:
+zh：
 
 ```js
   'home.title': '把 Crumb 放到手机桌面',
@@ -613,7 +613,7 @@ zh:
   'home.done': '知道了',
 ```
 
-- [x] **Step 6: Styles (`app/app.css`, after `.notice`)**
+- [x] **Step 6: 样式（`app/app.css`，放在 `.notice` 之后）**
 
 ```css
 .home-tip {
@@ -623,26 +623,26 @@ zh:
 .home-tip .btn { align-self: flex-start; }
 ```
 
-- [x] **Step 7: Run them and confirm they pass; confirm by breaking the code**
+- [x] **Step 7: 运行，确认通过；改坏确认**
 
-Run: `npx playwright test tests/e2e/product.spec.mjs -g "home screen"` → 2 passed.
-Temporarily delete `|| openedAsHomeScreenApp()` and run again: the second test must fail; then put it back.
-Then run `npx playwright test` (including the check for no horizontal scrolling at phone width) → all pass.
+Run: `npx playwright test tests/e2e/product.spec.mjs -g "home screen"` → 2 passed。
+临时把 `|| openedAsHomeScreenApp()` 删掉再跑，第二条必须失败；改回。
+再跑 `npx playwright test`（含手机宽度不横向滚动的检查）→ 全部通过。
 
-- [x] **Step 8: Commit**
+- [x] **Step 8: 提交**
 
 ```bash
 git add app/dom.js app/views/member.js app/app.css app/locales/en.js app/locales/zh-CN.js tests/e2e/product.spec.mjs
 git commit -m "feat: suggest putting Crumb on the home screen to team members"
 ```
 
-### Task 6: Web app manifest and home-screen icons
+### Task 6: 网页清单与桌面图标
 
 **Files:**
 - Create: `scripts/make-icons.mjs`, `app/manifest.webmanifest`, `app/icons/icon-180.png`, `app/icons/icon-192.png`, `app/icons/icon-512.png`, `tests/home-screen.test.mjs`
 - Modify: `app/index.html`
 
-- [x] **Step 1: Write the failing test `tests/home-screen.test.mjs`**
+- [x] **Step 1: 写失败的测试 `tests/home-screen.test.mjs`**
 
 ```js
 /* The home-screen icon: a manifest that keeps it opening in the browser, and real PNG icons. */
@@ -675,12 +675,12 @@ test('the manifest and icons are served, and the icon opens in the browser', asy
 });
 ```
 
-- [x] **Step 2: Run it and confirm it fails**
+- [x] **Step 2: 运行，确认失败**
 
 Run: `node --test tests/home-screen.test.mjs`
-Expected: FAIL (`/manifest.webmanifest` 404).
+Expected: FAIL（`/manifest.webmanifest` 404）。
 
-- [x] **Step 3: Write `scripts/make-icons.mjs` and run it**
+- [x] **Step 3: 写 `scripts/make-icons.mjs` 并运行**
 
 ```js
 /* Builds the home-screen icons in app/icons/ from the same sprite table the app draws from,
@@ -723,9 +723,9 @@ mkdirSync(join(root, 'app', 'icons'), { recursive: true });
 for (const size of [180, 192, 512]) await icon(size);
 ```
 
-Run: `node scripts/make-icons.mjs`, then open the three PNGs and take a look: a cream background with a pixel-art wife cake in the center.
+Run: `node scripts/make-icons.mjs`，打开三个 PNG 看一眼：奶油底色、居中的像素老婆饼。
 
-- [x] **Step 4: Write `app/manifest.webmanifest`**
+- [x] **Step 4: 写 `app/manifest.webmanifest`**
 
 ```json
 {
@@ -744,7 +744,7 @@ Run: `node scripts/make-icons.mjs`, then open the three PNGs and take a look: a 
 }
 ```
 
-- [x] **Step 5: In `app/index.html`, add after the favicon line**
+- [x] **Step 5: `app/index.html` 在 favicon 那行之后加**
 
 ```html
 <!-- The home-screen icon. The manifest keeps it opening in the browser, which holds the
@@ -753,21 +753,21 @@ Run: `node scripts/make-icons.mjs`, then open the three PNGs and take a look: a 
 <link rel="apple-touch-icon" href="/icons/icon-180.png">
 ```
 
-- [x] **Step 6: Run it and confirm it passes; commit**
+- [x] **Step 6: 运行，确认通过；提交**
 
-Run: `node --test tests/home-screen.test.mjs` → pass; `npm test` → all pass.
+Run: `node --test tests/home-screen.test.mjs` → pass；`npm test` → 全部通过。
 
 ```bash
 git add scripts/make-icons.mjs app/manifest.webmanifest app/icons app/index.html tests/home-screen.test.mjs
 git commit -m "feat: home-screen icon that opens Crumb in the browser"
 ```
 
-### Task 7: Explanation when opened as a separate web app (home-screen app) and not signed in
+### Task 7: 从独立网页 App 打开且未登录时的说明
 
 **Files:**
 - Modify: `app/views/auth.js`, `app/locales/en.js`, `app/locales/zh-CN.js`, `tests/e2e/product.spec.mjs`
 
-- [x] **Step 1: Write the failing browser test**
+- [x] **Step 1: 写失败的浏览器测试**
 
 ```js
 test('opened as a separate app from the home screen and signed out, the sign-in page says how to fix the icon', async ({ browser }) => {
@@ -791,39 +791,39 @@ test('opened as a separate app from the home screen and signed out, the sign-in 
 });
 ```
 
-- [x] **Step 2: Run it and confirm it fails**
+- [x] **Step 2: 运行，确认失败**
 
 Run: `npx playwright test tests/e2e/product.spec.mjs -g "separate app"`
-Expected: FAIL.
+Expected: FAIL。
 
-- [x] **Step 3: Modify `app/views/auth.js`**
+- [x] **Step 3: 改 `app/views/auth.js`**
 
-Add `openedAsHomeScreenApp` to the import from `../dom.js`. In `login()`'s `root.replaceChildren(frame(...[`, add after the `auth.memberHint` line:
+从 `../dom.js` 的 import 加上 `openedAsHomeScreenApp`。在 `login()` 的 `root.replaceChildren(frame(...[` 里，`auth.memberHint` 那一行之后加：
 
 ```js
     openedAsHomeScreenApp() ? el('p', { text: t('auth.homeScreenApp'), attrs: { class: 'notice' } }) : null,
 ```
 
-- [x] **Step 4: UI text (add it after `auth.memberHint`)**
+- [x] **Step 4: 文案（加在 `auth.memberHint` 之后）**
 
 en: `'auth.homeScreenApp': 'This home-screen icon opens Crumb as a separate app, which does not share the sign-in of your browser. Delete the icon and add Crumb to the home screen again from the browser; if you see Open as Web App, turn it off. Not signed in there either? Ask your admin for a new code.',`
 zh: `'auth.homeScreenApp': '这个桌面图标把 Crumb 当成独立 App 打开，它和浏览器不共用登录。请删掉这个图标，在浏览器里重新「添加到主屏幕」；如果看到「作为网页 App 打开」，把它关掉。浏览器里也没登录？请管理员给你一个新的二维码。',`
 
-- [x] **Step 5: Run it and confirm it passes; commit**
+- [x] **Step 5: 运行，确认通过；提交**
 
-Run: `npx playwright test tests/e2e/product.spec.mjs -g "separate app"` → 1 passed.
+Run: `npx playwright test tests/e2e/product.spec.mjs -g "separate app"` → 1 passed。
 
 ```bash
 git add app/views/auth.js app/locales/en.js app/locales/zh-CN.js tests/e2e/product.spec.mjs
 git commit -m "feat: explain a home-screen app that starts signed out"
 ```
 
-### Task 8: Screenshots, docs, full verification
+### Task 8: 截图、文档、全量验证
 
 **Files:**
 - Modify: `scripts/screenshots.mjs`, `README.md`, `README.zh-CN.md`, `docs/DEPLOYMENT.md`, `docs/VALIDATION.md`, `docs/RELEASE-CHECKLIST.md`
 
-- [x] **Step 1: Screenshot script**: in `--all` mode, after the `sign-in-link-phone` shot, use the admin page to generate a new sign-in link for Dana and capture `link-panel-qr`:
+- [x] **Step 1: 截图脚本**：`--all` 模式里，`sign-in-link-phone` 那张之后，用管理员页面给 Dana 生成新的登录链接并截 `link-panel-qr`：
 
 ```js
       await ownerPage.goto(`${origin}/#/team/members`);
@@ -833,11 +833,11 @@ git commit -m "feat: explain a home-screen app that starts signed out"
       await shoot(ownerPage, 'link-panel-qr');
 ```
 
-Run: `node scripts/screenshots.mjs --all --out <临时目录>`, and look at `link-panel-qr.png` and `member-full.png` (with the tip at the top).
+Run: `node scripts/screenshots.mjs --all --out <临时目录>`，看 `link-panel-qr.png`、`member-full.png`（顶部有卡片）。
 
-- [x] **Step 2: README (Chinese and English)**: the item on roles says team members sign in with a personal link or QR code; "How it is put together" gets a sentence saying that uqr generates the QR codes on the server.
-- [x] **Step 3: `docs/DEPLOYMENT.md`**: After setup explains the two ways to use the QR code; the security notes add that the QR code is the same as the link and is sent privately; scanning in WeChat, or recognizing it with a long press, opens it inside WeChat; the home-screen icon opens in the browser, and on iPhone "Open as Web App" is turned off; browser local storage now also holds "whether the home-screen tip has been dismissed".
-- [x] **Step 4: `docs/VALIDATION.md`**: under the differences from the plan, add the 2026-09-29 decisions on QR code sign-in and the home-screen icon, and the two new dependencies; under not verified, add scanning, long-press recognition, and whether the home-screen icon shares the sign-in, on a real iPhone and Android phone; add `tests/qr.test.mjs` and `tests/home-screen.test.mjs` to the test coverage table.
-- [x] **Step 5: `docs/RELEASE-CHECKLIST.md`**: the sign-in line mentions the QR code; "Before calling 0.1 ready" gets a new item: "On a real iPhone, confirm: signing in by scanning the QR code works, and after Add to Home Screen, tapping the icon is still signed in".
-- [x] **Step 6: Full verification**: `npm test`, `npx playwright test`, `node scripts/ci/process-drill.mjs`, `node scripts/theme-manifest.mjs --check`, `git diff --check`, then run everything again from a fresh clone, and write the results into VALIDATION.
-- [x] **Step 7: Commit, independent review, push to the draft PR, update the PR description** (do not merge into main).
+- [x] **Step 2: README（中英）**：角色那条说明成员用专属链接或二维码登录；「How it is put together」加一句 uqr 在服务器上生成二维码。
+- [x] **Step 3: `docs/DEPLOYMENT.md`**：After setup 说明二维码两种用法；安全说明补充二维码与链接相同、私下发送；微信扫码或长按识别会在微信里打开；桌面图标用浏览器打开，iPhone 上关掉「作为网页 App 打开」；浏览器本地存储多了「是否已关掉桌面提示」。
+- [x] **Step 4: `docs/VALIDATION.md`**：与计划的差异里加 2026-09-29 的扫码与桌面图标决定、两个新依赖；未验证里加真 iPhone、安卓的扫码、长按识别、桌面图标是否共用登录；测试覆盖表加 `tests/qr.test.mjs`、`tests/home-screen.test.mjs`。
+- [x] **Step 5: `docs/RELEASE-CHECKLIST.md`**：登录那一行提到二维码；「Before calling 0.1 ready」加一项「在真 iPhone 上确认：扫码登录，添加到主屏幕后点图标仍是登录状态」。
+- [x] **Step 6: 全量验证**：`npm test`、`npx playwright test`、`node scripts/ci/process-drill.mjs`、`node scripts/theme-manifest.mjs --check`、`git diff --check`，再从全新克隆跑一遍，结果写进 VALIDATION。
+- [x] **Step 7: 提交、独立审查、推送到草稿 PR、更新 PR 说明**（不合并 main）。

@@ -1,104 +1,106 @@
-# Crumb：扫码登录与「添加到主屏幕」
+# Crumb: QR Code Sign-In and "Add to Home Screen"
 
-状态：用户已确认（2026-09-29），进入实施计划编制；尚未进入实现。
-前提：成员已改用个人登录链接、不设密码（同日决定，见 `docs/VALIDATION.md`）。
+*Translated from the Chinese original, [2026-09-29-crumb-qr-signin-design.zh-CN.md](2026-09-29-crumb-qr-signin-design.zh-CN.md).*
 
-## 1. 目标与已确认决定
+Status: confirmed by the maintainer (2026-09-29), and implemented (see the status line of the plan and `docs/VALIDATION.md`).
+Prerequisite: team members have already switched to personal sign-in links with no password (decided the same day; see `docs/VALIDATION.md`).
 
-管理员给成员发登录链接，改为以二维码为主：员工当面用手机相机扫码登录。
+## 1. Goals and Confirmed Decisions
 
-用户已确认：
+When an admin gives a team member a sign-in link, the QR code now comes first: the employee signs in by scanning it in person with their phone camera.
 
-- 二维码为主，同时保留链接和「复制链接」，给不在场的员工用。
-- 员工第一次登录后，提示把 Crumb 添加到手机主屏幕，以后点图标打开。
-- 可以加两个开源库：`uqr`（MIT，生成二维码，运行时依赖）和 `jsqr`（Apache-2.0，只在测试里把二维码扫回来核对）。
-- 成员登录保持固定 180 天，不改成「一直在用就不过期」。
+The maintainer has confirmed:
 
-成功标准：管理员生成成员后，屏幕上的二维码用手机相机能扫开对应的登录页；
-二维码图片发给员工后，员工在手机上长按也能识别打开；扫出的内容与链接一字不差；
-员工登录后能把 Crumb 放到桌面，点图标仍是登录状态。
+- The QR code comes first, while the link and "Copy link" are kept for employees who are not present.
+- After an employee's first sign-in, prompt them to add Crumb to their phone's home screen and open it from the icon from then on.
+- Two open-source libraries may be added: `uqr` (MIT, generates the QR code, runtime dependency) and `jsqr` (Apache-2.0, only used in tests to scan the QR code back and check it).
+- Team member sign-in stays at a fixed 180 days; it does not change to "never expires as long as it is in use".
 
-## 2. 管理员这边
+Success criteria: after an admin creates a team member, the QR code on screen, scanned with a phone camera, opens the matching sign-in page;
+after the QR code image is sent to the employee, the employee can also long-press it on their phone to recognize and open it; the scanned content matches the link character for character;
+after signing in, the employee can put Crumb on their home screen, and tapping the icon keeps them signed in.
 
-- 所有一次性链接共用一个面板：成员登录链接、管理员邀请、密码重置。
-  面板最上方显示二维码（约 240×240 像素），再往下照旧是链接、「复制链接」、原有说明和「完成」。
-- 二维码有两种用法（用户 2026-09-29 补充：二维码可以直接发给员工，员工在自己手机上长按图片就能识别打开）：
-  - 当面：员工用手机相机扫管理员屏幕上的码。
-  - 不在场：把二维码图片发给员工（微信、WhatsApp 等），员工在手机上长按图片识别。
-  面板说明两种都写：「当面请 {姓名} 用手机相机扫；不在场就把二维码发给对方，对方在手机上长按图片识别」。
-- 二维码是普通 PNG 图片，能保存、复制、在聊天软件里发送；替代文字写明它登录的是谁。
-- 二维码下方总有「保存二维码」，存成 `crumb-{用户名}.png`，再拖进聊天窗口；在能调用系统分享的设备上
-  （手机，以及部分电脑）再多一个「分享二维码」，直接打开分享菜单选聊天软件，分享失败就改为保存。
-  右键或长按图片保存也可以。（第七轮审查后修订：原先按「能分享＝手机」只显示一个按钮，而 Windows 上的
-  Edge 和 Chrome 也能分享文件，电脑上就只剩系统分享菜单。）
-- 发二维码和发链接一样：谁先用谁登录，要私下发。
-- 生成失败时（实际不会发生，见 §5）只显示链接，其余照旧。
+## 2. The Admin Side
 
-## 3. 员工这边
+- All one-time links share one panel: team member sign-in links, admin invitations and password resets.
+  The QR code appears at the very top of the panel (about 240×240 pixels); below it, as before, are the link, "Copy link", the existing instructions and "Done".
+- The QR code can be used in two ways (added by the maintainer on 2026-09-29: the QR code can be sent straight to the employee, who long-presses the image on their own phone to recognize and open it):
+  - In person: the employee scans the code on the admin's screen with their phone camera.
+  - Not present: send the QR code image to the employee (WeChat, WhatsApp, etc.), and the employee long-presses the image on their phone to recognize it.
+  The panel instructions cover both: "In person, ask {name} to scan with their phone camera; if they are not present, send them the QR code and they long-press the image on their phone to recognize it".
+- The QR code is an ordinary PNG image that can be saved, copied and sent in chat apps; its alt text says whose sign-in it is.
+- Below the QR code there is always "Save QR code", which saves it as `crumb-{用户名}.png` to drag into a chat window; on devices that can call the system share feature
+  (phones, and some computers) there is also "Share QR code", which opens the share menu directly to choose a chat app; if sharing fails, it saves instead.
+  Right-clicking or long-pressing the image to save it also works. (Revised after the seventh review round: originally only one button was shown, based on "can share = phone", but on Windows
+  Edge and Chrome can also share files, so on computers only the system share menu was left.)
+- Sending the QR code is the same as sending the link: whoever uses it first is the one signed in, so send it privately.
+- If generation fails (which does not happen in practice; see §5), only the link is shown and everything else stays as before.
 
-**扫码登录**：相机打开的仍是现有登录页（显示这是谁的链接 → 点「在这台设备上登录」），流程不变。
+## 3. The Employee Side
 
-**微信**：二维码发到微信里、员工长按识别时，页面会在微信自带的浏览器里打开，所以这条提示很重要。
-登录页认出是在微信里打开（浏览器标识含 `MicroMessenger`）时，在按钮上方提示：
-「你是在微信里打开的。请点右上角 ··· 选择『在浏览器打开』再登录，这样以后才能从桌面图标打开。」
-只提示不拦截，员工仍可在微信里登录。
-在微信里，登录链接会留在地址栏里，直到用掉或离开这一页：微信的「在浏览器打开」交出去的是当前地址，
-若链接已被抹掉，浏览器里打开的就是成员用不了的密码登录页。其他浏览器照旧一读取就抹掉。
+**QR code sign-in**: the camera still opens the existing sign-in page (it shows whose link this is → tap "Sign in on this device"); the flow is unchanged.
 
-**添加到主屏幕卡片**：
+**WeChat**: when the QR code is sent in WeChat and the employee long-presses it to recognize it, the page opens in WeChat's built-in browser, so this notice matters.
+When the sign-in page detects it was opened in WeChat (the browser user agent contains `MicroMessenger`), it shows a notice above the button:
+"You opened this in WeChat. Tap ··· in the top-right corner, choose 'Open in Browser', then sign in, so that you can open it from the home-screen icon later."
+It only informs and does not block; the employee can still sign in inside WeChat.
+In WeChat, the sign-in link stays in the address bar until it is used or the page is left: WeChat's "Open in Browser" hands over the current address,
+and if the link had been erased, the browser would open the password sign-in page, which team members cannot use. Other browsers still erase it as soon as it is read.
 
-- 只给成员看；管理员和所有者用密码登录，不显示。
-- 出现在「我的 Crumb」顶部，直到在这台设备上点「知道了」。从桌面网页 App 打开时不显示。
-- 内容：一句好处（以后点图标就能打开，不用再扫码），iPhone 和安卓各一行做法；
-  iPhone 那行写明「如果看到『作为网页 App 打开』，把它关掉」。
-- 「知道了」记在这台浏览器的本地存储里，属于界面偏好，读写失败时照常显示。
+**Add to Home Screen card**:
 
-**桌面图标**：
+- Shown only to team members; admins and owners sign in with a password, so it is not shown to them.
+- Appears at the top of "My Crumb" until "Got it" is tapped on this device. Not shown when opened as a home-screen web app.
+- Content: one sentence on the advantage (from now on, tap the icon to open it, with no need to scan again), and one line of steps each for iPhone and Android;
+  the iPhone line says "If you see 'Open as Web App', turn it off".
+- "Got it" is stored in this browser's local storage as an interface preference; if reading or writing fails, the card is shown as usual.
 
-- 加网页清单（`manifest.webmanifest`）：名称 Crumb、起始页 `/`、`display` 设为 `browser`，
-  让图标用浏览器打开，与浏览器共用登录。
-- 图标用像素点心 PNG：180（iPhone）、192、512；由脚本从 `assets/sprites.js` 生成后提交，
-  和分享卡片 `og.png` 的做法一样，仍然没有构建步骤。
+**Home-screen icon**:
 
-**从独立网页 App 打开且没登录**：较新的 iOS 可能把桌面图标当独立网页 App 打开，
-它和 Safari 不共用登录。登录页在 iPhone 的这种模式下（`navigator.standalone`；电脑上的应用窗口与浏览器共用登录，不显示）
-加一段说明：删掉这个图标，在浏览器里重新「添加到主屏幕」，
-看到「作为网页 App 打开」就关掉，再从新图标打开。
+- Add a web app manifest (`manifest.webmanifest`): name Crumb, start page `/`, `display` set to `browser`,
+  so the icon opens in the browser and shares the browser's sign-in.
+- The icons are pixel-art pastry PNGs: 180 (iPhone), 192, 512; they are generated by a script from `assets/sprites.js` and then committed,
+  the same way as the share card `og.png`, so there is still no build step.
 
-## 4. 接口变化
+**Opened as a separate web app and not signed in**: newer iOS versions may open the home-screen icon as a separate web app,
+which does not share sign-in with Safari. In this mode on iPhone (`navigator.standalone`; app windows on computers share sign-in with the browser, so it is not shown there), the sign-in page
+adds a note: delete this icon, do "Add to Home Screen" again in the browser,
+turn off "Open as Web App" if you see it, then open Crumb from the new icon.
 
-生成链接的接口在原有字段之外多返回 `qr`：二维码 PNG 图片的 data URL（`data:image/png;base64,…`），生成失败时为 `null`。
+## 4. API Changes
+
+The link-generating endpoints return `qr` in addition to their existing fields: a data URL of the QR code PNG image (`data:image/png;base64,…`), or `null` if generation fails.
 
 - `POST /api/admin/invitations` → `{ user, signinUrl | invitationUrl, qr }`
 - `POST /api/admin/members/:id/signin-link` → `{ user, signinUrl, qr }`
 - `POST /api/admin/members/:id/invitation` → `{ invitationUrl, qr }`
 - `POST /api/admin/members/:id/reset` → `{ resetUrl, qr }`
 
-页面把它直接放进 `<img>`（内容安全策略已允许 `data:` 图片），不用 `innerHTML`。
-保存和分享用同一张 PNG：页面把 base64 解码成文件，不经过网络。链接和令牌不发给任何外部服务。
+The page puts it straight into an `<img>` (the Content Security Policy already allows `data:` images), without using `innerHTML`.
+Saving and sharing use the same PNG: the page decodes the base64 into a file without going over the network. Links and tokens are not sent to any external service.
 
-## 5. 组成与出错处理
+## 5. Components and Error Handling
 
-- `server/qr.mjs`：`qrPng(text)`，用 `uqr` 算出二维码的黑白格，再用 `sharp`（已有依赖）画成 PNG，
-  纠错等级 M，四格白边，返回 data URL；出错返回 `null`。
-  网址通常不到 300 字节，远在二维码容量（约 2,300 字节，M 级）之内。
-- 界面：`linkPanel` 多一个可选的二维码参数和文件名；登录页加微信提示和独立网页 App 说明；
-  成员页加添加到主屏幕卡片。
-- 文字：中英两种语言同步新增。
+- `server/qr.mjs`: `qrPng(text)` uses `uqr` to compute the QR code's black and white modules, then uses `sharp` (an existing dependency) to draw them as a PNG,
+  with error correction level M and a four-module white border, and returns a data URL; on error it returns `null`.
+  URLs are usually under 300 bytes, well within QR code capacity (about 2,300 bytes at level M).
+- Interface: `linkPanel` gets an optional QR code parameter and file name; the sign-in page gets the WeChat notice and the separate web app note;
+  the team member page gets the Add to Home Screen card.
+- Text: new strings are added in both Chinese and English at the same time.
 
-## 6. 测试
+## 6. Tests
 
-- 服务器：三种链接的 `qr` 都用 `sharp` 转成像素，再用 `jsqr` 扫回来，
-  必须与返回的链接完全相同；很长的网址同样；超出容量时返回 `null`。
-- 浏览器：面板显示二维码且能扫回链接；「保存二维码」下载的文件是能扫回链接的 PNG；
-  能分享的设备上多一个「分享二维码」，交给系统分享的是同一张 PNG，分享失败时改为保存；
-  卡片只给成员看，点「知道了」后刷新也不再出现；
-  微信标识出现提示；模拟独立网页 App 且未登录时出现说明；
-  清单和图标能下载且类型正确，首页引用了它们。
-- 每条新规则都先写会失败的测试，并故意改坏代码确认测试能抓到。
+- Server: for all three kinds of link, `qr` is converted to pixels with `sharp` and then scanned back with `jsqr`;
+  the result must be exactly the same as the returned link; the same applies to very long URLs; beyond capacity, `null` is returned.
+- Browser: the panel shows the QR code and it scans back to the link; the file downloaded by "Save QR code" is a PNG that scans back to the link;
+  on devices that can share there is also "Share QR code", which hands the system the same PNG and saves it instead if sharing fails;
+  the card is shown only to team members, and after "Got it" is tapped it does not appear again after a refresh;
+  the WeChat user agent makes the notice appear; simulating a separate web app while not signed in makes the note appear;
+  the manifest and icons can be downloaded with the correct types, and the home page references them.
+- For every new rule, a failing test is written first, and the code is deliberately broken to confirm the test catches it.
 
-## 7. 未验证与不做
+## 7. Not Verified and Not Doing
 
-- **真手机未验证**：iPhone 的「添加到主屏幕」是否与 Safari 共用登录，要用户用自己的 iPhone 试一次；
-  安卓真机没有，记为未验证。
-- 不做：应用内的扫码器（摄像头）、离线使用、推送通知、各组织自定义桌面名称和图标。
+- **Not verified on a real phone**: whether iPhone's "Add to Home Screen" shares sign-in with Safari needs the maintainer to try once on their own iPhone;
+  there is no real Android device, so it is recorded as unverified.
+- Not doing: an in-app QR code scanner (camera), offline use, push notifications, per-organization custom home-screen names and icons.

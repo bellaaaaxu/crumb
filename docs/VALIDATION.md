@@ -90,6 +90,7 @@ there, not recorded here.
 | Member and team journeys | `tests/e2e/product.spec.mjs` | Credit and points, two browser contexts as two devices, a team member joining with a sign-in link and a new link signing the old phone out, an admin joining with a password, deactivation, settings in Chinese; answers lost, cut short, or lost and followed by a reload. For sign-in links also: signing out, a used link opened again, a tap whose answer is cut short or lost, and a link page replaced while it loads. |
 | Phone and laptop layout, keyboard, reduced motion, HTML-looking input | `tests/e2e/accessibility.spec.mjs` | 390 px and 1440 px widths, no sideways scrolling, no CSP violations. |
 | QR codes and the home-screen icon | `tests/qr.test.mjs`, `tests/members.test.mjs`, `tests/home-screen.test.mjs`, `tests/e2e/product.spec.mjs` | Every kind of link, on every panel, comes with a QR code that reads back as exactly that link (decoded with jsqr, dark on light only), with a white border four modules wide; a saved or shared picture does too; Save is always there, Share only where the system offers it, and a failed share saves instead; a missing, odd or non-PNG picture leaves the link alone; the home-screen tip shows for team members only (not owners or admins), until dismissed in that browser, also with storage blocked, and never inside a home-screen app; inside WeChat the link stays in the address until used or left; the notes on the link page are read with its button; the iPhone-app note shows only in an iPhone home-screen app; the manifest opens in the browser and the icons are PNGs of the right sizes. |
+| The demo command and static hosting | `tests/demo.test.mjs`, `tests/e2e/static-host.spec.mjs` | `npm run demo` starts the invented English team and prints how to sign in (that it deletes its data on Ctrl+C is checked on Linux only: Windows cannot send it that signal from a test); the app folder served as static files under `/crumb/`, as GitHub Pages does, finds every file it asks for and says it needs its own server, with links to the demo and the README. |
 | Public demo, documents and source | `tests/e2e/demo.spec.mjs`, `tests/docs.test.mjs`, `tests/source.test.mjs` | Local links and images resolve; no invisible direction or byte-order characters. External links are not fetched by the tests. |
 
 ### Tests shown to catch the bug they are for
@@ -297,6 +298,12 @@ password screening.
   `scripts/make-icons.mjs` from the sprite table) keep that icon in the browser, which holds
   the sign-in. Team member sign-ins stay at a fixed 180 days (decided the same day). New
   dependencies: `uqr` 0.1.3 (MIT) at run time, `jsqr` 1.4.0 (Apache-2.0) in tests only.
+- **Before merging (2026-09-29):** `npm run demo` (`scripts/demo.mjs`) opens an invented English
+  team for a look around, and the screenshots and the demo share that team
+  (`scripts/sample-team.mjs`). The app page uses relative paths and says it needs its own
+  server when none answers, because GitHub Pages publishes it at `/crumb/app/`. The design
+  and plan documents in `docs/superpowers` are in English, with the Chinese originals beside
+  them (`*.zh-CN.md`).
 - **Hand-over:** the plan's last step asks to attach an artifact to the pull request; no
   such tool exists in this environment, so the screenshots are in the pull request's
   description instead.
