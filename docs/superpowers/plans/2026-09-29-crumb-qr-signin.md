@@ -10,7 +10,7 @@
 
 **Spec:** [已确认设计](../specs/2026-09-29-crumb-qr-signin-design.md)。
 
-**Status:** 任务 1–7 已在分支 `feature/self-hosted` 实施（2026-09-29），每条新规则都先写失败的测试；任务 8 的文档与截图脚本已更新，全新克隆的验证与审查结果记录在 `docs/VALIDATION.md`。尚未合并。
+**Status:** 已在分支 `feature/self-hosted` 实施（2026-09-29），每条新规则都先写失败的测试。第七轮审查（Claude 代理，`367cb9c`）之后又修订了几处：「保存二维码」总是显示、能分享时再加「分享二维码」；微信里登录链接留在地址栏直到用掉或离开；只在 iPhone 桌面 App 里显示那段说明（见 `docs/VALIDATION.md`）。全新克隆在 `ad4273d` 上的结果与审查记录都在 `docs/VALIDATION.md`。已推送到草稿 PR，尚未合并。
 
 ## 文件
 
