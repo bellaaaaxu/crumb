@@ -7,7 +7,7 @@ import { encode } from 'uqr';
 const QUIET = 4; // white modules around the code, as the standard asks
 const SCALE = 8; // pixels per module
 
-export async function qrPng(text) {
+export async function qrPng(text, log = () => {}) {
   try {
     const { data } = encode(text, { ecc: 'M', border: 0 });
     const side = (data.length + QUIET * 2) * SCALE;
@@ -21,8 +21,9 @@ export async function qrPng(text) {
     }));
     const png = await sharp(pixels, { raw: { width: side, height: side, channels: 1 } }).png().toBuffer();
     return `data:image/png;base64,${png.toString('base64')}`;
-  } catch {
-    // Too long for a QR code (a link never is): the link alone still works.
+  } catch (error) {
+    // The link alone still works. Logged by type only: the message could quote the link.
+    log(`[crumb] QR code not made: ${error?.name ?? 'Error'}`);
     return null;
   }
 }

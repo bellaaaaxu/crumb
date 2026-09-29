@@ -276,6 +276,8 @@ function homeTip(ctx) {
             // Not remembered on this device; it is gone for this visit.
           }
           tip.remove();
+          // The button is gone with the tip: keep the keyboard on the page.
+          document.getElementById('main')?.focus();
         },
       },
     }),

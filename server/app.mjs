@@ -94,7 +94,7 @@ export function createApp({ db, config, clock = () => Date.now(), log = console.
   api.use(sessionMiddleware({ db, config, clock }));
   api.use(csrfMiddleware({ config }));
   api.use(authRoutes({ db, config, clock }));
-  api.use(memberRoutes({ db, config, clock }));
+  api.use(memberRoutes({ db, config, clock, log }));
   api.use(readModelRoutes({ db, clock }));
   api.use(rewardRoutes({ db, clock }));
   api.use(orgRoutes({ db, clock }));

@@ -3,14 +3,11 @@
  * password, for owners and admins). */
 
 import { request, setCsrf, wasRefused } from '../api.js';
-import { button, el, field, formError, openedAsHomeScreenApp, radios, toast } from '../dom.js';
+import { button, el, field, formError, inWeChat, openedAsIPhoneHomeScreenApp, radios, toast, uid } from '../dom.js';
 import { LANGUAGES, getLocale, t } from '../i18n.js';
 import { amountToUnits } from '../format.js';
 import { pixelWord, spriteCanvas } from '../pixels.js';
 import { loading } from './member.js';
-
-/* WeChat opens links and scanned codes in its own browser: a sign-in there stays there. */
-const inWeChat = () => /MicroMessenger/i.test(navigator.userAgent);
 
 const USERNAME = /^[a-z0-9._-]{3,64}$/;
 const CURRENCIES = ['CAD', 'USD', 'CNY'];
@@ -68,7 +65,7 @@ function login(root, ctx) {
   root.replaceChildren(frame(ctx, org ? t('auth.signInTo', { name: org.name }) : t('auth.signInTitle'), [
     ctx.notice ? el('p', { text: ctx.notice, attrs: { class: 'notice', role: 'status' } }) : null,
     el('p', { text: t('auth.memberHint'), attrs: { class: 'muted' } }),
-    openedAsHomeScreenApp() ? el('p', { text: t('auth.homeScreenApp'), attrs: { class: 'notice' } }) : null,
+    openedAsIPhoneHomeScreenApp() ? el('p', { text: t('auth.homeScreenApp'), attrs: { class: 'notice' } }) : null,
     form,
     el('p', { text: t('auth.forgot'), attrs: { class: 'muted small' } }),
   ]));
@@ -207,12 +204,17 @@ async function signInWithLink(root, ctx) {
       },
     },
   }, [error.node, submit]);
+  // Someone else signed in on this browser is signed out by the link; inside WeChat the sign-in
+  // would stay in WeChat. Both are said before the tap, and read out with the button.
+  const notes = [
+    before ? t('signin.replaces', { name: before.displayName }) : null,
+    inWeChat() ? t('signin.wechat') : null,
+  ].filter(Boolean).map(text => el('p', { text, attrs: { class: 'notice', id: uid('signin-note') } }));
+  if (notes.length) submit.setAttribute('aria-describedby', notes.map(note => note.id).join(' '));
   paint([
     el('p', { text: t('signin.who', { name: person.displayName }) }),
     el('p', { text: t('signin.note'), attrs: { class: 'muted' } }),
-    // Someone else signed in on this browser is signed out by the link.
-    before ? el('p', { text: t('signin.replaces', { name: before.displayName }), attrs: { class: 'notice' } }) : null,
-    inWeChat() ? el('p', { text: t('signin.wechat'), attrs: { class: 'notice' } }) : null,
+    ...notes,
     form,
     leave(),
   ]);

@@ -13,10 +13,11 @@ import { readObject, secret } from '../validate.mjs';
 const invalidLink = () => new AppError(400, 'INVALID_TOKEN',
   'This link is invalid, has expired or was already used. Ask your team admin for a new one.');
 
-export function memberRoutes({ db, config, clock }) {
+export function memberRoutes({ db, config, clock, log }) {
   const router = express.Router();
   /* Links carry the token in the fragment: browsers never send it to the
-   * server or in a Referer, and the page removes it once read. */
+   * server or in a Referer, and the page removes it once read (inside WeChat,
+   * once used: see app/main.js). */
   const link = (kind, token) => `${config.publicOrigin}/#${kind}=${token}`;
   const noBody = req => readObject(req.body ?? {}, {});
 
@@ -25,7 +26,7 @@ export function memberRoutes({ db, config, clock }) {
     const { user, token, purpose } = inviteMember(db, req.actor, req.body, clock);
     // A team member gets a sign-in link; an owner or admin an invitation to set a password.
     const url = link(purpose === 'signin' ? 'signin' : 'invite', token);
-    const qr = await qrPng(url);
+    const qr = await qrPng(url, log);
     res.status(201).json(purpose === 'signin' ? { user, signinUrl: url, qr } : { user, invitationUrl: url, qr });
   });
 
@@ -34,7 +35,7 @@ export function memberRoutes({ db, config, clock }) {
     noBody(req);
     const { token, user } = issueSignInLink(db, req.actor, req.params.id, clock);
     const url = link('signin', token);
-    res.json({ user, signinUrl: url, qr: await qrPng(url) });
+    res.json({ user, signinUrl: url, qr: await qrPng(url, log) });
   });
 
   router.post('/admin/members/:id/invitation', async (req, res) => {
@@ -42,7 +43,7 @@ export function memberRoutes({ db, config, clock }) {
     noBody(req);
     const { token } = renewInvitation(db, req.actor, req.params.id, clock);
     const url = link('invite', token);
-    res.json({ invitationUrl: url, qr: await qrPng(url) });
+    res.json({ invitationUrl: url, qr: await qrPng(url, log) });
   });
 
   router.post('/admin/members/:id/reset', async (req, res) => {
@@ -50,7 +51,7 @@ export function memberRoutes({ db, config, clock }) {
     noBody(req);
     const { token } = issueReset(db, req.actor, req.params.id, clock);
     const url = link('reset', token);
-    res.json({ resetUrl: url, qr: await qrPng(url) });
+    res.json({ resetUrl: url, qr: await qrPng(url, log) });
   });
 
   router.patch('/admin/members/:id', (req, res) => {

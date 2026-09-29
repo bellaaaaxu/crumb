@@ -3,7 +3,9 @@
  * Anything a person typed — names, reasons, benefit descriptions — only ever
  * reaches the page through textContent. Nothing in the product uses
  * innerHTML. `attrs` is for attributes written in this codebase, never for
- * values taken from the server; links from the server go through safeUrl. */
+ * values taken from the server; links from the server go through safeUrl. The
+ * one exception is a link's QR code, which admin.js only uses once it has the
+ * exact shape of a PNG data URL. */
 
 export function el(tag, { text, attrs = {}, on = {} } = {}, children = []) {
   const node = document.createElement(tag);
@@ -164,3 +166,9 @@ export function copyText(value) {
  * that app keeps its own storage, so it has none of the browser's sign-in. */
 export const openedAsHomeScreenApp = () =>
   window.navigator.standalone === true || Boolean(window.matchMedia?.('(display-mode: standalone)').matches);
+
+/* Only an iPhone home-screen app keeps storage of its own; app windows elsewhere share the browser's. */
+export const openedAsIPhoneHomeScreenApp = () => window.navigator.standalone === true;
+
+/* WeChat opens links and scanned codes in its own browser: a sign-in there stays there. */
+export const inWeChat = () => /MicroMessenger/i.test(window.navigator.userAgent);

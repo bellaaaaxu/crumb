@@ -195,33 +195,45 @@ function pngFile(dataUrl, name) {
 }
 
 /* The link as a QR code: scanned from this screen in person, or sent as a picture, which a
- * phone opens with a long press. A phone hands it straight to a chat app; a computer saves it. */
+ * phone opens with a long press. Saving always works, and is what goes into a chat on a
+ * computer; where the system can share files (phones, and some computers) sharing is offered
+ * too, and falls back to saving if it fails. */
 function qrBlock(qr, name, fileName) {
   const file = pngFile(qr, fileName);
+  const save = () => {
+    const anchor = el('a', { attrs: { href: qr, download: fileName, hidden: true } });
+    document.body.append(anchor);
+    anchor.click();
+    anchor.remove();
+  };
   const canShare = typeof navigator.canShare === 'function' && navigator.canShare({ files: [file] });
-  const send = button(t(canShare ? 'members.qrShare' : 'members.qrSave'), {
+  const share = canShare ? button(t('members.qrShare'), {
     on: {
       click: async () => {
-        if (!canShare) {
-          const save = el('a', { attrs: { href: qr, download: fileName, hidden: true } });
-          document.body.append(save);
-          save.click();
-          save.remove();
-          return;
-        }
         try {
           await navigator.share({ files: [file] });
-        } catch {
-          // Closing the share sheet without choosing an app is not an error.
+        } catch (error) {
+          // Closing the share sheet is a choice; anything else, save it instead.
+          if (error?.name !== 'AbortError') save();
         }
       },
     },
-  });
+  }) : null;
   return el('figure', { attrs: { class: 'qr' } }, [
     el('img', { attrs: { src: qr, alt: t('members.qrAlt', { name }), class: 'qr-image', width: 240, height: 240 } }),
     el('figcaption', { text: t('members.qrCaption', { name }), attrs: { class: 'small' } }),
-    send,
+    el('div', { attrs: { class: 'row-actions' } }, [button(t('members.qrSave'), { on: { click: save } }), share]),
   ]);
+}
+
+/* The QR code if it is one the server made and it reads as a picture; otherwise the link alone. */
+function qrOrNothing(qr, name, fileName) {
+  if (typeof qr !== 'string' || !QR_SHAPE.test(qr)) return null;
+  try {
+    return qrBlock(qr, name, fileName);
+  } catch {
+    return null;
+  }
 }
 
 /* What the panel needs to show a link's QR code for a person. */
@@ -231,7 +243,7 @@ const qrFor = (result, person) => ({ qr: result.qr, name: person.displayName, fi
 function linkPanel(label, url, note, { qr = null, name = '', fileName = 'crumb.png' } = {}) {
   const link = field({ label, name: 'link', value: url, attrs: { readonly: true, class: 'link-input' } });
   const panel = el('div', { attrs: { class: 'link-panel' } }, [
-    typeof qr === 'string' && QR_SHAPE.test(qr) ? qrBlock(qr, name, fileName) : null,
+    qrOrNothing(qr, name, fileName),
     link.wrapper,
     el('p', { text: note, attrs: { class: 'muted small' } }),
     el('div', { attrs: { class: 'row-actions' } }, [
@@ -248,7 +260,16 @@ function linkPanel(label, url, note, { qr = null, name = '', fileName = 'crumb.p
           },
         },
       }),
-      button(t('common.done'), { kind: 'quiet', on: { click: () => panel.remove() } }),
+      button(t('common.done'), {
+        kind: 'quiet',
+        on: {
+          click: () => {
+            panel.remove();
+            // The button is gone with the panel: keep the keyboard on the page.
+            document.getElementById('main')?.focus();
+          },
+        },
+      }),
     ]),
   ]);
   return panel;

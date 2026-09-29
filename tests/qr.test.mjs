@@ -25,3 +25,28 @@ test('a long address still fits and reads back exactly', async () => {
 test('text too long for any QR code gives no picture instead of an error', async () => {
   assert.equal(await qrPng('x'.repeat(3000)), null);
 });
+
+test('the code is dark on light, with a white border four modules wide all round', async () => {
+  const qr = await qrPng(`https://crumb.example.com/#signin=${TOKEN}`);
+  const { data, info } = await sharp(Buffer.from(qr.slice(qr.indexOf(',') + 1), 'base64'))
+    .greyscale().raw().toBuffer({ resolveWithObject: true });
+  const at = (x, y) => data[y * info.width + x];
+  const border = 4 * 8;
+  let dark = 0;
+  for (let i = 0; i < info.width; i += 1) {
+    for (let d = 0; d < border; d += 1) {
+      if (at(i, d) !== 255 || at(d, i) !== 255 || at(i, info.width - 1 - d) !== 255 || at(info.width - 1 - d, i) !== 255) dark += 1;
+    }
+  }
+  assert.equal(dark, 0, 'nothing dark inside the border');
+  assert.equal(at(border, border), 0, 'the corner pattern starts dark right after the border');
+});
+
+test('a QR code that cannot be made is logged by error type, never with the link', async () => {
+  const lines = [];
+  const link = `https://crumb.example.com/#signin=${TOKEN}${'x'.repeat(3000)}`;
+  assert.equal(await qrPng(link, line => lines.push(line)), null);
+  assert.equal(lines.length, 1);
+  assert.match(lines[0], /QR code/);
+  assert.equal(lines[0].includes(TOKEN), false);
+});

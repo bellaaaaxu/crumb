@@ -213,5 +213,7 @@ const decodeQr = jsqr.default ?? jsqr;
 export async function readQr(image) {
   const png = Buffer.isBuffer(image) ? image : Buffer.from(image.slice(image.indexOf(',') + 1), 'base64');
   const { data, info } = await sharp(png).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
-  return decodeQr(new Uint8ClampedArray(data.buffer, data.byteOffset, data.length), info.width, info.height)?.data ?? null;
+  // As it is drawn, dark on light: many phone cameras read no other way round.
+  return decodeQr(new Uint8ClampedArray(data.buffer, data.byteOffset, data.length), info.width, info.height,
+    { inversionAttempts: 'dontInvert' })?.data ?? null;
 }

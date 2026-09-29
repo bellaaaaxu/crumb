@@ -14,7 +14,7 @@ here is marked as passing unless it was actually run. The per-requirement view i
   restore into a new volume, owner recovery and rollback.
 - **Not checked:** HTTPS through Caddy on a real domain (only its Compose configuration was
   validated), arm64, Docker Desktop, and browsers other than Chromium.
-- **Reviewed by AI only:** six review passes (five by Claude agents, one by ChatGPT). No human
+- **Reviewed by AI only:** seven review passes (six by Claude agents, one by ChatGPT). No human
   review and no professional security audit has happened yet.
 - So Crumb 0.1 is **not yet validated for managing a real team's benefits.** What is still
   needed is at the end of the checklist.
@@ -86,7 +86,7 @@ there, not recorded here.
 | Backup, restore, owner recovery | `tests/backup.test.mjs`, `tests/ops.test.mjs`, the drills | See the record below. |
 | Member and team journeys | `tests/e2e/product.spec.mjs` | Credit and points, two browser contexts as two devices, a team member joining with a sign-in link and a new link signing the old phone out, an admin joining with a password, deactivation, settings in Chinese; answers lost, cut short, or lost and followed by a reload. For sign-in links also: signing out, a used link opened again, a tap whose answer is cut short or lost, and a link page replaced while it loads. |
 | Phone and laptop layout, keyboard, reduced motion, HTML-looking input | `tests/e2e/accessibility.spec.mjs` | 390 px and 1440 px widths, no sideways scrolling, no CSP violations. |
-| QR codes and the home-screen icon | `tests/qr.test.mjs`, `tests/members.test.mjs`, `tests/home-screen.test.mjs`, `tests/e2e/product.spec.mjs` | Every kind of link comes with a QR code that reads back as exactly that link (decoded with jsqr, as a phone camera would); a saved or shared picture does too; the home-screen tip shows for team members only, until dismissed, and never inside a home-screen app; the WeChat and separate-app notes; the manifest opens in the browser and the icons are PNGs of the right sizes. |
+| QR codes and the home-screen icon | `tests/qr.test.mjs`, `tests/members.test.mjs`, `tests/home-screen.test.mjs`, `tests/e2e/product.spec.mjs` | Every kind of link, on every panel, comes with a QR code that reads back as exactly that link (decoded with jsqr, dark on light only), with a white border four modules wide; a saved or shared picture does too; Save is always there, Share only where the system offers it, and a failed share saves instead; a missing, odd or non-PNG picture leaves the link alone; the home-screen tip shows for team members only (not owners or admins), until dismissed in that browser, also with storage blocked, and never inside a home-screen app; inside WeChat the link stays in the address until used or left; the notes on the link page are read with its button; the iPhone-app note shows only in an iPhone home-screen app; the manifest opens in the browser and the icons are PNGs of the right sizes. |
 | Public demo, documents and source | `tests/e2e/demo.spec.mjs`, `tests/docs.test.mjs`, `tests/source.test.mjs` | Local links and images resolve; no invisible direction or byte-order characters. External links are not fetched by the tests. |
 
 ### Tests shown to catch the bug they are for
@@ -111,6 +111,13 @@ there, not recorded here.
   link" from admins or showing it for someone deactivated, not asking the server again after
   a failed tap, treating a used link on a signed-in phone as an error, signing a member out
   without asking, and making a new link without asking.
+- After the seventh review, 21 changes each made a test fail: no white border, light-on-dark
+  codes, a QR failure not logged or logged with the link, the tip dismissed only for one tab,
+  shown to admins or crashing with storage blocked or shown in an app window, the shape check
+  removed, an odd picture breaking the panel, no QR on the reset or renewed-invitation panel,
+  Save hidden where sharing works, a failed share not saving, a closed share sheet saving,
+  focus lost after "Got it" or "Done", the iPhone note in every app window, the WeChat address
+  wiped at once or kept after leaving, and the WeChat note not read with the button.
 - Every problem found in review got a test first, and each was seen failing for the reported
   reason before the fix (for example, restoring with a copy of the code that has one more
   migration reproduced the reported "schema too new" failure).
@@ -193,6 +200,23 @@ rest came from reading the code:
 | An owner can manage their own account through the API (make themselves a reset link, or step down while another owner remains) | Not changed: the design only forbids removing the last active owner, and the server lets one of two owners leave on purpose (tested); the screens never offer it |
 | A late answer could paint over a newer page | Checked again after every wait; tested |
 | Documents: opening a link does not sign in, the tap does; each browser counts as its own device; a member who never joined and is made an admin needs an invitation, not a reset; the design's §4 still said everyone uses a password | Corrected; the design now points to the 2026-09-29 decision |
+
+A seventh review, by a Claude agent at `367cb9c`, looked at the QR codes and the home screen.
+It found nothing critical — 600 random links across ten kinds of address read back exactly,
+and no token reaches a log or another origin — and these, proven by running them unless
+marked:
+
+| Finding | Outcome |
+| --- | --- |
+| Desktop Edge and Chrome on Windows can share files, so a computer got only "Share QR code", never "Save" | Save is always offered; Share is added where the system offers it, and a failed share saves instead |
+| Inside WeChat the page had already wiped the link from the address, so "Open in Browser" would open a page no team member can use | Inside WeChat the link stays in the address until it is used or left; which address WeChat hands over is still to be checked on a real phone |
+| The plan said the fresh-clone run and the review were recorded before they were | Recorded here, for the final commit |
+| Nine rules could break with every test passing (the white border, dark on light, the tip for admins, in another tab, with storage blocked or in an app window, the shape check, the reset and invitation panels, a missing picture) | Tests added; each shown to catch its change |
+| A picture that passes the shape check but does not decode took the whole panel down | The panel shows the link alone |
+| Focus was lost after "Got it" and "Done" | Focus goes to the page |
+| The iPhone note also showed in desktop app windows, which share the browser's sign-in, and spoke to owners | Only in an iPhone home-screen app, addressed to team members |
+| (Reading) Share failures were silent; a QR failure left no trace; the WeChat note was not read with the button | A failed share saves; the failure is logged by type only; the notes describe the button |
+| (Reading) Documents: "neither goes to any outside service" beside advice to send it by chat; "the first time" for a tip shown until dismissed; the DOM helper comment | Reworded |
 
 Decided by the maintainer on 2026-09-28: request keys stay in the browser as described below,
 and the README's two unconfirmed statements about the original tool ("in daily use by about
@@ -279,8 +303,9 @@ password screening.
   mobile browsers; no real screen reader.
 - **Real phones:** scanning a code with a phone camera, opening a sent picture with a long
   press (in WeChat, Photos or another app), the share sheet, and whether a home-screen icon
-  on iPhone stays signed in. The tests decode the picture with jsqr and stand in for the
-  share sheet; WeChat and home-screen apps are simulated by their browser signs.
+  on iPhone stays signed in; which address WeChat's "Open in Browser" hands over, and what
+  that menu item is called on iPhone. The tests decode the picture with jsqr and stand in for
+  the share sheet; WeChat and home-screen apps are simulated by their browser signs.
 - **Stopping mid-request:** the container drill's restart stops Crumb with SIGTERM while it is
   idle; stopping it with requests in flight was not tried.
 - **Links that only work after merging:** the demo's "Deploy it for your team" link, the
@@ -314,5 +339,7 @@ password screening.
   admin for a new one. (When the cookie did arrive, the page notices and goes straight in.)
 - A QR code scanned or long-pressed in WeChat opens in WeChat's own browser. The page says to
   open it in the browser first but does not stop anyone; a sign-in made there stays there.
+  Inside WeChat the link stays visible in the address until it is used, so "Open in Browser"
+  can carry it over.
 - A change sent again from a different browser or device after a lost answer is not
   recognised as a retry: request keys live in the browser that sent the change.

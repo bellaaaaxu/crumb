@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { test, expect } from '@playwright/test';
-import { PASSWORD, provision, startCrumb } from './fixtures.mjs';
+import { PASSWORD, provision, signIn, startCrumb } from './fixtures.mjs';
 import { client, readQr, tokenFrom } from '../helpers.mjs';
 
 test('member requests a benefit and owner completes it', async ({browser}) => {
@@ -760,12 +760,25 @@ test('a link page replaced while it loads never shows or uses the old link', asy
 
 /* ---------------------------------------------------------------- QR codes */
 
+/* An admin who can make links, with Mina Park (a team member) and Ada Lin (an admin who has
+ * joined) on the members page. */
+async function membersPage(fx) {
+  const invite = await fx.api.request('POST', '/api/admin/invitations', { username: 'ada', displayName: 'Ada Lin', role: 'admin' });
+  const joiner = client(fx.origin);
+  await joiner.bootstrap();
+  await joiner.request('POST', '/api/invitations/accept', { token: tokenFrom(invite.body.invitationUrl, 'invite'), password: PASSWORD });
+  await fx.ownerPage.goto(`${fx.origin}/#/team/members`);
+  await fx.ownerPage.reload();
+  return fx.ownerPage;
+}
+
+const noShareSheet = () => Object.defineProperty(navigator, 'canShare', { value: undefined, configurable: true });
+
 test('the link panel shows the link as a QR code, which saves as a picture of the same link', async ({ browser }) => {
   const fx = await provision(browser, { mode: 'points' });
   try {
     const { ownerPage } = fx;
-    // A computer: no system share sheet, so the picture is saved.
-    await ownerPage.context().addInitScript(() => Object.defineProperty(navigator, 'canShare', { value: undefined, configurable: true }));
+    await ownerPage.context().addInitScript(noShareSheet);
     await ownerPage.reload();
     await ownerPage.getByRole('link', { name: 'Members', exact: true }).click();
     await ownerPage.getByLabel('Name', { exact: true }).fill('Sam Okafor');
@@ -775,18 +788,37 @@ test('the link panel shows the link as a QR code, which saves as a picture of th
     const image = ownerPage.getByRole('img', { name: 'QR code of the link for Sam Okafor' });
     expect(await readQr(await image.getAttribute('src'))).toBe(link);
     await expect(ownerPage.locator('.link-panel')).toContainText('long press');
+    await expect(ownerPage.getByRole('button', { name: 'Share QR code', exact: true })).toHaveCount(0);
     const [download] = await Promise.all([
       ownerPage.waitForEvent('download'),
       ownerPage.getByRole('button', { name: 'Save QR code', exact: true }).click(),
     ]);
     expect(download.suggestedFilename()).toBe('crumb-sam.png');
     expect(await readQr(readFileSync(await download.path()))).toBe(link);
+    // Closing the panel leaves the keyboard on the page, not nowhere.
+    await ownerPage.getByRole('button', { name: 'Done', exact: true }).click();
+    await expect(ownerPage.locator('#main')).toBeFocused();
   } finally {
     await fx.close();
   }
 });
 
-test('on a phone the QR code goes straight to the share sheet, as the same picture', async ({ browser }) => {
+test('the invitation and password panels show their QR code too', async ({ browser }) => {
+  const fx = await provision(browser, { mode: 'points' });
+  try {
+    await fx.api.request('POST', '/api/admin/invitations', { username: 'noor', displayName: 'Noor Haddad', role: 'admin' });
+    const ownerPage = await membersPage(fx);
+    const qrOf = async name => readQr(await ownerPage.getByRole('img', { name: `QR code of the link for ${name}` }).getAttribute('src'));
+    await ownerPage.getByRole('button', { name: 'New invitation link for Noor Haddad', exact: true }).click();
+    expect(await qrOf('Noor Haddad')).toBe(await ownerPage.getByLabel('Invitation link', { exact: true }).inputValue());
+    await ownerPage.getByRole('button', { name: 'Password reset link for Ada Lin', exact: true }).click();
+    expect(await qrOf('Ada Lin')).toBe(await ownerPage.getByLabel('Password reset link', { exact: true }).inputValue());
+  } finally {
+    await fx.close();
+  }
+});
+
+test('where the system can share files, Share QR code is offered as well, with the same picture', async ({ browser }) => {
   const fx = await provision(browser, { mode: 'points' });
   try {
     const { ownerPage } = fx;
@@ -806,6 +838,8 @@ test('on a phone the QR code goes straight to the share sheet, as the same pictu
     await ownerPage.getByRole('button', { name: 'New sign-in link for Mina Park', exact: true }).click();
     await ownerPage.getByRole('dialog').getByRole('button', { name: 'Make a new link', exact: true }).click();
     const link = await ownerPage.getByLabel('Sign-in link', { exact: true }).inputValue();
+    // A computer can often share files too, but saving is what goes into a desktop chat window.
+    await expect(ownerPage.getByRole('button', { name: 'Save QR code', exact: true })).toBeVisible();
     await ownerPage.getByRole('button', { name: 'Share QR code', exact: true }).click();
     await expect.poll(() => ownerPage.evaluate(() => window.shared?.length ?? 0)).toBe(1);
     const shared = await ownerPage.evaluate(() => window.shared);
@@ -816,7 +850,66 @@ test('on a phone the QR code goes straight to the share sheet, as the same pictu
   }
 });
 
-test('opened inside WeChat, the link page says to open it in the browser first, without blocking', async ({ browser }) => {
+test('a share that fails saves the picture instead; closing the share sheet does not', async ({ browser }) => {
+  const fx = await provision(browser, { mode: 'points' });
+  try {
+    const { ownerPage } = fx;
+    await ownerPage.context().addInitScript(() => {
+      Object.defineProperty(navigator, 'canShare', { value: () => true, configurable: true });
+      Object.defineProperty(navigator, 'share', {
+        configurable: true,
+        value: async () => {
+          throw window.shareClosed ? new DOMException('closed', 'AbortError') : new TypeError('no share target');
+        },
+      });
+    });
+    await ownerPage.goto(`${fx.origin}/#/team/members`);
+    await ownerPage.reload();
+    const downloads = [];
+    ownerPage.on('download', download => downloads.push(download.suggestedFilename()));
+    await ownerPage.getByRole('button', { name: 'New sign-in link for Mina Park', exact: true }).click();
+    await ownerPage.getByRole('dialog').getByRole('button', { name: 'Make a new link', exact: true }).click();
+    await ownerPage.getByRole('button', { name: 'Share QR code', exact: true }).click();
+    await expect.poll(() => downloads).toEqual(['crumb-mina.png']);
+    await ownerPage.evaluate(() => { window.shareClosed = true; });
+    await ownerPage.getByRole('button', { name: 'Share QR code', exact: true }).click();
+    await ownerPage.evaluate(() => new Promise(resolve => setTimeout(resolve, 300)));
+    expect(downloads).toEqual(['crumb-mina.png']);
+  } finally {
+    await fx.close();
+  }
+});
+
+test('a QR code that is missing, odd or not a PNG never breaks the panel: the link alone is shown', async ({ browser }) => {
+  const fx = await provision(browser, { mode: 'points' });
+  try {
+    const { ownerPage } = fx;
+    let odd;
+    await ownerPage.route('**/api/admin/invitations', async route => {
+      const response = await route.fetch();
+      const json = await response.json();
+      if (odd === undefined) delete json.qr; else json.qr = odd;
+      await route.fulfill({ response, json });
+    });
+    await ownerPage.getByRole('link', { name: 'Members', exact: true }).click();
+    const values = [null, undefined, 'javascript:alert(1)', 'data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=', 'data:image/png;base64,A'];
+    for (const [index, value] of values.entries()) {
+      odd = value;
+      await ownerPage.getByLabel('Name', { exact: true }).fill(`Odd ${index}`);
+      await ownerPage.getByLabel('Username').fill(`odd${index}`);
+      await ownerPage.getByRole('button', { name: 'Create invitation', exact: true }).click();
+      // The panel for this person, not the one before it.
+      await expect(ownerPage.locator('.link-panel')).toContainText(`Send this to Odd ${index} yourself`);
+      await expect(ownerPage.getByLabel('Sign-in link', { exact: true })).toHaveValue(/#signin=/);
+      await expect(ownerPage.locator('.link-panel img')).toHaveCount(0);
+      await expect(ownerPage.locator('.invite-form .form-error')).toBeHidden();
+    }
+  } finally {
+    await fx.close();
+  }
+});
+
+test('opened inside WeChat, the link page says to open it in the browser first and keeps the link for it', async ({ browser }) => {
   const fx = await provision(browser, { mode: 'points' });
   try {
     const invite = await fx.api.request('POST', '/api/admin/invitations', { username: 'sam', displayName: 'Sam Lee', role: 'member' });
@@ -825,13 +918,33 @@ test('opened inside WeChat, the link page says to open it in the browser first, 
     });
     const phone = await wechat.newPage();
     await phone.goto(invite.body.signinUrl);
+    const tap = phone.getByRole('button', { name: 'Sign in on this device', exact: true });
     await expect(phone.getByText(/inside WeChat/)).toContainText('Open in Browser');
-    await expect(phone.getByRole('button', { name: 'Sign in on this device', exact: true })).toBeEnabled();
+    await expect(tap).toHaveAccessibleDescription(/inside WeChat/);
+    await expect(tap).toBeEnabled();
+    // "Open in Browser" hands over the address as it is now: it must still hold the link.
+    await expect(phone).toHaveURL(invite.body.signinUrl);
+    const browserTab = await (await browser.newContext()).newPage();
+    await browserTab.goto(phone.url());
+    await expect(browserTab.getByText('This link signs in Sam Lee on this device')).toBeVisible();
+    await expect(browserTab).toHaveURL(`${fx.origin}/`);
+    await browserTab.context().close();
+    // Used, the link leaves the address.
+    await tap.click();
+    await expect(phone.getByTestId('available-balance')).toBeVisible();
+    await expect(phone).not.toHaveURL(/signin=/);
     await wechat.close();
+    // A used link opened in WeChat again: leaving for sign-in takes the link out of the address.
+    const again = await (await browser.newContext({ userAgent: 'Mozilla/5.0 MicroMessenger/8.0.50' })).newPage();
+    await again.goto(invite.body.signinUrl);
+    await expect(again.getByRole('alert')).toContainText('already used');
+    await again.getByRole('button', { name: 'Go to sign in', exact: true }).click();
+    await expect(again.getByRole('button', { name: 'Sign in', exact: true })).toBeVisible();
+    await expect(again).not.toHaveURL(/signin=/);
+    await again.context().close();
 
     const plain = await (await browser.newContext()).newPage();
     await plain.goto(invite.body.signinUrl);
-    await expect(plain.getByRole('button', { name: 'Sign in on this device', exact: true })).toBeVisible();
     await expect(plain.getByText(/inside WeChat/)).toHaveCount(0);
     await plain.context().close();
   } finally {
@@ -841,18 +954,24 @@ test('opened inside WeChat, the link page says to open it in the browser first, 
 
 /* ---------------------------------------------------------------- the home screen */
 
-test('a team member is offered the home screen until they dismiss it; an owner never is', async ({ browser }) => {
+const tip = page => page.getByRole('region', { name: 'Put Crumb on your home screen' });
+
+test('a team member is offered the home screen until they dismiss it in this browser; an owner never is', async ({ browser }) => {
   const fx = await provision(browser, { mode: 'points' });
   try {
     const { memberPage, ownerPage } = fx;
-    const tip = page => page.getByRole('region', { name: 'Put Crumb on your home screen' });
     await expect(tip(memberPage)).toContainText('Add to Home Screen');
     await expect(tip(memberPage)).toContainText('Open as Web App');
     await tip(memberPage).getByRole('button', { name: 'Got it', exact: true }).click();
     await expect(tip(memberPage)).toHaveCount(0);
+    await expect(memberPage.locator('#main')).toBeFocused();
     await memberPage.reload();
     await expect(memberPage.getByTestId('available-balance')).toBeVisible();
     await expect(tip(memberPage)).toHaveCount(0);
+    const otherTab = await memberPage.context().newPage();
+    await otherTab.goto(fx.origin);
+    await expect(otherTab.getByTestId('available-balance')).toBeVisible();
+    await expect(tip(otherTab)).toHaveCount(0);
 
     await ownerPage.goto(`${fx.origin}/#/me`);
     await expect(ownerPage.getByTestId('available-balance')).toBeVisible();
@@ -862,27 +981,91 @@ test('a team member is offered the home screen until they dismiss it; an owner n
   }
 });
 
-test('opened from the home screen, Crumb does not suggest adding it again', async ({ browser }) => {
+test('an admin is not offered the home screen either', async ({ browser }) => {
   const fx = await provision(browser, { mode: 'points' });
   try {
-    await fx.memberPage.context().addInitScript(() => Object.defineProperty(navigator, 'standalone', { value: true, configurable: true }));
-    await fx.memberPage.reload();
-    await expect(fx.memberPage.getByTestId('available-balance')).toBeVisible();
-    await expect(fx.memberPage.getByRole('region', { name: 'Put Crumb on your home screen' })).toHaveCount(0);
+    await membersPage(fx);
+    const page = await (await browser.newContext()).newPage();
+    await signIn(page, fx.origin, 'ada');
+    await page.goto(`${fx.origin}/#/me`);
+    await expect(page.getByTestId('available-balance')).toBeVisible();
+    await expect(tip(page)).toHaveCount(0);
+    await page.context().close();
   } finally {
     await fx.close();
   }
 });
 
-test('opened as a separate app from the home screen and signed out, the sign-in page says how to fix the icon', async ({ browser }) => {
+test('with browser storage blocked, My Crumb still works and the tip can still be dismissed', async ({ browser }) => {
   const fx = await provision(browser, { mode: 'points' });
   try {
-    const app = await browser.newContext();
-    await app.addInitScript(() => Object.defineProperty(navigator, 'standalone', { value: true, configurable: true }));
-    const page = await app.newPage();
+    const { body } = await fx.api.request('POST', `/api/admin/members/${fx.memberId}/signin-link`);
+    const context = await browser.newContext();
+    await context.addInitScript(() => {
+      const blocked = () => { throw new DOMException('blocked', 'SecurityError'); };
+      Object.defineProperty(window, 'localStorage', { get: blocked, configurable: true });
+    });
+    const page = await context.newPage();
+    await page.goto(body.signinUrl);
+    await page.getByRole('button', { name: 'Sign in on this device', exact: true }).click();
+    await expect(page.getByTestId('available-balance')).toBeVisible();
+    await tip(page).getByRole('button', { name: 'Got it', exact: true }).click();
+    await expect(tip(page)).toHaveCount(0);
+    await context.close();
+  } finally {
+    await fx.close();
+  }
+});
+
+test('opened from the home screen, Crumb does not suggest adding it again', async ({ browser }) => {
+  const fx = await provision(browser, { mode: 'points' });
+  try {
+    // An iPhone home-screen app.
+    await fx.memberPage.context().addInitScript(() => Object.defineProperty(navigator, 'standalone', { value: true, configurable: true }));
+    await fx.memberPage.reload();
+    await expect(fx.memberPage.getByTestId('available-balance')).toBeVisible();
+    await expect(tip(fx.memberPage)).toHaveCount(0);
+
+    // Any other installed app window.
+    const { body } = await fx.api.request('POST', `/api/admin/members/${fx.memberId}/signin-link`);
+    const context = await browser.newContext();
+    await context.addInitScript(standaloneDisplay);
+    const page = await context.newPage();
+    await page.goto(body.signinUrl);
+    await page.getByRole('button', { name: 'Sign in on this device', exact: true }).click();
+    await expect(page.getByTestId('available-balance')).toBeVisible();
+    await expect(tip(page)).toHaveCount(0);
+    await context.close();
+  } finally {
+    await fx.close();
+  }
+});
+
+function standaloneDisplay() {
+  const original = window.matchMedia.bind(window);
+  window.matchMedia = query => (query.includes('display-mode: standalone')
+    ? { matches: true, media: query, onchange: null, addEventListener() {}, removeEventListener() {} }
+    : original(query));
+}
+
+test('an iPhone home-screen app that starts signed out says how to fix the icon; other app windows do not', async ({ browser }) => {
+  const fx = await provision(browser, { mode: 'points' });
+  try {
+    const iphone = await browser.newContext();
+    await iphone.addInitScript(() => Object.defineProperty(navigator, 'standalone', { value: true, configurable: true }));
+    const page = await iphone.newPage();
     await page.goto(fx.origin);
     await expect(page.getByText(/separate app/)).toContainText('Open as Web App');
-    await app.close();
+    await iphone.close();
+
+    // A desktop app window shares the browser's sign-in: nothing to fix there.
+    const appWindow = await browser.newContext();
+    await appWindow.addInitScript(standaloneDisplay);
+    const desk = await appWindow.newPage();
+    await desk.goto(fx.origin);
+    await expect(desk.getByRole('button', { name: 'Sign in', exact: true })).toBeVisible();
+    await expect(desk.getByText(/separate app/)).toHaveCount(0);
+    await appWindow.close();
 
     const tab = await (await browser.newContext()).newPage();
     await tab.goto(fx.origin);

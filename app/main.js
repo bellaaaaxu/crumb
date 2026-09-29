@@ -2,7 +2,7 @@
  * the page, says who is signed in and what their role is. */
 
 import { ApiError, request, setActor, setCsrf } from './api.js';
-import { button, closeAllDialogs, el, openDialog, safeUrl, toast, uid } from './dom.js';
+import { button, closeAllDialogs, el, inWeChat, openDialog, safeUrl, toast, uid } from './dom.js';
 import { LANGUAGES, getLocale, has, preferredLocale, rememberLocale, setLocale, t } from './i18n.js';
 import { spriteCanvas } from './pixels.js';
 import { renderAuth } from './views/auth.js';
@@ -17,11 +17,18 @@ const root = document.getElementById('app');
 const state = { session: null, link: null, notice: null, loginName: '', generation: 0 };
 
 /* Invitation, reset and sign-in links carry their token in the fragment (#invite=…).
- * Take it once and wipe it from the address bar and the history entry. */
+ * Take it once and wipe it from the address bar and the history entry. Inside WeChat a
+ * sign-in link stays until it is used or left: "Open in Browser" there hands over the
+ * address as it is now, and without the link that would be a page no team member can use. */
+const LINK_IN_ADDRESS = /^#(invite|reset|signin)=([A-Za-z0-9_-]{43})$/;
+const clearLinkFromAddress = () => {
+  if (LINK_IN_ADDRESS.test(window.location.hash)) window.history.replaceState(null, '', window.location.pathname + window.location.search);
+};
+
 function takeLinkFromFragment() {
-  const match = /^#(invite|reset|signin)=([A-Za-z0-9_-]{43})$/.exec(window.location.hash);
+  const match = LINK_IN_ADDRESS.exec(window.location.hash);
   if (!match) return null;
-  window.history.replaceState(null, '', window.location.pathname + window.location.search);
+  if (!(match[1] === 'signin' && inWeChat())) clearLinkFromAddress();
   return { kind: match[1], token: match[2] };
 }
 
@@ -156,6 +163,7 @@ function context(generation) {
     },
     finishLink({ username = '', notice = null } = {}) {
       state.link = null;
+      clearLinkFromAddress();
       state.notice = notice;
       state.loginName = username;
       render();
