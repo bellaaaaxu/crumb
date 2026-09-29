@@ -107,6 +107,11 @@ export default {
   'amount.pointsError': '请输入大于零的整数。',
 
   'me.title': '我的 Crumb',
+  'home.title': '把 Crumb 放到手机桌面',
+  'home.why': '以后点图标就能打开，还是登录状态，不用再扫码。',
+  'home.iphone': 'iPhone：在 Safari 点「分享」→「添加到主屏幕」。如果看到「作为网页 App 打开」，把它关掉。',
+  'home.android': '安卓：在 Chrome 点右上角「⋮」→「添加到主屏幕」。',
+  'home.done': '知道了',
   'me.available': '可用',
   'me.reserved': '申请中暂扣',
   'me.lifetime': '累计获得的认可',

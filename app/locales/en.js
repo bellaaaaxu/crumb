@@ -107,6 +107,11 @@ export default {
   'amount.pointsError': 'Enter a whole number greater than zero.',
 
   'me.title': 'My Crumb',
+  'home.title': 'Put Crumb on your home screen',
+  'home.why': 'Then a tap on the icon opens it, still signed in, with no code to scan.',
+  'home.iphone': 'iPhone: in Safari, tap Share, then Add to Home Screen. If you see Open as Web App, turn it off.',
+  'home.android': 'Android: in Chrome, tap ⋮ at the top right, then Add to Home screen.',
+  'home.done': 'Got it',
   'me.available': 'Available',
   'me.reserved': 'Set aside for requests',
   'me.lifetime': 'Recognition received',

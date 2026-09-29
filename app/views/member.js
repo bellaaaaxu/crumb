@@ -3,7 +3,7 @@
  * only; there is nothing about anyone else on this page. */
 
 import { keyFor, request, settleKey, unconfirmedSince, wasRefused } from '../api.js';
-import { button, el, formError, openDialog, toast, uid } from '../dom.js';
+import { button, el, formError, openDialog, openedAsHomeScreenApp, toast, uid } from '../dom.js';
 import { formatDate, formatDateTime, getLocale, t } from '../i18n.js';
 import { formatUnits } from '../format.js';
 import { spriteCanvas } from '../pixels.js';
@@ -248,6 +248,41 @@ function historyCard(ctx, page, money) {
   ], { className: 'history-card' });
 }
 
+const HOME_TIP = 'crumb.homeTip';
+
+/* A team member comes in through a one-time link or code, so an icon on the home screen is
+ * how they come back. Shown until dismissed on this device, and never inside that icon. */
+function homeTip(ctx) {
+  let dismissed = false;
+  try {
+    dismissed = window.localStorage.getItem(HOME_TIP) === 'dismissed';
+  } catch {
+    // Storage is blocked: show it; dismissing still hides it for this visit.
+  }
+  if (ctx.user.role !== 'member' || dismissed || openedAsHomeScreenApp()) return null;
+  const titleId = uid('home-tip');
+  const tip = el('section', { attrs: { class: 'home-tip', 'aria-labelledby': titleId } }, [
+    el('h2', { text: t('home.title'), attrs: { id: titleId, class: 'card-title' } }),
+    el('p', { text: t('home.why') }),
+    el('p', { text: t('home.iphone'), attrs: { class: 'small' } }),
+    el('p', { text: t('home.android'), attrs: { class: 'small' } }),
+    button(t('home.done'), {
+      kind: 'quiet',
+      on: {
+        click: () => {
+          try {
+            window.localStorage.setItem(HOME_TIP, 'dismissed');
+          } catch {
+            // Not remembered on this device; it is gone for this visit.
+          }
+          tip.remove();
+        },
+      },
+    }),
+  ]);
+  return tip;
+}
+
 export async function renderMember(main, ctx) {
   main.replaceChildren(loading());
   let me;
@@ -270,6 +305,7 @@ export async function renderMember(main, ctx) {
   main.replaceChildren(...[
     el('h1', { text: t('me.title'), attrs: { class: 'page-title' } }),
     me.org.welcome ? el('p', { text: me.org.welcome, attrs: { class: 'welcome' } }) : null,
+    homeTip(ctx),
     el('div', { attrs: { class: 'me-grid' } }, [
       balanceCard(me, money),
       shelfCard(me),

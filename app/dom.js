@@ -159,3 +159,8 @@ export function copyText(value) {
   if (navigator.clipboard?.writeText) return navigator.clipboard.writeText(value);
   return Promise.reject(new Error('Clipboard unavailable'));
 }
+
+/* True when Crumb was opened from a home-screen icon as a separate web app. On some phones
+ * that app keeps its own storage, so it has none of the browser's sign-in. */
+export const openedAsHomeScreenApp = () =>
+  window.navigator.standalone === true || Boolean(window.matchMedia?.('(display-mode: standalone)').matches);

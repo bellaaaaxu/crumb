@@ -243,6 +243,11 @@ a { color: var(--wood); text-underline-offset: 3px; }
 .field-error { color: var(--minus); font-size: 0.875rem; font-weight: 700; }
 .form-error { padding: 10px 12px; border-radius: 12px; background: #f8e4e1; color: #8e2f25; font-weight: 700; }
 .notice { padding: 10px 12px; border-radius: 12px; background: #fff3cf; border: 2px solid #efd28a; font-size: 0.92rem; }
+.home-tip {
+  display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; padding: 14px 16px;
+  border: 2px solid #efd28a; border-radius: 14px; background: #fff3cf;
+}
+.home-tip .btn { align-self: flex-start; }
 
 fieldset { border: 0; min-width: 0; }
 fieldset.group { display: flex; flex-direction: column; gap: 14px; padding-top: 12px; border-top: 2px dashed var(--line); }

@@ -838,3 +838,38 @@ test('opened inside WeChat, the link page says to open it in the browser first, 
     await fx.close();
   }
 });
+
+/* ---------------------------------------------------------------- the home screen */
+
+test('a team member is offered the home screen until they dismiss it; an owner never is', async ({ browser }) => {
+  const fx = await provision(browser, { mode: 'points' });
+  try {
+    const { memberPage, ownerPage } = fx;
+    const tip = page => page.getByRole('region', { name: 'Put Crumb on your home screen' });
+    await expect(tip(memberPage)).toContainText('Add to Home Screen');
+    await expect(tip(memberPage)).toContainText('Open as Web App');
+    await tip(memberPage).getByRole('button', { name: 'Got it', exact: true }).click();
+    await expect(tip(memberPage)).toHaveCount(0);
+    await memberPage.reload();
+    await expect(memberPage.getByTestId('available-balance')).toBeVisible();
+    await expect(tip(memberPage)).toHaveCount(0);
+
+    await ownerPage.goto(`${fx.origin}/#/me`);
+    await expect(ownerPage.getByTestId('available-balance')).toBeVisible();
+    await expect(tip(ownerPage)).toHaveCount(0);
+  } finally {
+    await fx.close();
+  }
+});
+
+test('opened from the home screen, Crumb does not suggest adding it again', async ({ browser }) => {
+  const fx = await provision(browser, { mode: 'points' });
+  try {
+    await fx.memberPage.context().addInitScript(() => Object.defineProperty(navigator, 'standalone', { value: true, configurable: true }));
+    await fx.memberPage.reload();
+    await expect(fx.memberPage.getByTestId('available-balance')).toBeVisible();
+    await expect(fx.memberPage.getByRole('region', { name: 'Put Crumb on your home screen' })).toHaveCount(0);
+  } finally {
+    await fx.close();
+  }
+});
