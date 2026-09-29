@@ -7,6 +7,10 @@
 <meta name="robots" content="noindex">
 <title>Crumb</title>
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<!-- The home-screen icon. The manifest keeps it opening in the browser, which holds the
+     sign-in: a separate web app keeps its own storage and would start signed out. -->
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/icons/icon-180.png">
 <link rel="stylesheet" href="/app.css">
 <!-- The pixel table is a classic script defining one global; the app reads it through pixels.js.
      Deferred classic scripts and module scripts run in document order, so it is ready first. -->
