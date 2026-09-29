@@ -66,7 +66,7 @@ Crumb 面向希望把感谢和奖励变成持续体验的组织与团队，不�
 采用用户名和密码登录，密码仅保存安全哈希，登录有速率限制。
 
 > 2026-09-29 决定：普通成员改用管理员生成的个人登录链接，不设密码；所有者和管理员仍用用户名和密码。
-> 详见 `docs/VALIDATION.md` 的「Where this differs from the plan」。
+> 详见 `docs/VALIDATION.md` 的「Where this differs from the design」。
 
 邀请和密码重置采用短期、单次有效链接，由管理员复制给本人，第一版不依赖邮件服务。
 重置密码或停用账号后撤销已有会话；不允许公开注册加入组织。

@@ -2,7 +2,7 @@
 
 *Translated from the Chinese original, [2026-09-29-crumb-qr-signin-design.zh-CN.md](2026-09-29-crumb-qr-signin-design.zh-CN.md).*
 
-Status: approved (2026-09-29), and implemented (see the status line of the plan and `docs/VALIDATION.md`).
+Status: approved (2026-09-29), and implemented (see `docs/VALIDATION.md`).
 Prerequisite: team members have already switched to personal sign-in links with no password (decided the same day; see `docs/VALIDATION.md`).
 
 ## 1. Goals and Confirmed Decisions

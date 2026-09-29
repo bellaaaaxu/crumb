@@ -2,7 +2,7 @@
 
 *本文件是中文原稿。英文版：[2026-09-29-crumb-qr-signin-design.md](2026-09-29-crumb-qr-signin-design.md)。*
 
-状态：已确认（2026-09-29），已实施（见计划的状态行与 `docs/VALIDATION.md`）。
+状态：已确认（2026-09-29），已实施（见 `docs/VALIDATION.md`）。
 前提：成员已改用个人登录链接、不设密码（同日决定，见 `docs/VALIDATION.md`）。
 
 ## 1. 目标与已确认决定

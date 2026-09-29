@@ -228,7 +228,7 @@ marked:
 | --- | --- |
 | Desktop Edge and Chrome on Windows can share files, so a computer got only "Share QR code", never "Save" | Save is always offered; Share is added where the system offers it, and a failed share saves instead |
 | Inside WeChat the page had already wiped the link from the address, so "Open in Browser" would open a page no team member can use | Inside WeChat the link stays in the address until it is used or left; which address WeChat hands over is still to be checked on a real phone |
-| The plan said the fresh-clone run and the review were recorded before they were | Recorded here, for the final commit |
+| The records said the fresh-clone run and the review were recorded before they were | Recorded here, for the final commit |
 | Nine rules could break with every test passing (the white border, dark on light, the tip for admins, in another tab, with storage blocked or in an app window, the shape check, the reset and invitation panels, a missing picture) | Tests added; each shown to catch its change |
 | A picture that passes the shape check but does not decode took the whole panel down | The panel shows the link alone |
 | Focus was lost after "Got it" and "Done" | Focus goes to the page |
@@ -242,7 +242,7 @@ unconfirmed statements about the original tool were removed from the README. Sti
 anonymous sessions, the loopback port under HTTPS, invitation links in browser history and
 password screening.
 
-## Where this differs from the plan
+## Where this differs from the design
 
 - **The first migration was edited in place** (it is unreleased): default times for sessions
   and links, and the column recording who made a link.
@@ -299,11 +299,8 @@ password screening.
   team for a look around, and the screenshots and the demo share that team
   (`scripts/sample-team.mjs`). The app page uses relative paths and says it needs its own
   server when none answers, because GitHub Pages publishes it at `/crumb/app/`. The design
-  and plan documents in `docs/superpowers` are in English, with the Chinese originals beside
-  them (`*.zh-CN.md`).
-- **Hand-over:** the plan's last step asks to attach an artifact to the pull request; no
-  such tool exists in this environment, so the screenshots are in the pull request's
-  description instead.
+  documents in `docs/superpowers/specs` are in English, with the Chinese originals beside
+  them (`*.zh-CN.md`); implementation plans are not kept in the repository.
 
 ## Not verified
 
