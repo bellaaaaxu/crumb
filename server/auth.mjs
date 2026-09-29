@@ -5,6 +5,9 @@ import { writeTransaction } from './db.mjs';
 
 export const SIGNED_IN_TTL_MS = 12 * 60 * 60 * 1000;
 export const ANONYMOUS_TTL_MS = 30 * 60 * 1000;
+/* A team member's phone, signed in with their personal link, stays signed in this long. */
+export const MEMBER_SESSION_TTL_MS = 180 * 24 * 60 * 60 * 1000;
+const MANAGER_ROLES = ['owner', 'admin'];
 export const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 export const LOGIN_LIMITS = { account: 5, address: 30 };
 
@@ -31,25 +34,28 @@ export const toSessionUser = row => ({
 
 /* ---------------------------------------------------------------- sessions */
 
-export function createSession(db, userId, clock) {
+export function createSession(db, userId, clock, ttl = userId ? SIGNED_IN_TTL_MS : ANONYMOUS_TTL_MS) {
   const token = newSecret();
   const now = clock();
-  const ttl = userId ? SIGNED_IN_TTL_MS : ANONYMOUS_TTL_MS;
   db.prepare(`INSERT INTO sessions (token_hash, user_id, csrf_hash, created_at, expires_at) VALUES (?, ?, ?, ?, ?)`)
     .run(sha256(token), userId, sha256(csrfFor(token)), new Date(now).toISOString(), new Date(now + ttl).toISOString());
   return { token, csrfToken: csrfFor(token), maxAgeSeconds: Math.floor(ttl / 1000) };
 }
 
 /* A session is only as good as its user: deactivating someone ends every
- * session they have on the next request, even before the rows are deleted. */
+ * session they have on the next request, even before the rows are deleted.
+ * Owner and admin rights never last longer than 12 hours from sign-in,
+ * whatever kind of session carries them. */
 export function loadSession(db, rawToken, clock) {
   if (!looksLikeSecret(rawToken)) return null;
-  const row = db.prepare(`SELECT s.token_hash, s.user_id, s.csrf_hash, s.expires_at,
+  const row = db.prepare(`SELECT s.token_hash, s.user_id, s.csrf_hash, s.created_at, s.expires_at,
                                  u.id, u.username, u.display_name, u.role, u.active
                           FROM sessions s LEFT JOIN users u ON u.id = s.user_id
                           WHERE s.token_hash = ?`).get(sha256(rawToken));
-  if (!row || row.expires_at <= new Date(clock()).toISOString()) return null;
+  const now = clock();
+  if (!row || row.expires_at <= new Date(now).toISOString()) return null;
   if (row.user_id && row.active !== 1) return null;
+  if (MANAGER_ROLES.includes(row.role) && Date.parse(row.created_at) + SIGNED_IN_TTL_MS <= now) return null;
   return {
     tokenHash: row.token_hash,
     csrfHash: row.csrf_hash,

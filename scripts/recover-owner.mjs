@@ -72,12 +72,13 @@ runCommand(USAGE, async () => {
   const db = openDatabase(path);
   try {
     const owner = writeTransaction(db, () => {
-      const row = db.prepare('SELECT id, role, active, deactivated_at, password_hash FROM users WHERE username = ?').get(username);
+      const row = db.prepare('SELECT id, role, active, joined_at, deactivated_at FROM users WHERE username = ?').get(username);
       if (!row) throw new Error(`There is no account named ${username}.`);
       if (row.role !== 'owner')
         throw new Error(`${username} is not an owner. Owners and admins reset other accounts from the Team page.`);
       // A password alone would leave the account half-joined: neither invited nor able to sign in.
-      if (row.password_hash === null)
+      // (Someone who joined as a team member has no password yet, and gets one here.)
+      if (row.joined_at === null)
         throw new Error(`${username} was invited as an owner but has not joined yet. Another owner can make a new invitation link ` +
           'from the Team page. Nothing was changed.');
       const now = new Date().toISOString();

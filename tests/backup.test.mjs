@@ -10,7 +10,7 @@ import { backupDatabase, restoreDatabase } from '../server/backup.mjs';
 import { balanceOf, grant } from '../server/ledger.mjs';
 import { saveReward } from '../server/rewards.mjs';
 import { requestRedemption, resolveRedemption } from '../server/redemptions.mjs';
-import { inviteMember, issueReset } from '../server/members.mjs';
+import { inviteMember, issueSignInLink } from '../server/members.mjs';
 import { setLogo } from '../server/org.mjs';
 import { fixture } from './helpers.mjs';
 
@@ -45,7 +45,7 @@ test('everything a business needs survives: people, ledger, requests, collection
   const logo = Buffer.from('a re-encoded png would be here');
   setLogo(db, owner, logo);
   const invite = inviteMember(db, owner, { username: 'not.yet', displayName: 'Not Yet', role: 'member' });
-  issueReset(db, owner, member2.id);
+  issueSignInLink(db, owner, member2.id);
 
   const result = await backupDatabase(db, join(dir, 'nightly.sqlite'));
   assert.equal(result.schemaVersion, SCHEMA_VERSION);

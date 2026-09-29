@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { loginBuckets } from '../server/auth.mjs';
+import { MEMBER_SESSION_TTL_MS, createSession, loadSession, loginBuckets } from '../server/auth.mjs';
 import { hashPassword, verifyPassword } from '../server/passwords.mjs';
-import { PASSWORD, client, orgInput, rawGet, setupOrganization, startServer } from './helpers.mjs';
+import { PASSWORD, client, fixture, orgInput, rawGet, setupOrganization, startServer } from './helpers.mjs';
 
 const MINUTE = 60 * 1000;
 
@@ -332,4 +332,21 @@ test('health check reports only that the database answers', async t => {
   const response = await client(server.base).request('GET', '/healthz');
   assert.equal(response.status, 200);
   assert.deepEqual(response.body, { ok: true });
+});
+
+test('a session from a sign-in link lasts 180 days; an owner or admin session never outlives 12 hours', t => {
+  const { db, owner, member } = fixture(t);
+  const start = Date.parse('2026-09-01T09:00:00Z');
+  let now = start;
+  const clock = () => now;
+  const phone = createSession(db, member.id, clock, MEMBER_SESSION_TTL_MS);
+  assert.equal(phone.maxAgeSeconds, 180 * 24 * 60 * 60, 'the cookie lasts as long as the session');
+  const long = createSession(db, owner.id, clock, MEMBER_SESSION_TTL_MS);
+  now += 13 * 60 * MINUTE;
+  assert.ok(loadSession(db, phone.token, clock));
+  assert.equal(loadSession(db, long.token, clock), null, 'a long session never carries owner or admin rights past 12 hours');
+  now = start + 179 * 24 * 60 * MINUTE;
+  assert.ok(loadSession(db, phone.token, clock));
+  now = start + 181 * 24 * 60 * MINUTE;
+  assert.equal(loadSession(db, phone.token, clock), null);
 });

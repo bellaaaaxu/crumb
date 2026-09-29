@@ -22,8 +22,11 @@ CREATE TABLE organization (
   CHECK ((mode = 'credit' AND currency IS NOT NULL) OR (mode = 'points' AND currency IS NULL))
 );
 
--- active = 0 covers both "invited, not accepted yet" and "deactivated";
+-- active = 0 covers both "invited, not joined yet" and "deactivated";
 -- deactivated_at tells the two apart. Users are never deleted.
+-- Owners and admins sign in with a password. Team members have none: they
+-- sign in with personal one-time links. joined_at is when someone first set a
+-- password or used their first sign-in link.
 CREATE TABLE users (
   id TEXT PRIMARY KEY,
   username TEXT NOT NULL UNIQUE
@@ -32,9 +35,10 @@ CREATE TABLE users (
   password_hash TEXT,
   role TEXT NOT NULL CHECK (role IN ('owner', 'admin', 'member')),
   active INTEGER NOT NULL DEFAULT 0 CHECK (active IN (0, 1)),
+  joined_at TEXT,
   deactivated_at TEXT,
   created_at TEXT NOT NULL,
-  CHECK (active = 0 OR (password_hash IS NOT NULL AND deactivated_at IS NULL))
+  CHECK (active = 0 OR (joined_at IS NOT NULL AND deactivated_at IS NULL))
 );
 
 -- Only hashes of session tokens and CSRF tokens are stored.
@@ -49,11 +53,12 @@ CREATE TABLE sessions (
 CREATE INDEX sessions_by_user ON sessions (user_id);
 CREATE INDEX sessions_by_expiry ON sessions (expires_at);
 
--- One-time invitation and password-reset links, stored as hashes. A link is
--- only honoured while the person who made it may still manage the account.
+-- One-time links, stored as hashes: invitations and password resets for owners
+-- and admins, sign-in links for team members. A link is only honoured while
+-- the person who made it may still manage the account.
 CREATE TABLE tokens (
   token_hash TEXT PRIMARY KEY,
-  purpose TEXT NOT NULL CHECK (purpose IN ('invite', 'reset')),
+  purpose TEXT NOT NULL CHECK (purpose IN ('invite', 'reset', 'signin')),
   user_id TEXT NOT NULL REFERENCES users(id),
   issued_by TEXT NOT NULL REFERENCES users(id),
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),

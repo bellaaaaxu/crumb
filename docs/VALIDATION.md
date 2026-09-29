@@ -80,11 +80,11 @@ there, not recorded here.
 | Exact amounts, both units, input limits | `tests/units.test.mjs`, `tests/ledger.test.mjs` | Server and browser parsers are checked against each other on the same inputs. |
 | Ledger, revokes, refunds, retries | `tests/ledger.test.mjs`, `tests/redemptions.test.mjs`, `tests/api.test.mjs` | Append-only rows enforced by the database itself (`tests/db.test.mjs`). |
 | Two devices at once | `tests/concurrency.test.mjs` | Worker threads with separate database connections: overspending, the same request twice, deactivation racing a request. |
-| Roles, sessions, sign-in limits, CSRF, links | `tests/auth.test.mjs`, `tests/members.test.mjs`, `tests/permissions.test.mjs`, `tests/api.test.mjs` | Includes the link-takeover and replay cases found in review. |
+| Roles, sessions, sign-in limits, CSRF, links | `tests/auth.test.mjs`, `tests/members.test.mjs`, `tests/permissions.test.mjs`, `tests/api.test.mjs` | Includes the link-takeover and replay cases found in review, and team members' sign-in links: one use, 7 days, one device at a time, a new link or a role change signing them out, two uses of one link at the same moment, and owner and admin sessions never lasting past 12 hours. |
 | Retry keys in the browser | `tests/pending.test.mjs` | Kept across a reload, per person, dropped on an answer, expiring, capped, working when storage is blocked, storing no names, amounts or messages. |
 | Settings, logo upload, CSV export | `tests/org.test.mjs`, `tests/csv.test.mjs` | Upload limits and re-encoding, formula-safe CSV, export only from Crumb's own pages. |
 | Backup, restore, owner recovery | `tests/backup.test.mjs`, `tests/ops.test.mjs`, the drills | See the record below. |
-| Member and team journeys | `tests/e2e/product.spec.mjs` | Credit and points, two browser contexts as two devices, invitations, deactivation, settings in Chinese; answers lost, cut short, or lost and followed by a reload. |
+| Member and team journeys | `tests/e2e/product.spec.mjs` | Credit and points, two browser contexts as two devices, a team member joining with a sign-in link and a new link signing the old phone out, an admin joining with a password, deactivation, settings in Chinese; answers lost, cut short, or lost and followed by a reload. |
 | Phone and laptop layout, keyboard, reduced motion, HTML-looking input | `tests/e2e/accessibility.spec.mjs` | 390 px and 1440 px widths, no sideways scrolling, no CSP violations. |
 | Public demo, documents and source | `tests/e2e/demo.spec.mjs`, `tests/docs.test.mjs`, `tests/source.test.mjs` | Local links and images resolve; no invisible direction or byte-order characters. External links are not fetched by the tests. |
 
@@ -99,6 +99,10 @@ there, not recorded here.
   steps.
 - Planting one invisible direction-control character in a source file made the source check
   fail.
+- Sign-in links: leaving a member's sessions in place when a new link is made, leaving
+  sessions in place on a role change, and letting an owner's session last as long as a team
+  member's each made its test fail. In the browser, hiding the "you are signed in here as…"
+  warning and the message for a used link each made the journey test fail.
 - Every problem found in review got a test first, and each was seen failing for the reported
   reason before the fix (for example, restoring with a copy of the code that has one more
   migration reproduced the reported "schema too new" failure).
@@ -200,6 +204,18 @@ password screening.
 - **Documents:** the README shows three screenshots, and no longer says how many people used
   the original tool or that every release of it was validated (the maintainer could not
   confirm either).
+- **How team members sign in (decided by the maintainer on 2026-09-29):** the design (§4)
+  has everyone sign in with a username and password. The maintainer's original design never
+  asked staff for a password, so team members now sign in with a personal link an admin makes: it works
+  once, within 7 days; the device then stays signed in for up to 180 days; a member is signed
+  in on one device at a time, and a new link signs the old device out. Owners and admins keep
+  passwords and 12-hour sessions. New endpoints: `POST /api/admin/members/:id/signin-link`,
+  `POST /api/signin/preview` and `POST /api/signin/accept`; `POST /api/admin/invitations`
+  returns `signinUrl` for a team member; the invitation and reset endpoints answer
+  `USE_SIGNIN_LINK` for team members, and the sign-in link endpoint `USE_PASSWORD` for owners
+  and admins. The first migration gained a `joined_at` column (it is still unreleased). A
+  role change signs the person out; a member made an admin chooses a password through a reset
+  link, and an admin made a member loses theirs.
 - **Hand-over:** the plan's last step asks to attach an artifact to the pull request; no
   such tool exists in this environment, so the screenshots are in the pull request's
   description instead.
@@ -240,7 +256,13 @@ password screening.
 - Passwords are checked for length (12 to 128 characters) only, not against lists of common
   passwords.
 - With the HTTPS overlay, the app port stays published on the server's loopback address.
-- A browser may keep an opened invitation link in its history until the link is used or
-  expires, even though the page removes it from the address bar.
+- A browser may keep an opened invitation or sign-in link in its history until the link is
+  used or expires, even though the page removes it from the address bar.
+- A sign-in link works for whoever opens it first, like a password sent in a message, so it
+  should be sent privately. A team member's device stays signed in for up to 180 days:
+  whoever holds that unlocked phone is signed in as them until an admin makes a new link or
+  deactivates the account.
+- A team member is signed in on one device at a time, and after a restore every team member
+  needs a new sign-in link.
 - A change sent again from a different browser or device after a lost answer is not
   recognised as a retry: request keys live in the browser that sent the change.

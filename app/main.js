@@ -16,10 +16,10 @@ const PROJECT_FEEDBACK = 'https://github.com/bellaaaaxu/crumb/issues/new/choose'
 const root = document.getElementById('app');
 const state = { session: null, link: null, notice: null, loginName: '', generation: 0 };
 
-/* Invitation and reset links carry their token in the fragment (#invite=…).
+/* Invitation, reset and sign-in links carry their token in the fragment (#invite=…).
  * Take it once and wipe it from the address bar and the history entry. */
 function takeLinkFromFragment() {
-  const match = /^#(invite|reset)=([A-Za-z0-9_-]{43})$/.exec(window.location.hash);
+  const match = /^#(invite|reset|signin)=([A-Za-z0-9_-]{43})$/.exec(window.location.hash);
   if (!match) return null;
   window.history.replaceState(null, '', window.location.pathname + window.location.search);
   return { kind: match[1], token: match[2] };
@@ -123,6 +123,7 @@ function context(generation) {
       else toast(message, { tone: 'error' });
     },
     async onSignedIn() {
+      state.link = null;
       state.notice = null;
       state.loginName = '';
       await loadSession();

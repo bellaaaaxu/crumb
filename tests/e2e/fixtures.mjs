@@ -8,7 +8,7 @@ import { createServer } from 'node:http';
 import { expect } from '@playwright/test';
 import { openDatabase } from '../../server/db.mjs';
 import { createApp } from '../../server/app.mjs';
-import { PASSWORD, client, orgInput, tokenFrom } from '../helpers.mjs';
+import { PASSWORD, client, orgInput } from '../helpers.mjs';
 
 export { PASSWORD };
 
@@ -48,6 +48,13 @@ export async function startCrumb() {
   };
 }
 
+/* A team member opens their personal sign-in link and taps once. */
+export async function signInWithLink(page, url) {
+  await page.goto(url);
+  await page.getByRole('button', { name: 'Sign in on this device', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Sign out', exact: true })).toBeVisible();
+}
+
 export async function signIn(page, origin, username, password = PASSWORD) {
   await page.goto(origin);
   await page.getByLabel('Username').fill(username);
@@ -77,16 +84,13 @@ export async function provision(browser, { mode = 'points', memberName = 'Mina P
     { 'idempotency-key': 'e2e-fixture-coffee-benefit' });
   const invite = await api.request('POST', '/api/admin/invitations',
     { username: memberUsername, displayName: memberName, role: 'member' });
-  const joiner = client(crumb.origin);
-  await joiner.bootstrap();
-  await joiner.request('POST', '/api/invitations/accept', { token: tokenFrom(invite.body.invitationUrl, 'invite'), password: PASSWORD });
 
   const ownerContext = await browser.newContext();
   const memberContext = await browser.newContext();
   const ownerPage = await ownerContext.newPage();
   const memberPage = await memberContext.newPage();
   await signIn(ownerPage, crumb.origin, 'olive');
-  await signIn(memberPage, crumb.origin, memberUsername);
+  await signInWithLink(memberPage, invite.body.signinUrl);
   return {
     ...crumb,
     api,

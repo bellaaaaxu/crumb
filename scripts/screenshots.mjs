@@ -46,7 +46,8 @@ function jsonClient(origin) {
     if (data?.csrfToken) csrf = data.csrfToken;
     return data;
   };
-  /* The seeding clock jumps days at a time, so sessions expire as they would for real: sign in again. */
+  /* The seeding clock jumps days at a time, so an owner's 12-hour session expires as it would for real: sign in
+   * again. (Team members sign in once with their link and stay signed in for months.) */
   const signIn = async username => {
     const session = await send('GET', '/api/session');
     if (session.user?.username !== username) await send('POST', '/api/login', { username, password: PASSWORD });
@@ -93,8 +94,9 @@ async function main() {
       const invite = await owner.send('POST', '/api/admin/invitations', { username, displayName, role });
       const joiner = jsonClient(origin);
       await joiner.send('GET', '/api/session');
-      await joiner.send('POST', '/api/invitations/accept', { token: new URL(invite.invitationUrl).hash.slice(8), password: PASSWORD });
-      people[username] = { id: invite.user.id, client: joiner };
+      if (invite.signinUrl) await joiner.send('POST', '/api/signin/accept', { token: new URL(invite.signinUrl).hash.slice('#signin='.length) });
+      else await joiner.send('POST', '/api/invitations/accept', { token: new URL(invite.invitationUrl).hash.slice('#invite='.length), password: PASSWORD });
+      people[username] = { id: invite.user.id, role, client: joiner };
     }
 
     const grants = [
@@ -116,7 +118,6 @@ async function main() {
 
     const mina = people.mina.client;
     time.now += DAY;
-    await mina.signIn('mina');
     const rewards = await mina.send('GET', '/api/rewards');
     const coffee = rewards.items.find(item => item.name === 'Coffee on the house');
     const lunch = rewards.items.find(item => item.name === 'Lunch from the kitchen');
@@ -124,20 +125,26 @@ async function main() {
     await owner.signIn('olive');
     await owner.change(`/api/admin/redemptions/${firstCoffee.redemption.id}/complete`);
     time.now = Date.now() - 2 * 60 * 60 * 1000;
-    await mina.signIn('mina');
     await mina.change('/api/redemptions', { rewardId: lunch.id, expectedCostUnits: lunch.costUnits });
     const sam = people.sam.client;
-    await sam.signIn('sam');
     await sam.change('/api/redemptions', { rewardId: coffee.id, expectedCostUnits: coffee.costUnits });
     time.now = Date.now();
 
     mkdirSync(outDir, { recursive: true });
+    await owner.signIn('olive');
     const signIn = async (context, username) => {
       const page = await context.newPage();
-      await page.goto(origin);
-      await page.getByLabel('Username').fill(username);
-      await page.getByLabel('Password', { exact: true }).fill(PASSWORD);
-      await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+      if (people[username]?.role === 'member') {
+        // A team member: a fresh personal link, opened on this device.
+        const { signinUrl } = await owner.send('POST', `/api/admin/members/${people[username].id}/signin-link`);
+        await page.goto(signinUrl);
+        await page.getByRole('button', { name: 'Sign in on this device', exact: true }).click();
+      } else {
+        await page.goto(origin);
+        await page.getByLabel('Username').fill(username);
+        await page.getByLabel('Password', { exact: true }).fill(PASSWORD);
+        await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+      }
       await page.getByRole('button', { name: 'Sign out', exact: true }).waitFor();
       return page;
     };
@@ -185,6 +192,11 @@ async function main() {
       const signedOut = await (await browser.newContext({ viewport: { width: 390, height: 844 } })).newPage();
       await signedOut.goto(origin);
       await shoot(signedOut, 'sign-in-phone');
+      const { signinUrl } = await owner.send('POST', `/api/admin/members/${people.dana.id}/signin-link`);
+      const linkPage = await (await browser.newContext({ viewport: { width: 390, height: 844 } })).newPage();
+      await linkPage.goto(signinUrl);
+      await linkPage.getByRole('button', { name: 'Sign in on this device', exact: true }).waitFor();
+      await shoot(linkPage, 'sign-in-link-phone');
       await memberPage.evaluate(() => { document.querySelector('.language select').value = 'zh-CN'; });
       await memberPage.locator('.language select').selectOption('zh-CN');
       await shoot(memberPage, 'member-zh');

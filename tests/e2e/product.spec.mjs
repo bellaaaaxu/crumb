@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { PASSWORD, provision, signIn, startCrumb } from './fixtures.mjs';
+import { PASSWORD, provision, startCrumb } from './fixtures.mjs';
 import { client, tokenFrom } from '../helpers.mjs';
 
 test('member requests a benefit and owner completes it', async ({browser}) => {
@@ -151,13 +151,61 @@ test('first-time setup in the browser creates the organization and signs the own
   }
 });
 
-test('an invitation link is created, opened on another device and used to join', async ({ browser }) => {
+test('a new team member gets a sign-in link, opens it on their phone and is in, with no password', async ({ browser }) => {
   const fx = await provision(browser, { mode: 'points' });
   try {
     const { ownerPage } = fx;
     await ownerPage.getByRole('link', { name: 'Members', exact: true }).click();
     await ownerPage.getByLabel('Name', { exact: true }).fill('Sam Okafor');
     await ownerPage.getByLabel('Username').fill('sam');
+    await ownerPage.getByRole('button', { name: 'Create invitation', exact: true }).click();
+    const link = await ownerPage.getByLabel('Sign-in link', { exact: true }).inputValue();
+    expect(link).toMatch(new RegExp(`^${fx.origin}/#signin=[A-Za-z0-9_-]{43}$`));
+
+    // The owner trying the link on their own laptop is told it would sign them out; looking uses nothing up.
+    const peek = await ownerPage.context().newPage();
+    await peek.goto(link);
+    await expect(peek.getByText('This link signs in Sam Okafor on this device')).toBeVisible();
+    await expect(peek.getByText('You are signed in here as Olive Chen')).toBeVisible();
+    await peek.close();
+
+    const context = await browser.newContext();
+    const phone = await context.newPage();
+    await phone.goto(link);
+    await expect(phone).toHaveURL(`${fx.origin}/`);
+    await expect(phone.getByText('This link signs in Sam Okafor on this device')).toBeVisible();
+    await expect(phone.getByText(/You are signed in here/)).toHaveCount(0);
+    await phone.getByRole('button', { name: 'Sign in on this device', exact: true }).click();
+    await expect(phone.getByTestId('available-balance')).toHaveText('0 points');
+
+    // Used once, the link does nothing more: whoever opens it again is told so and sent to sign-in.
+    const again = await (await browser.newContext()).newPage();
+    await again.goto(link);
+    await expect(again.getByRole('alert')).toContainText('already used');
+    await again.getByRole('button', { name: 'Go to sign in', exact: true }).click();
+    await expect(again.getByRole('button', { name: 'Sign in', exact: true })).toBeVisible();
+    await again.context().close();
+
+    // A lost or new phone: a new link from the admin signs the old one out at once.
+    await ownerPage.getByRole('button', { name: 'New sign-in link for Sam Okafor', exact: true }).click();
+    await expect(ownerPage.getByLabel('Sign-in link', { exact: true })).toBeVisible();
+    await phone.reload();
+    await expect(phone.getByRole('button', { name: 'Sign in', exact: true })).toBeVisible();
+    await expect(phone.getByText(/personal link/)).toBeVisible();
+    await context.close();
+  } finally {
+    await fx.close();
+  }
+});
+
+test('an admin invitation is opened on another device and used to set a password', async ({ browser }) => {
+  const fx = await provision(browser, { mode: 'points' });
+  try {
+    const { ownerPage } = fx;
+    await ownerPage.getByRole('link', { name: 'Members', exact: true }).click();
+    await ownerPage.getByLabel('Name', { exact: true }).fill('Sam Okafor');
+    await ownerPage.getByLabel('Username').fill('sam');
+    await ownerPage.getByLabel('Role', { exact: true }).selectOption('admin');
     await ownerPage.getByRole('button', { name: 'Create invitation', exact: true }).click();
     const link = await ownerPage.getByLabel('Invitation link', { exact: true }).inputValue();
     expect(link).toMatch(new RegExp(`^${fx.origin}/#invite=[A-Za-z0-9_-]{43}$`));
@@ -172,7 +220,8 @@ test('an invitation link is created, opened on another device and used to join',
     await expect(page.getByLabel('Username')).toHaveValue('sam');
     await page.getByLabel('Password', { exact: true }).fill(PASSWORD);
     await page.getByRole('button', { name: 'Sign in', exact: true }).click();
-    await expect(page.getByTestId('available-balance')).toHaveText('0 points');
+    // An admin starts on the team pages.
+    await expect(page.getByRole('link', { name: 'Members', exact: true })).toBeVisible();
     await context.close();
   } finally {
     await fx.close();
@@ -182,16 +231,22 @@ test('an invitation link is created, opened on another device and used to join',
 test('a deactivated member is signed out on their next action', async ({ browser }) => {
   const fx = await provision(browser, { mode: 'points' });
   try {
+    await fx.api.request('POST', '/api/admin/grants', { userId: fx.memberId, amount: '100', mode: fx.mode, reason: 'Before leaving' },
+      { 'idempotency-key': 'e2e-deactivated-member-grant' });
+    await fx.memberPage.reload();
+    await expect(fx.memberPage.getByTestId('available-balance')).toHaveText('100 points');
     await fx.ownerPage.getByRole('link', { name: 'Members', exact: true }).click();
     await fx.ownerPage.getByRole('button', { name: 'Deactivate Mina Park', exact: true }).click();
     await fx.ownerPage.getByRole('button', { name: 'Deactivate', exact: true }).click();
     await expect(fx.ownerPage.getByText('Deactivated', { exact: true })).toBeVisible();
-    await fx.memberPage.reload();
-    await expect(fx.memberPage.getByRole('button', { name: 'Sign in', exact: true })).toBeVisible();
-    await fx.memberPage.getByLabel('Username').fill('mina');
-    await fx.memberPage.getByLabel('Password', { exact: true }).fill(PASSWORD);
-    await fx.memberPage.getByRole('button', { name: 'Sign in', exact: true }).click();
-    await expect(fx.memberPage.getByRole('alert')).toContainText('do not match');
+    // The phone still shows the old page; the next thing Mina does takes her to sign-in instead.
+    await fx.memberPage.getByRole('button', { name: 'Redeem Coffee', exact: true }).click();
+    await fx.memberPage.getByRole('button', { name: 'Confirm request', exact: true }).click();
+    await expect(fx.memberPage.getByText('You have been signed out')).toBeVisible();
+    await expect(fx.memberPage.getByText(/personal link/)).toBeVisible();
+    await expect(fx.memberPage.getByTestId('available-balance')).toHaveCount(0);
+    const { body } = await fx.api.request('GET', '/api/admin/redemptions?status=pending');
+    expect(body.items).toHaveLength(0);
   } finally {
     await fx.close();
   }
@@ -259,6 +314,9 @@ test('a role changes only after a deliberate confirmation', async ({ browser }) 
     await dialog.getByRole('radio', { name: /^Admin/ }).check();
     await dialog.getByRole('button', { name: 'Change role', exact: true }).click();
     await expect(ownerPage.getByRole('status').filter({ hasText: 'Role for Mina Park changed to Admin.' })).toBeVisible();
+    await expect(ownerPage.getByRole('status').filter({ hasText: 'now signs in with a password' })).toBeVisible();
+    await expect(ownerPage.getByRole('button', { name: 'Password reset link for Mina Park', exact: true })).toBeVisible();
+    await expect(ownerPage.getByRole('button', { name: 'New sign-in link for Mina Park', exact: true })).toHaveCount(0);
     expect(await roleOf(fx.memberId)).toBe('admin');
 
     // Someone who has not joined yet: the link made for the old role stops working.
@@ -270,7 +328,7 @@ test('a role changes only after a deliberate confirmation', async ({ browser }) 
     await expect(ownerPage.getByRole('status').filter({ hasText: 'make a new one for them' })).toBeVisible();
     const joiner = client(fx.origin);
     await joiner.bootstrap();
-    const used = await joiner.request('POST', '/api/invitations/accept', { token: tokenFrom(invite.body.invitationUrl, 'invite'), password: PASSWORD });
+    const used = await joiner.request('POST', '/api/signin/accept', { token: tokenFrom(invite.body.signinUrl, 'signin') });
     expect(used.status).toBe(400);
   } finally {
     await fx.close();

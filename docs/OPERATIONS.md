@@ -78,9 +78,11 @@ docker run --rm -u 0 -v crumb_backups:/backups -v "$PWD":/in:ro crumb:local \
 
 The restore refuses to overwrite anything (including leftover `-wal` files at the target),
 rejects damaged files, files that fail a full integrity and reference check, and backups made
-by a newer Crumb, and clears **sessions, invitation links and password-reset links** in the
-restored copy: everyone signs in again, and admins issue new links. People, passwords, the
-ledger, requests, collections, the activity log, settings and the logo are kept.
+by a newer Crumb, and clears **sessions and every one-time link** (sign-in, invitation and
+password-reset links) in the restored copy. Owners and admins sign in again with their
+passwords; **every team member needs a new sign-in link** from an admin (Team → Members →
+New sign-in link), so plan a moment to send them round. People, passwords, the ledger,
+requests, collections, the activity log, settings and the logo are kept.
 
 The restored copy keeps the database version the backup had; Crumb updates it when it
 starts. It also refuses a file with a `-wal` or `-journal` file beside it: that is a copy
@@ -144,8 +146,9 @@ guessing. So:
 
 ## An owner is locked out
 
-Admins can issue password-reset links for members, and owners for anyone — but if the only
-owner forgot their password, reset it on the server:
+Team members have no password: an admin makes them a new sign-in link. Owners make
+password-reset links for admins and other owners — but if the only owner forgot their
+password, reset it on the server:
 
 ```bash
 docker compose exec crumb node scripts/recover-owner.mjs --username alice
@@ -156,8 +159,9 @@ It asks for the new password twice without showing it. To pipe it in instead, ad
 It ends that owner's sessions and links, lifts the sign-in lock on that username (five
 failed attempts lock an account for 15 minutes, even with the right password), and writes
 "Reset an owner password from the server" to the activity log. It only works for owners who
-have joined; for an owner who was invited but never joined, another owner makes a new
-invitation link. There is deliberately no web page for it.
+have joined (an owner who used to be a team member and never had a password gets one); for
+an owner who was invited but never joined, another owner makes a new invitation link. There
+is deliberately no web page for it.
 
 ## Health, logs and disk space
 

@@ -1,11 +1,13 @@
-/* Signed-out screens: first-time setup, sign-in, and the two one-time links
- * (joining with an invitation, choosing a new password). */
+/* Signed-out screens: first-time setup, sign-in, and the one-time links
+ * (a team member's sign-in link; joining with an invitation or choosing a new
+ * password, for owners and admins). */
 
 import { request, setCsrf } from '../api.js';
 import { button, el, field, formError, radios } from '../dom.js';
 import { LANGUAGES, getLocale, t } from '../i18n.js';
 import { amountToUnits } from '../format.js';
 import { pixelWord, spriteCanvas } from '../pixels.js';
+import { loading } from './member.js';
 
 const USERNAME = /^[a-z0-9._-]{3,64}$/;
 const CURRENCIES = ['CAD', 'USD', 'CNY'];
@@ -62,6 +64,7 @@ function login(root, ctx) {
   const org = ctx.session.org;
   root.replaceChildren(frame(ctx, org ? t('auth.signInTo', { name: org.name }) : t('auth.signInTitle'), [
     ctx.notice ? el('p', { text: ctx.notice, attrs: { class: 'notice', role: 'status' } }) : null,
+    el('p', { text: t('auth.memberHint'), attrs: { class: 'muted' } }),
     form,
     el('p', { text: t('auth.forgot'), attrs: { class: 'muted small' } }),
   ]));
@@ -120,6 +123,58 @@ function useLink(root, ctx, kind) {
   ]));
   document.title = `${title} · Crumb`;
   password.control.focus();
+}
+
+/* A team member's personal link: it says whose it is, and one tap signs this
+ * device in. No password: the link is the key, and it works once. */
+async function signInWithLink(root, ctx) {
+  const org = ctx.session.org;
+  const title = org ? t('auth.signInTo', { name: org.name }) : t('auth.signInTitle');
+  const leave = button(t('auth.toSignIn'), { kind: 'quiet', on: { click: () => ctx.finishLink() } });
+  document.title = `${title} · Crumb`;
+  root.replaceChildren(frame(ctx, title, [loading()]));
+  let person;
+  try {
+    person = await request('/api/signin/preview', { method: 'POST', body: { token: ctx.link.token } });
+  } catch (failure) {
+    if (!ctx.isCurrent()) return;
+    if (failure.code === 'CSRF_FAILED') await ctx.renewSession().catch(() => {});
+    root.replaceChildren(frame(ctx, title, [el('p', { text: ctx.errorText(failure), attrs: { class: 'notice', role: 'alert' } }), leave]));
+    leave.focus();
+    return;
+  }
+  if (!ctx.isCurrent()) return;
+  const error = formError();
+  const submit = button(t('signin.submit'), { kind: 'primary', type: 'submit' });
+  const form = el('form', {
+    attrs: { class: 'stack', novalidate: true },
+    on: {
+      submit: async event => {
+        event.preventDefault();
+        error.clear();
+        submit.disabled = true;
+        try {
+          const result = await request('/api/signin/accept', { method: 'POST', body: { token: ctx.link.token } });
+          setCsrf(result.csrfToken);
+          await ctx.onSignedIn();
+        } catch (failure) {
+          submit.disabled = false;
+          if (failure.code === 'CSRF_FAILED') await ctx.renewSession().catch(() => {});
+          error.show(ctx.errorText(failure));
+        }
+      },
+    },
+  }, [error.node, submit]);
+  // Someone else signed in on this browser (an admin trying the link, say) is signed out by it.
+  const current = ctx.user;
+  root.replaceChildren(frame(ctx, title, [
+    el('p', { text: t('signin.who', { name: person.displayName }) }),
+    el('p', { text: t('signin.note'), attrs: { class: 'muted' } }),
+    current ? el('p', { text: t('signin.replaces', { name: current.displayName }), attrs: { class: 'notice' } }) : null,
+    form,
+    leave,
+  ]));
+  submit.focus();
 }
 
 function setup(root, ctx) {
@@ -238,6 +293,7 @@ function setup(root, ctx) {
 
 export function renderAuth(root, ctx, mode) {
   if (mode === 'setup') setup(root, ctx);
+  else if (mode === 'signin') signInWithLink(root, ctx);
   else if (mode === 'invite' || mode === 'reset') useLink(root, ctx, mode);
   else login(root, ctx);
 }

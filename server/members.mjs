@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { AppError } from './errors.mjs';
 import { writeTransaction } from './db.mjs';
 import { writeAudit } from './audit.mjs';
-import { looksLikeSecret, newSecret, revokeSessionsOf, sha256 } from './auth.mjs';
+import { MEMBER_SESSION_TTL_MS, createSession, looksLikeSecret, newSecret, revokeSessionsOf, sha256 } from './auth.mjs';
 import { MANAGERS, canManageRole, freshActor, requireRole } from './permissions.mjs';
 import { bool, invalid, isUuid, oneOf, readObject, text, username } from './validate.mjs';
 
@@ -15,6 +15,10 @@ const notFound = () => new AppError(404, 'MEMBER_NOT_FOUND', 'That team member d
 const invalidLink = () => new AppError(400, 'INVALID_TOKEN',
   'This link is invalid, has expired or was already used. Ask your team admin for a new one.');
 const forbidden = message => new AppError(403, 'FORBIDDEN', message);
+const useSignInLink409 = () => new AppError(409, 'USE_SIGNIN_LINK',
+  'Team members sign in with a personal link, not a password. Make them a new sign-in link instead.');
+const usePassword409 = () => new AppError(409, 'USE_PASSWORD',
+  'Owners and admins sign in with a password. Make them an invitation or password link instead.');
 
 export const statusOf = row => (row.active === 1 ? 'active' : row.deactivated_at ? 'deactivated' : 'invited');
 
@@ -30,7 +34,7 @@ export const memberView = row => ({
 
 function loadUser(db, userId) {
   if (!isUuid(userId)) throw notFound();
-  const row = db.prepare(`SELECT id, username, display_name, role, active, deactivated_at, created_at,
+  const row = db.prepare(`SELECT id, username, display_name, role, active, joined_at, deactivated_at, created_at,
                                  password_hash IS NOT NULL AS has_password
                           FROM users WHERE id = ?`).get(userId);
   if (!row) throw notFound();
@@ -61,8 +65,9 @@ function voidLinksIssuedBy(db, issuerId, role, now) {
 /**
  * The one test of whether a link may be used right now: unused, not expired,
  * made by someone who is still active and may manage the account as it is
- * now, and for an account in the state the link expects. The routes run it
- * before spending a password hash; consumeToken runs it again when claiming.
+ * now, and for an account in the state the link expects: password links are
+ * for owners and admins, sign-in links for team members. The routes run it
+ * before doing any work; the link is checked again when it is claimed.
  */
 function usableLink(db, hash, purpose, now) {
   const link = db.prepare(`SELECT user_id, issued_by FROM tokens
@@ -71,7 +76,12 @@ function usableLink(db, hash, purpose, now) {
   const user = loadUser(db, link.user_id);
   const issuer = db.prepare('SELECT role, active FROM users WHERE id = ?').get(link.issued_by);
   if (!issuer || issuer.active !== 1 || !canManageRole({ role: issuer.role }, user.role)) return null;
-  const expected = purpose === 'invite' ? statusOf(user) === 'invited' && !user.has_password : user.active === 1;
+  const member = user.role === 'member';
+  const expected = {
+    invite: !member && statusOf(user) === 'invited' && !user.has_password,
+    reset: !member && user.active === 1,
+    signin: member && statusOf(user) !== 'deactivated',
+  }[purpose];
   return expected ? user : null;
 }
 
@@ -91,9 +101,11 @@ export function inviteMember(db, actor, input, clock = () => Date.now()) {
     const id = randomUUID();
     db.prepare(`INSERT INTO users (id, username, display_name, password_hash, role, active, created_at)
                 VALUES (?, ?, ?, NULL, ?, 0, ?)`).run(id, fields.username, fields.displayName, fields.role, iso(now));
-    const token = issueToken(db, id, 'invite', INVITE_TTL_MS, now, current.id);
+    // A team member is sent a personal sign-in link; an owner or admin, an invitation to set a password.
+    const purpose = fields.role === 'member' ? 'signin' : 'invite';
+    const token = issueToken(db, id, purpose, INVITE_TTL_MS, now, current.id);
     writeAudit(db, { actorId: current.id, action: 'member.invite', targetId: id, detail: { role: fields.role } }, iso(now));
-    return { user: memberView(loadUser(db, id)), token };
+    return { user: memberView(loadUser(db, id)), token, purpose };
   });
 }
 
@@ -104,6 +116,7 @@ export function renewInvitation(db, actor, userId, clock = () => Date.now()) {
     const current = freshActor(db, actor, MANAGERS);
     const target = loadUser(db, userId);
     if (!canManageRole(current, target.role)) throw forbidden('You cannot manage this account.');
+    if (target.role === 'member') throw useSignInLink409();
     if (statusOf(target) !== 'invited') throw new AppError(409, 'NOT_INVITED', 'This account is not waiting on an invitation.');
     const now = clock();
     const token = issueToken(db, target.id, 'invite', INVITE_TTL_MS, now, current.id);
@@ -118,6 +131,7 @@ export function issueReset(db, actor, userId, clock = () => Date.now()) {
     const current = freshActor(db, actor, MANAGERS);
     const target = loadUser(db, userId);
     if (!canManageRole(current, target.role)) throw forbidden('You cannot reset this account.');
+    if (target.role === 'member') throw useSignInLink409();
     const status = statusOf(target);
     if (status === 'invited')
       throw new AppError(409, 'INVITATION_PENDING', 'This person has not joined yet. Send them a new invitation link instead.');
@@ -127,6 +141,59 @@ export function issueReset(db, actor, userId, clock = () => Date.now()) {
     const token = issueToken(db, target.id, 'reset', RESET_TTL_MS, now, current.id);
     writeAudit(db, { actorId: current.id, action: 'member.reset_issued', targetId: target.id }, iso(now));
     return { token };
+  });
+}
+
+/**
+ * A new personal sign-in link for a team member: for a new or lost phone, or
+ * when the last link expired. It replaces every earlier link, and the member
+ * is signed out everywhere at once — only the new link gets them back in.
+ */
+export function issueSignInLink(db, actor, userId, clock = () => Date.now()) {
+  requireRole(actor, MANAGERS);
+  return writeTransaction(db, () => {
+    const current = freshActor(db, actor, MANAGERS);
+    const target = loadUser(db, userId);
+    if (!canManageRole(current, target.role)) throw forbidden('You cannot manage this account.');
+    if (target.role !== 'member') throw usePassword409();
+    if (statusOf(target) === 'deactivated')
+      throw new AppError(409, 'MEMBER_INACTIVE', 'Reactivate this account before making it a sign-in link.');
+    const now = clock();
+    voidLinksFor(db, target.id, iso(now));
+    revokeSessionsOf(db, target.id);
+    const token = issueToken(db, target.id, 'signin', INVITE_TTL_MS, now, current.id);
+    writeAudit(db, { actorId: current.id, action: 'member.signin_link', targetId: target.id }, iso(now));
+    return { token };
+  });
+}
+
+/* Whose link this is, so the page can say so before anyone taps "sign in". */
+export function previewSignInLink(db, { token }, clock = () => Date.now()) {
+  const user = looksLikeSecret(token) ? usableLink(db, sha256(token), 'signin', iso(clock())) : null;
+  if (!user) throw invalidLink();
+  return { displayName: user.display_name };
+}
+
+/**
+ * Signs a team member in with their link, all in one transaction: the link is
+ * claimed, a first use completes joining, any other session of theirs ends
+ * (one phone at a time), and a long session starts on this device.
+ */
+export function useSignInLink(db, { token }, clock = () => Date.now()) {
+  if (!looksLikeSecret(token)) throw invalidLink();
+  return writeTransaction(db, () => {
+    const now = iso(clock());
+    const hash = sha256(token);
+    const user = usableLink(db, hash, 'signin', now);
+    if (!user) throw invalidLink();
+    db.prepare('UPDATE tokens SET used_at = ? WHERE token_hash = ?').run(now, hash);
+    if (statusOf(user) === 'invited') {
+      db.prepare('UPDATE users SET active = 1, joined_at = ? WHERE id = ?').run(now, user.id);
+      writeAudit(db, { actorId: user.id, action: 'member.joined', targetId: user.id }, now);
+    }
+    revokeSessionsOf(db, user.id);
+    const session = createSession(db, user.id, clock, MEMBER_SESSION_TTL_MS);
+    return { user: memberView(loadUser(db, user.id)), session };
   });
 }
 
@@ -153,7 +220,8 @@ export function consumeToken(db, { token, passwordHash, purpose }, clock = () =>
     const user = usableLink(db, hash, purpose, now);
     if (!user) throw invalidLink();
     db.prepare('UPDATE tokens SET used_at = ? WHERE token_hash = ?').run(now, hash);
-    if (purpose === 'invite') db.prepare('UPDATE users SET password_hash = ?, active = 1 WHERE id = ?').run(passwordHash, user.id);
+    if (purpose === 'invite')
+      db.prepare('UPDATE users SET password_hash = ?, active = 1, joined_at = ? WHERE id = ?').run(passwordHash, now, user.id);
     else db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(passwordHash, user.id);
     revokeSessionsOf(db, user.id);
     writeAudit(db, { actorId: user.id, action: purpose === 'invite' ? 'member.joined' : 'member.password_reset', targetId: user.id }, now);
@@ -203,7 +271,14 @@ export function updateMember(db, actor, userId, changes, clock = () => Date.now(
 
     const now = iso(clock());
     if (nextRole !== target.role) {
-      db.prepare('UPDATE users SET role = ? WHERE id = ?').run(nextRole, target.id);
+      // A team member signs in with links and has no password; an owner or admin
+      // signs in with a password and will need a password link to set one.
+      db.prepare(`UPDATE users SET role = @role,
+                    password_hash = CASE WHEN @role = 'member' THEN NULL ELSE password_hash END WHERE id = @id`)
+        .run({ role: nextRole, id: target.id });
+      // They sign in again the way the new role does: a phone signed in as a team
+      // member must not carry admin rights, nor an admin's session member-only ones.
+      revokeSessionsOf(db, target.id);
       // Links made for the old role end; a new one must come from someone who may manage the new role.
       voidLinksFor(db, target.id, now);
       // And links this person made that the new role could not have made end too.
@@ -214,7 +289,7 @@ export function updateMember(db, actor, userId, changes, clock = () => Date.now(
     if (reactivating) {
       // Someone who never finished joining goes back to "invited" and needs a new link.
       db.prepare(`UPDATE users SET deactivated_at = NULL,
-                    active = CASE WHEN password_hash IS NULL THEN 0 ELSE 1 END WHERE id = ?`).run(target.id);
+                    active = CASE WHEN joined_at IS NULL THEN 0 ELSE 1 END WHERE id = ?`).run(target.id);
       writeAudit(db, { actorId: current.id, action: 'member.reactivate', targetId: target.id }, now);
     }
     return memberView(loadUser(db, target.id));

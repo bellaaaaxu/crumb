@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { PASSWORD, provision, startCrumb } from './fixtures.mjs';
+import { provision, signInWithLink, startCrumb } from './fixtures.mjs';
 
 let keys = 0;
 const key = () => ({ 'idempotency-key': `e2e-a11y-request-${String(++keys).padStart(4, '0')}` });
@@ -106,12 +106,10 @@ test('signing in and requesting a benefit work from the keyboard alone', async (
   const context = await browser.newContext();
   try {
     await fx.api.request('POST', '/api/admin/grants', { userId: fx.memberId, amount: '100', mode: fx.mode, reason: 'Keyboard test' }, key());
+    const { body } = await fx.api.request('POST', `/api/admin/members/${fx.memberId}/signin-link`);
     const page = await context.newPage();
-    await page.goto(fx.origin);
-    await tabUntil(page, page.getByLabel('Username'));
-    await page.keyboard.type('mina');
-    await page.keyboard.press('Tab');
-    await page.keyboard.type(PASSWORD);
+    await page.goto(body.signinUrl);
+    await tabUntil(page, page.getByRole('button', { name: 'Sign in on this device', exact: true }));
     await page.keyboard.press('Enter');
     await expect(page.getByTestId('available-balance')).toHaveText('100 points');
 
@@ -139,11 +137,9 @@ test('with reduced motion nothing keeps moving', async ({ browser }) => {
   const context = await browser.newContext({ reducedMotion: 'reduce' });
   try {
     await fx.api.request('POST', '/api/admin/grants', { userId: fx.memberId, amount: '100', mode: fx.mode, reason: 'Motion test' }, key());
+    const { body } = await fx.api.request('POST', `/api/admin/members/${fx.memberId}/signin-link`);
     const page = await context.newPage();
-    await page.goto(fx.origin);
-    await page.getByLabel('Username').fill('mina');
-    await page.getByLabel('Password', { exact: true }).fill(PASSWORD);
-    await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+    await signInWithLink(page, body.signinUrl);
     await page.getByRole('button', { name: 'Redeem Coffee', exact: true }).click();
     await page.getByRole('button', { name: 'Confirm request', exact: true }).click();
     await expect(page.getByRole('status').filter({ hasText: 'Requested Coffee' })).toBeVisible();

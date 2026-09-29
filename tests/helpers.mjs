@@ -28,10 +28,11 @@ export function fixture(t, { mode = 'credit', thresholdUnits = 5000 } = {}) {
     thresholdUnits,
     createdAt,
   });
-  const insertUser = db.prepare(`INSERT INTO users (id, username, display_name, password_hash, role, active, created_at)
-                                 VALUES (@id, @username, @displayName, @passwordHash, @role, 1, @createdAt)`);
+  const insertUser = db.prepare(`INSERT INTO users (id, username, display_name, password_hash, role, active, joined_at, created_at)
+                                 VALUES (@id, @username, @displayName, @passwordHash, @role, 1, @createdAt, @createdAt)`);
+  // Owners and admins have a password; team members sign in with links and have none.
   const user = (username, displayName, role) => {
-    const row = { id: randomUUID(), username, displayName, role, passwordHash: FIXTURE_PASSWORD_HASH, createdAt };
+    const row = { id: randomUUID(), username, displayName, role, passwordHash: role === 'member' ? null : FIXTURE_PASSWORD_HASH, createdAt };
     insertUser.run(row);
     return { id: row.id, role, username, displayName };
   };
@@ -172,12 +173,19 @@ export function rawGet(base, path) {
 
 export const tokenFrom = (url, kind) => new URL(url).hash.slice(`#${kind}=`.length);
 
-/* Invites someone through the API, accepts the invitation and signs them in. */
+/* Invites someone through the API and signs them in: a team member with their
+ * sign-in link, an owner or admin by setting a password and signing in with it. */
 export async function joinTeam(server, owner, { username, displayName = username, role = 'member' }) {
   const invite = await owner.request('POST', '/api/admin/invitations', { username, displayName, role });
   if (invite.status !== 201) throw new Error(`invite failed: ${invite.status} ${JSON.stringify(invite.body)}`);
   const api = client(server.base);
   await api.bootstrap();
+  if (role === 'member') {
+    const signedIn = await api.request('POST', '/api/signin/accept', { token: tokenFrom(invite.body.signinUrl, 'signin') });
+    if (signedIn.status !== 200) throw new Error(`sign-in link failed: ${signedIn.status} ${JSON.stringify(signedIn.body)}`);
+    api.csrf = signedIn.body.csrfToken;
+    return { api, user: signedIn.body.user };
+  }
   const accepted = await api.request('POST', '/api/invitations/accept',
     { token: tokenFrom(invite.body.invitationUrl, 'invite'), password: PASSWORD });
   if (accepted.status !== 200) throw new Error(`accept failed: ${accepted.status} ${JSON.stringify(accepted.body)}`);

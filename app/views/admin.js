@@ -231,8 +231,13 @@ function changeRole(ctx, person, refresh) {
     send: key => request(`/api/admin/members/${person.id}`, { method: 'PATCH', body: { role: choice.value }, key }),
     done(updated) {
       const changed = t('members.roleChanged', { name: person.displayName, role: t(`role.${updated.role}`) });
-      // The server ends links made for the old role; someone who has not joined needs a new one.
-      toast(updated.status === 'invited' ? `${changed} ${t('members.roleNewLink')}` : changed);
+      // The server ends links made for the old role, and signs the person out. Team members
+      // sign in with a personal link, owners and admins with a password: say what they need now.
+      let next = null;
+      if (updated.status === 'invited') next = t('members.roleNewLink');
+      else if (updated.role === 'member') next = t('members.roleNowLink', { name: person.displayName });
+      else if (person.role === 'member') next = t('members.roleNowPassword', { name: person.displayName });
+      toast(next ? `${changed} ${next}` : changed);
       refresh();
     },
   });
@@ -243,7 +248,18 @@ function memberRow(ctx, person, money, refresh, showLink) {
   const manageable = !self && (ctx.user.role === 'owner' || person.role === 'member');
   const actions = [];
   const memberPath = `/api/admin/members/${person.id}`;
-  if (manageable && person.status === 'invited') {
+  const teamMember = person.role === 'member';
+  // A team member's only way in is their personal link: a new one also signs a lost phone out.
+  if (manageable && teamMember && person.status !== 'deactivated') {
+    actions.push(button(t('members.newSigninLink'), {
+      attrs: { 'aria-label': t('members.newSigninLinkNamed', { name: person.displayName }) },
+      on: {
+        click: () => oneTap(ctx, `signin:${person.id}`, { path: `${memberPath}/signin-link` },
+          result => showLink(linkPanel(t('members.signinLink'), result.signinUrl, t('members.signinRenewNote', { name: person.displayName })))),
+      },
+    }));
+  }
+  if (manageable && !teamMember && person.status === 'invited') {
     actions.push(button(t('members.newInvite'), {
       attrs: { 'aria-label': t('members.newInviteNamed', { name: person.displayName }) },
       on: {
@@ -252,7 +268,7 @@ function memberRow(ctx, person, money, refresh, showLink) {
       },
     }));
   }
-  if (manageable && person.status === 'active') {
+  if (manageable && !teamMember && person.status === 'active') {
     actions.push(button(t('members.resetLink'), {
       attrs: { 'aria-label': t('members.resetLinkNamed', { name: person.displayName }) },
       on: {
@@ -361,7 +377,9 @@ async function members(container, ctx) {
           const result = await request('/api/admin/invitations', {
             method: 'POST', body: { displayName: name.control.value, username: handle, role: role.control.value },
           });
-          showLink(linkPanel(t('members.inviteLink'), result.invitationUrl, t('members.inviteNote', { name: result.user.displayName })));
+          showLink(result.signinUrl
+            ? linkPanel(t('members.signinLink'), result.signinUrl, t('members.signinNote', { name: result.user.displayName }))
+            : linkPanel(t('members.inviteLink'), result.invitationUrl, t('members.inviteNote', { name: result.user.displayName })));
           form.reset();
           await refresh();
         } catch (failure) {

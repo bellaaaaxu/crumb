@@ -2,9 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { grant } from '../server/ledger.mjs';
-import { checkToken, consumeToken, inviteMember, issueReset, renewInvitation, updateMember } from '../server/members.mjs';
 import {
-  PASSWORD, authenticatedClient, client, fixture, joinTeam, setupOrganization, startServer,
+  checkToken, consumeToken, inviteMember, issueReset, issueSignInLink, previewSignInLink, renewInvitation, updateMember, useSignInLink,
+} from '../server/members.mjs';
+import {
+  PASSWORD, authenticatedClient, client, fixture, joinTeam, setupOrganization, startServer, tokenFrom,
 } from './helpers.mjs';
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -92,14 +94,14 @@ test('member updates accept only role and active', t => {
 test('invitation tokens are single-use, expire and keep to their purpose', t => {
   const { db, owner } = fixture(t);
   const clock = clockAt(Date.now());
-  const first = inviteMember(db, owner, { username: 'river', displayName: 'River', role: 'member' }, clock);
+  const first = inviteMember(db, owner, { username: 'river', displayName: 'River', role: 'admin' }, clock);
   assert.throws(() => consumeToken(db, { token: first.token, passwordHash: HASH, purpose: 'reset' }, clock), code('INVALID_TOKEN'));
   consumeToken(db, { token: first.token, passwordHash: HASH, purpose: 'invite' }, clock);
   const joined = db.prepare('SELECT active, password_hash FROM users WHERE id = ?').get(first.user.id);
   assert.deepEqual(joined, { active: 1, password_hash: HASH });
   assert.throws(() => consumeToken(db, { token: first.token, passwordHash: HASH, purpose: 'invite' }, clock), code('INVALID_TOKEN'));
 
-  const late = inviteMember(db, owner, { username: 'late.one', displayName: 'Late', role: 'member' }, clock);
+  const late = inviteMember(db, owner, { username: 'late.one', displayName: 'Late', role: 'admin' }, clock);
   clock.time.now += 7 * DAY + 1;
   assert.throws(() => consumeToken(db, { token: late.token, passwordHash: HASH, purpose: 'invite' }, clock), code('INVALID_TOKEN'));
   const renewed = renewInvitation(db, owner, late.user.id, clock);
@@ -111,6 +113,7 @@ test('invitation tokens are single-use, expire and keep to their purpose', t => 
 test('a new reset link replaces the old one and expires in 30 minutes', t => {
   const { db, owner, member } = fixture(t);
   const clock = clockAt(Date.now());
+  updateMember(db, owner, member.id, { role: 'admin' }, clock);
   const old = issueReset(db, owner, member.id, clock);
   const fresh = issueReset(db, owner, member.id, clock);
   assert.throws(() => consumeToken(db, { token: old.token, passwordHash: HASH, purpose: 'reset' }, clock), code('INVALID_TOKEN'));
@@ -123,7 +126,8 @@ test('a new reset link replaces the old one and expires in 30 minutes', t => {
 
 test('reset links are not for people who have not joined or were deactivated', t => {
   const { db, owner, member } = fixture(t);
-  const invited = inviteMember(db, owner, { username: 'not.yet', displayName: 'Not yet', role: 'member' });
+  updateMember(db, owner, member.id, { role: 'admin' });
+  const invited = inviteMember(db, owner, { username: 'not.yet', displayName: 'Not yet', role: 'admin' });
   assert.throws(() => issueReset(db, owner, invited.user.id), code('INVITATION_PENDING'));
   const pending = issueReset(db, owner, member.id);
   updateMember(db, owner, member.id, { active: false });
@@ -141,7 +145,7 @@ test('deactivation ends sessions and links, cancels pending requests and keeps h
               VALUES (?, ?, 5000, 'grant', ?, 'Thanks', NULL, 'history-grant-0001', ?)`).run(grantId, member.id, owner.id, now);
   const first = pendingRedemption(db, member.id, 'Coffee');
   const second = pendingRedemption(db, member.id, 'Lunch');
-  const reset = issueReset(db, owner, member.id);
+  const link = issueSignInLink(db, owner, member.id);
 
   const result = updateMember(db, owner, member.id, { active: false });
   assert.equal(result.status, 'deactivated');
@@ -156,7 +160,7 @@ test('deactivation ends sessions and links, cancels pending requests and keeps h
   const cancels = db.prepare(`SELECT count(*) AS n FROM audit WHERE action = 'redemption.cancel' AND actor_id = ?`).get(owner.id).n;
   assert.equal(cancels, 2);
   assert.equal(db.prepare('SELECT count(*) AS n FROM ledger WHERE user_id = ?').get(member.id).n, 1);
-  assert.throws(() => consumeToken(db, { token: reset.token, passwordHash: HASH, purpose: 'reset' }), code('INVALID_TOKEN'));
+  assert.throws(() => useSignInLink(db, { token: link.token }), code('INVALID_TOKEN'));
 
   const back = updateMember(db, owner, member.id, { active: true });
   assert.equal(back.status, 'active');
@@ -165,9 +169,9 @@ test('deactivation ends sessions and links, cancels pending requests and keeps h
   assert.equal(updateMember(db, owner, invited.user.id, { active: true }).status, 'invited');
 });
 
-test('an invitation is accepted over HTTP, once, and then needs a normal sign-in', async t => {
+test('an admin invitation is accepted over HTTP, once, and then needs a normal sign-in', async t => {
   const { server, api: owner } = await authenticatedClient(t);
-  const invite = await owner.request('POST', '/api/admin/invitations', { username: 'sam', displayName: 'Sam', role: 'member' });
+  const invite = await owner.request('POST', '/api/admin/invitations', { username: 'sam', displayName: 'Sam', role: 'admin' });
   assert.equal(invite.status, 201);
   const url = new URL(invite.body.invitationUrl);
   assert.equal(url.origin, server.base);
@@ -191,9 +195,24 @@ test('an invitation is accepted over HTTP, once, and then needs a normal sign-in
   assert.equal((await visitor.request('POST', '/api/login', { username: 'sam', password: PASSWORD })).status, 200);
 });
 
+test('two simultaneous uses of one sign-in link: exactly one phone gets in', async t => {
+  const { server, api: owner } = await authenticatedClient(t);
+  const invite = await owner.request('POST', '/api/admin/invitations', { username: 'twin.m', displayName: 'Twin', role: 'member' });
+  const token = tokenFrom(invite.body.signinUrl, 'signin');
+  const a = client(server.base);
+  const b = client(server.base);
+  await Promise.all([a.bootstrap(), b.bootstrap()]);
+  const results = await Promise.all([
+    a.request('POST', '/api/signin/accept', { token }),
+    b.request('POST', '/api/signin/accept', { token }),
+  ]);
+  assert.deepEqual(results.map(r => r.status).sort(), [200, 400]);
+  assert.equal(server.db.prepare('SELECT count(*) AS n FROM sessions WHERE user_id = ?').get(invite.body.user.id).n, 1);
+});
+
 test('two simultaneous accepts of one invitation: exactly one wins', async t => {
   const { server, api: owner } = await authenticatedClient(t);
-  const invite = await owner.request('POST', '/api/admin/invitations', { username: 'twin', displayName: 'Twin', role: 'member' });
+  const invite = await owner.request('POST', '/api/admin/invitations', { username: 'twin', displayName: 'Twin', role: 'admin' });
   const token = new URL(invite.body.invitationUrl).hash.slice('#invite='.length);
   const a = client(server.base);
   const b = client(server.base);
@@ -208,7 +227,7 @@ test('two simultaneous accepts of one invitation: exactly one wins', async t => 
 test('a password reset signs the person out everywhere', async t => {
   const server = await startServer(t);
   const { api: owner } = await setupOrganization(server);
-  const { api: member, user } = await joinTeam(server, owner, { username: 'mina' });
+  const { api: member, user } = await joinTeam(server, owner, { username: 'mina', role: 'admin' });
   assert.equal((await member.request('GET', '/api/session')).body.user.username, 'mina');
 
   const reset = await owner.request('POST', `/api/admin/members/${user.id}/reset`);
@@ -237,15 +256,13 @@ test('deactivating over HTTP signs the person out and voids their invitation', a
   assert.equal(off.status, 200);
   assert.equal(off.body.status, 'deactivated');
   assert.equal((await member.request('GET', '/api/session')).body.user, null);
-  await member.bootstrap();
-  assert.equal((await member.request('POST', '/api/login', { username: 'leaving', password: PASSWORD })).status, 401);
 
   const withdraw = await owner.request('PATCH', `/api/admin/members/${invite.body.user.id}`, { active: false });
   assert.equal(withdraw.body.status, 'deactivated');
   const visitor = client(server.base);
   await visitor.bootstrap();
-  const token = new URL(invite.body.invitationUrl).hash.slice('#invite='.length);
-  assert.equal((await visitor.request('POST', '/api/invitations/accept', { token, password: PASSWORD })).status, 400);
+  const token = tokenFrom(invite.body.signinUrl, 'signin');
+  assert.equal((await visitor.request('POST', '/api/signin/accept', { token })).status, 400);
 });
 
 test('roles are enforced by the server, not by hidden buttons', async t => {
@@ -258,7 +275,7 @@ test('roles are enforced by the server, not by hidden buttons', async t => {
   assert.equal((await admin.request('PATCH', `/api/admin/members/${ownerUser.id}`, { active: false })).status, 403);
   assert.equal((await admin.request('POST', '/api/admin/invitations', { username: 'x.admin', displayName: 'X', role: 'admin' })).status, 403);
   assert.equal((await admin.request('PATCH', `/api/admin/members/${memberUser.id}`, { role: 'admin' })).status, 403);
-  assert.equal((await admin.request('POST', `/api/admin/members/${memberUser.id}/reset`)).status, 200);
+  assert.equal((await admin.request('POST', `/api/admin/members/${memberUser.id}/signin-link`)).status, 200);
 
   assert.equal((await member.request('POST', '/api/admin/invitations', { username: 'y.member', displayName: 'Y', role: 'member' })).status, 403);
   assert.equal((await member.request('PATCH', `/api/admin/members/${memberUser.id}`, { role: 'owner' })).status, 403);
@@ -271,19 +288,20 @@ test('a link stops working when the account it is for changes role', t => {
   const { db, owner, member, member2 } = fixture(t);
   updateMember(db, owner, member.id, { role: 'admin' });
   const admin = { id: member.id, role: 'admin' };
-  // The takeover the review found: an admin invites a member, the owner promotes the
+  // The takeover the review found: an admin invites a team member, the owner promotes the
   // pending account, and the admin uses the link they still hold.
   const invited = inviteMember(db, admin, { username: 'bob.b', displayName: 'Bob', role: 'member' });
   updateMember(db, owner, invited.user.id, { role: 'owner' });
-  assert.throws(() => consumeToken(db, { token: invited.token, passwordHash: HASH, purpose: 'invite' }), code('INVALID_TOKEN'));
+  assert.throws(() => useSignInLink(db, { token: invited.token }), code('INVALID_TOKEN'));
   assert.equal(db.prepare('SELECT active FROM users WHERE id = ?').get(invited.user.id).active, 0);
+  // An owner joins with a password, through an invitation from someone who may make owners.
   const renewed = renewInvitation(db, owner, invited.user.id);
   consumeToken(db, { token: renewed.token, passwordHash: HASH, purpose: 'invite' });
 
-  const reset = issueReset(db, admin, member2.id);
+  const link = issueSignInLink(db, admin, member2.id);
   updateMember(db, owner, member2.id, { role: 'admin' });
-  assert.throws(() => consumeToken(db, { token: reset.token, passwordHash: HASH, purpose: 'reset' }), code('INVALID_TOKEN'));
-  assert.equal(db.prepare('SELECT password_hash FROM users WHERE id = ?').get(member2.id).password_hash, 'fixture-no-login');
+  assert.throws(() => useSignInLink(db, { token: link.token }), code('INVALID_TOKEN'));
+  assert.equal(db.prepare('SELECT count(*) AS n FROM sessions WHERE user_id = ?').get(member2.id).n, 0);
 });
 
 test('a link stops working when whoever made it can no longer manage the account', t => {
@@ -291,34 +309,45 @@ test('a link stops working when whoever made it can no longer manage the account
   updateMember(db, owner, member.id, { role: 'admin' });
   const admin = { id: member.id, role: 'admin' };
   const carol = inviteMember(db, admin, { username: 'carol', displayName: 'Carol', role: 'member' });
-  const reset = issueReset(db, admin, member2.id);
+  const link = issueSignInLink(db, admin, member2.id);
   const ownerMade = inviteMember(db, owner, { username: 'dave', displayName: 'Dave', role: 'member' });
 
   updateMember(db, owner, member.id, { role: 'member' });
-  assert.throws(() => consumeToken(db, { token: reset.token, passwordHash: HASH, purpose: 'reset' }), code('INVALID_TOKEN'));
+  assert.throws(() => useSignInLink(db, { token: link.token }), code('INVALID_TOKEN'));
   updateMember(db, owner, member.id, { active: false });
-  assert.throws(() => consumeToken(db, { token: carol.token, passwordHash: HASH, purpose: 'invite' }), code('INVALID_TOKEN'));
+  assert.throws(() => useSignInLink(db, { token: carol.token }), code('INVALID_TOKEN'));
   // Links from someone who can still manage the account keep working.
-  consumeToken(db, { token: ownerMade.token, passwordHash: HASH, purpose: 'invite' });
+  useSignInLink(db, { token: ownerMade.token });
 });
 
-test('links from someone who lost the right to make them are void for good, and refused before any hashing', t => {
-  const { db, owner, member } = fixture(t);
+test('links from someone who lost the right to make them are void for good, and refused before any work', t => {
+  const { db, owner, member, member2 } = fixture(t);
   updateMember(db, owner, member.id, { role: 'admin' });
   const admin = { id: member.id, role: 'admin' };
   const carol = inviteMember(db, admin, { username: 'carol', displayName: 'Carol', role: 'member' });
   const dan = inviteMember(db, admin, { username: 'dan', displayName: 'Dan', role: 'member' });
 
   updateMember(db, owner, member.id, { role: 'member' });
-  // The cheap check the routes run before hashing a password already says no…
-  assert.equal(checkToken(db, { token: carol.token, purpose: 'invite' }), false);
+  // The cheap check the routes run before doing anything already says no…
+  assert.equal(checkToken(db, { token: carol.token, purpose: 'signin' }), false);
+  assert.throws(() => previewSignInLink(db, { token: carol.token }), code('INVALID_TOKEN'));
   // …and bringing the admin back does not bring the links back.
   updateMember(db, owner, member.id, { role: 'admin' });
-  assert.equal(checkToken(db, { token: carol.token, purpose: 'invite' }), false);
-  assert.throws(() => consumeToken(db, { token: carol.token, passwordHash: HASH, purpose: 'invite' }), code('INVALID_TOKEN'));
+  assert.equal(checkToken(db, { token: carol.token, purpose: 'signin' }), false);
+  assert.throws(() => useSignInLink(db, { token: carol.token }), code('INVALID_TOKEN'));
   updateMember(db, owner, member.id, { active: false });
   updateMember(db, owner, member.id, { active: true });
-  assert.throws(() => consumeToken(db, { token: dan.token, passwordHash: HASH, purpose: 'invite' }), code('INVALID_TOKEN'));
+  assert.throws(() => useSignInLink(db, { token: dan.token }), code('INVALID_TOKEN'));
+
+  // The same for a password invitation, which is checked before a password is hashed.
+  updateMember(db, owner, member2.id, { role: 'owner' });
+  const secondOwner = { id: member2.id, role: 'owner' };
+  const ada = inviteMember(db, secondOwner, { username: 'ada', displayName: 'Ada', role: 'admin' });
+  updateMember(db, owner, member2.id, { role: 'admin' });
+  assert.equal(checkToken(db, { token: ada.token, purpose: 'invite' }), false);
+  updateMember(db, owner, member2.id, { role: 'owner' });
+  assert.equal(checkToken(db, { token: ada.token, purpose: 'invite' }), false);
+  assert.throws(() => consumeToken(db, { token: ada.token, passwordHash: HASH, purpose: 'invite' }), code('INVALID_TOKEN'));
 });
 
 test('a demotion voids only the links the person could no longer make', t => {
@@ -328,10 +357,10 @@ test('a demotion voids only the links the person could no longer make', t => {
   const forAdmin = inviteMember(db, secondOwner, { username: 'ada', displayName: 'Ada', role: 'admin' });
   const forMember = inviteMember(db, secondOwner, { username: 'moe.m', displayName: 'Moe', role: 'member' });
   updateMember(db, owner, member.id, { role: 'admin' });
-  // An admin may still invite members, so that link stands; an admin invitation does not.
-  assert.equal(checkToken(db, { token: forMember.token, purpose: 'invite' }), true);
+  // An admin may still invite team members, so that link stands; an admin invitation does not.
+  assert.equal(checkToken(db, { token: forMember.token, purpose: 'signin' }), true);
   assert.equal(checkToken(db, { token: forAdmin.token, purpose: 'invite' }), false);
-  consumeToken(db, { token: forMember.token, passwordHash: HASH, purpose: 'invite' });
+  useSignInLink(db, { token: forMember.token });
 });
 
 test('over HTTP, an admin cannot turn an invitation into an owner account', async t => {
@@ -342,10 +371,10 @@ test('over HTTP, an admin cannot turn an invitation into an owner account', asyn
   assert.equal((await owner.request('PATCH', `/api/admin/members/${invite.body.user.id}`, { role: 'owner' })).status, 200);
   const stranger = client(server.base);
   await stranger.bootstrap();
-  const accepted = await stranger.request('POST', '/api/invitations/accept',
-    { token: new URL(invite.body.invitationUrl).hash.slice('#invite='.length), password: PASSWORD });
+  const accepted = await stranger.request('POST', '/api/signin/accept', { token: tokenFrom(invite.body.signinUrl, 'signin') });
   assert.equal(accepted.status, 400);
   assert.equal(accepted.body.error.code, 'INVALID_TOKEN');
+  assert.equal(server.db.prepare('SELECT active FROM users WHERE id = ?').get(invite.body.user.id).active, 0);
 });
 
 test('names and messages refuse text-direction controls but keep right-to-left text and emoji', t => {
@@ -358,4 +387,120 @@ test('names and messages refuse text-direction controls but keep right-to-left t
   for (const displayName of ['مينا', 'נועה\u200F', 'Mina 👩\u200D💻'])
     assert.equal(inviteMember(db, owner, { username: `ok${randomUUID().slice(0, 8)}`, displayName, role: 'member' }).user.displayName,
       displayName);
+});
+
+/* ---------------------------------------------------------------- personal sign-in links for team members */
+
+const sessionsOf = (db, userId) => db.prepare('SELECT count(*) AS n FROM sessions WHERE user_id = ?').get(userId).n;
+
+test('a team member joins with a personal link and no password', t => {
+  const { db, owner } = fixture(t);
+  const invited = inviteMember(db, owner, { username: 'mina.p', displayName: 'Mina', role: 'member' });
+  assert.equal(invited.purpose, 'signin');
+  assert.equal(invited.user.status, 'invited');
+  assert.deepEqual(previewSignInLink(db, { token: invited.token }), { displayName: 'Mina' });
+  const { user, session } = useSignInLink(db, { token: invited.token });
+  assert.equal(user.status, 'active');
+  assert.ok(session.token && session.csrfToken);
+  assert.equal(sessionsOf(db, invited.user.id), 1);
+  const row = db.prepare('SELECT password_hash, joined_at FROM users WHERE id = ?').get(invited.user.id);
+  assert.equal(row.password_hash, null, 'a team member never has a password');
+  assert.ok(row.joined_at);
+  assert.throws(() => useSignInLink(db, { token: invited.token }), code('INVALID_TOKEN'), 'a link works once');
+  assert.throws(() => previewSignInLink(db, { token: invited.token }), code('INVALID_TOKEN'));
+});
+
+test('owners and admins set a password; team members only ever get sign-in links', t => {
+  const { db, owner, member } = fixture(t);
+  const admin = inviteMember(db, owner, { username: 'ada', displayName: 'Ada', role: 'admin' });
+  assert.equal(admin.purpose, 'invite');
+  assert.throws(() => useSignInLink(db, { token: admin.token }), code('INVALID_TOKEN'));
+  assert.throws(() => issueSignInLink(db, owner, admin.user.id), code('USE_PASSWORD'));
+  const pending = inviteMember(db, owner, { username: 'moe.m', displayName: 'Moe', role: 'member' });
+  assert.throws(() => renewInvitation(db, owner, pending.user.id), code('USE_SIGNIN_LINK'));
+  assert.throws(() => issueReset(db, owner, member.id), code('USE_SIGNIN_LINK'));
+});
+
+test('a new sign-in link replaces the old one and signs the old phone out at once', t => {
+  const { db, owner } = fixture(t);
+  const invited = inviteMember(db, owner, { username: 'mina.p', displayName: 'Mina', role: 'member' });
+  useSignInLink(db, { token: invited.token });
+  const older = issueSignInLink(db, owner, invited.user.id);
+  const newer = issueSignInLink(db, owner, invited.user.id);
+  assert.equal(sessionsOf(db, invited.user.id), 0, 'a lost phone stops working as soon as a new link is made');
+  assert.throws(() => useSignInLink(db, { token: older.token }), code('INVALID_TOKEN'));
+  useSignInLink(db, { token: newer.token });
+  assert.equal(sessionsOf(db, invited.user.id), 1);
+});
+
+test('a sign-in link lasts seven days and never brings back someone who was deactivated', t => {
+  const { db, owner } = fixture(t);
+  const clock = clockAt(Date.parse('2026-09-01T09:00:00Z'));
+  const invited = inviteMember(db, owner, { username: 'mina.p', displayName: 'Mina', role: 'member' }, clock);
+  clock.time.now += 7 * DAY;
+  assert.throws(() => useSignInLink(db, { token: invited.token }, clock), code('INVALID_TOKEN'));
+  const fresh = issueSignInLink(db, owner, invited.user.id, clock);
+  useSignInLink(db, { token: fresh.token }, clock);
+  const unused = issueSignInLink(db, owner, invited.user.id, clock);
+  updateMember(db, owner, invited.user.id, { active: false }, clock);
+  assert.throws(() => useSignInLink(db, { token: unused.token }, clock), code('INVALID_TOKEN'));
+  assert.throws(() => issueSignInLink(db, owner, invited.user.id, clock), code('MEMBER_INACTIVE'));
+  // Someone who had joined comes back as active and needs a new link to get in.
+  assert.equal(updateMember(db, owner, invited.user.id, { active: true }, clock).status, 'active');
+  assert.equal(sessionsOf(db, invited.user.id), 0);
+  useSignInLink(db, { token: issueSignInLink(db, owner, invited.user.id, clock).token }, clock);
+});
+
+test('a role change signs the person out; a new admin sets a password, a demoted admin loses theirs', t => {
+  const { db, owner } = fixture(t);
+  const invited = inviteMember(db, owner, { username: 'mina.p', displayName: 'Mina', role: 'member' });
+  useSignInLink(db, { token: invited.token });
+  updateMember(db, owner, invited.user.id, { role: 'admin' });
+  assert.equal(sessionsOf(db, invited.user.id), 0, 'a phone signed in as a team member does not become an admin');
+  const reset = issueReset(db, owner, invited.user.id);
+  consumeToken(db, { token: reset.token, passwordHash: HASH, purpose: 'reset' });
+  assert.equal(db.prepare('SELECT password_hash FROM users WHERE id = ?').get(invited.user.id).password_hash, HASH);
+  db.prepare(`INSERT INTO sessions (token_hash, user_id, csrf_hash, created_at, expires_at)
+              VALUES ('admin-session', ?, 'x', ?, '2099-01-01T00:00:00.000Z')`).run(invited.user.id, new Date().toISOString());
+  updateMember(db, owner, invited.user.id, { role: 'member' });
+  assert.equal(sessionsOf(db, invited.user.id), 0);
+  assert.equal(db.prepare('SELECT password_hash FROM users WHERE id = ?').get(invited.user.id).password_hash, null);
+});
+
+test('over HTTP, a team member signs in with their link and stays signed in; a password gets them nowhere', async t => {
+  const server = await startServer(t);
+  const { api: owner } = await setupOrganization(server);
+  const invite = await owner.request('POST', '/api/admin/invitations', { username: 'mina.p', displayName: 'Mina', role: 'member' });
+  assert.equal(invite.status, 201);
+  assert.equal(invite.body.invitationUrl, undefined, 'no password invitation for a team member');
+  const token = tokenFrom(invite.body.signinUrl, 'signin');
+  const phone = client(server.base);
+  await phone.bootstrap();
+  assert.deepEqual((await phone.request('POST', '/api/signin/preview', { token })).body, { displayName: 'Mina' });
+  const signedIn = await phone.request('POST', '/api/signin/accept', { token });
+  assert.equal(signedIn.status, 200);
+  assert.equal(signedIn.body.user.username, 'mina.p');
+  assert.match(signedIn.headers.get('set-cookie'), /Max-Age=15552000/);
+  phone.csrf = signedIn.body.csrfToken;
+  server.time.now += 100 * DAY;
+  assert.equal((await phone.request('GET', '/api/me')).status, 200, 'still signed in months later');
+  assert.equal((await phone.request('POST', '/api/signin/accept', { token })).status, 400, 'the link worked once');
+  const stranger = client(server.base);
+  await stranger.bootstrap();
+  assert.equal((await stranger.request('POST', '/api/login', { username: 'mina.p', password: PASSWORD })).status, 401);
+});
+
+test('over HTTP, admins make sign-in links for team members and password links for owners and admins', async t => {
+  const server = await startServer(t);
+  const { api: owner } = await setupOrganization(server);
+  const { user: mina } = await joinTeam(server, owner, { username: 'mina.p', role: 'member' });
+  const { user: ada } = await joinTeam(server, owner, { username: 'ada.a', role: 'admin' });
+  const link = await owner.request('POST', `/api/admin/members/${mina.id}/signin-link`);
+  assert.equal(link.status, 200);
+  assert.match(link.body.signinUrl, /#signin=[A-Za-z0-9_-]{43}$/);
+  assert.equal((await owner.request('POST', `/api/admin/members/${ada.id}/signin-link`)).body.error.code, 'USE_PASSWORD');
+  assert.equal((await owner.request('POST', `/api/admin/members/${mina.id}/reset`)).body.error.code, 'USE_SIGNIN_LINK');
+  const visitor = client(server.base);
+  await visitor.bootstrap();
+  assert.equal((await visitor.request('POST', `/api/admin/members/${mina.id}/signin-link`)).status, 401);
 });

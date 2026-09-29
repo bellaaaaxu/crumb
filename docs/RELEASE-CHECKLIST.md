@@ -13,7 +13,7 @@ been run at all — nothing is marked passed on the strength of reading the code
 | Requirement | Status | Evidence |
 | --- | --- | --- |
 | For any kind of team; MIT; the non-goals stated | Passed | README (EN/ZH) and demo checked by `tests/docs.test.mjs`; `LICENSE`; non-goals in README "What each side sees" and CONTRIBUTING. The README makes no claim about how many people used the original tool. |
-| Setup once, three roles, invitations, resets, permissions, sessions | Passed | `tests/auth.test.mjs` (setup once, even with two at the same time; sessions; limits; CSRF), `tests/members.test.mjs` (roles, links, last owner, deactivation), `tests/permissions.test.mjs`, `tests/api.test.mjs` (every management endpoint refuses members), E2E setup and invitation journeys |
+| Setup once, three roles, invitations, resets, permissions, sessions | Passed | `tests/auth.test.mjs` (setup once, even with two at the same time; sessions; limits; CSRF; owner and admin sessions capped at 12 hours), `tests/members.test.mjs` (roles, links, team members' sign-in links, last owner, deactivation), `tests/permissions.test.mjs`, `tests/api.test.mjs` (every management endpoint refuses members), E2E setup, sign-in link and invitation journeys. Team members sign in with a link instead of a password: a change from the design's §4 decided on 2026-09-29 (see VALIDATION.md) |
 | Credit or points, currency, rules locking, exact amounts | Passed | `tests/units.test.mjs` (browser and server parsers agree), `tests/org.test.mjs` (locks), `tests/ledger.test.mjs` (unit changed meanwhile), E2E journeys in both units, E2E settings lock notices |
 | One ledger, revoke, refund, retries, two devices at once | Passed | `tests/ledger.test.mjs`, `tests/redemptions.test.mjs`, `tests/concurrency.test.mjs` (worker threads, separate connections), `tests/api.test.mjs` (retries, busy database), `tests/pending.test.mjs` (retry keys across reloads), E2E tests with answers lost, cut short, or lost before a reload |
 | Reserve, final states, deactivation cancels, price snapshot | Passed | `tests/redemptions.test.mjs`, `tests/concurrency.test.mjs`, `tests/members.test.mjs` (deactivation cancels pending requests), the price-changed tests (`tests/redemptions.test.mjs`, `tests/api.test.mjs`, and in the browser) |
@@ -35,7 +35,7 @@ been run at all — nothing is marked passed on the strength of reading the code
 | Two requests at once never overspend; repeated grants or confirmations are not recorded twice; cancelling releases the reservation | Passed | `tests/concurrency.test.mjs`; retry tests in `tests/ledger.test.mjs`, `tests/redemptions.test.mjs`, `tests/api.test.mjs`; E2E lost-answer tests |
 | Revoking a reward, refunding a request and deactivating a member keep an auditable history and the right balance | Passed | `tests/ledger.test.mjs`, `tests/redemptions.test.mjs` ("every transition is audited with who did it"), `tests/members.test.mjs`, E2E revoke and refund journeys |
 | Normal redemptions never cost collectibles; a restart or a new sign-in does not change them | Passed | `tests/collections.test.mjs` ("spending never takes anything off the shelf"), `tests/db.test.mjs`, process drill (restart), E2E "the same journey in credit mode keeps cents exact and the collection after spending" |
-| Password reset, invitation expiry, deactivation, session revocation and CSRF have automated tests | Passed | `tests/members.test.mjs`, `tests/auth.test.mjs` |
+| Password reset, invitation expiry, deactivation, session revocation and CSRF have automated tests | Passed | `tests/members.test.mjs`, `tests/auth.test.mjs`; the same for team members' sign-in links (one use, 7 days, a new link or a role change ending sessions) |
 | HTML-looking input shows as text; logo uploads limited in type, size and path, nothing executable | Passed | E2E "names and messages that look like HTML are shown as text and never run"; `tests/org.test.mjs` logo tests; `tests/auth.test.mjs` "only the product files are served" |
 | A real backup restored into a new instance, compared on members, ledger, requests and collections | Partly | The process drill and the container drill in CI restore into a new folder or volume and check sign-in, balance and collection; `tests/backup.test.mjs` compares every business table, including requests. Requests are not compared in the drills. |
 | Browser checks of the full admin and member journeys, phone layout, keyboard use, reduced motion | Partly | Passed in Chromium (`tests/e2e/`). Other browsers and a real screen reader: **not verified**. |
@@ -50,6 +50,8 @@ been run at all — nothing is marked passed on the strength of reading the code
 - [ ] A human review of the change.
 - [x] Agree to keeping request keys in the browser, and remove the README's unconfirmed
       statements about the original tool (done on 2026-09-28).
+- [x] Decide how team members sign in: with a personal link, no password (decided on
+      2026-09-29).
 - [ ] Decide the open items listed under "Known limits" in VALIDATION.md.
 - [ ] Try the HTTPS setup on a real domain once, including a backup and a restore.
 - [ ] After merging, check that the demo, the README links and the GitHub Pages site work,

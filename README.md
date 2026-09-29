@@ -54,8 +54,8 @@ deducted; declining or cancelling simply releases it.
 
 <img src="assets/screenshots/redemptions.png" width="100%" alt="The Redemptions page: two requests waiting, each with Confirm delivery, Decline and Cancel request, and a completed request with a Refund button">
 
-They also invite people with one-time links, reset passwords, deactivate accounts, keep the
-benefits catalog, correct mistakes (a revoke needs a reason and stays visible, marked
+They also invite people with one-time links, make a new sign-in link when someone changes
+phones, deactivate accounts, keep the benefits catalog, correct mistakes (a revoke needs a reason and stays visible, marked
 revoked), export the ledger and read the activity log. Owners set the name, logo, welcome
 message, language and reward rules.
 
@@ -79,8 +79,11 @@ These are examples of how it can be used, not a list of teams that use it.
   or declines; members can cancel while it waits; a confirmed request can be refunded once.
 - **A permanent collection** of 39 pixel pastries, unlocked by recognition received. Spending
   never removes one, and neither does correcting a mistaken reward.
-- **Roles**: owner, admin and member. Invitation links (7 days) and password-reset links
-  (30 minutes) are shown to an admin to pass on — Crumb sends no email.
+- **Roles**: owner, admin and member. Team members sign in with a personal link — no
+  password to remember — and their phone stays signed in for up to 180 days; a new link
+  signs a lost phone out. Owners and admins use a password. Links are shown to an admin to
+  pass on (sign-in and invitation links last 7 days, password resets 30 minutes) — Crumb
+  sends no email.
 - **Records that stay put**: an append-only ledger and activity log. A reward, request,
   confirmation or refund that is retried after a dropped connection is still recorded once,
   and two devices cannot spend the same balance.

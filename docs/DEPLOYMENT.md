@@ -23,8 +23,8 @@ Hosting a server costs money with most providers. Crumb itself is free (MIT), bu
 guide does not promise that running it is.
 
 Crumb does not send email, does not need any outside service, and sends nothing about your
-organization anywhere. Invitation and password-reset links are shown to an admin, who passes
-them on however the team normally talks. (With the HTTPS setup below, the Caddy proxy
+organization anywhere. Sign-in, invitation and password-reset links are shown to an admin, who
+passes them on privately, however the team normally talks. (With the HTTPS setup below, the Caddy proxy
 contacts Let's Encrypt to obtain and renew the certificate — that is the only outside
 connection, and it is Caddy's, not Crumb's.)
 
@@ -121,7 +121,9 @@ expects it to exist).
 ## After setup
 
 - **Team → Members:** invite admins and members. Each invitation gives you a one-time link
-  (valid 7 days) to send yourself.
+  (valid 7 days) to send yourself. A team member opens theirs on their phone and is signed
+  in, with no password; an admin or owner uses theirs to choose a password. When a member
+  changes or loses their phone, **New sign-in link** makes another and signs the old phone out.
 - **Team → Benefits:** add what people can redeem, with a price in your unit. (The first
   price fixes credit or points and the currency.)
 - **Give recognition** (on the Team overview): choose a person, an amount and a message. They
@@ -167,13 +169,20 @@ lock everyone out for 15 minutes. Run Crumb as an unprivileged user that owns `D
 
 ## Security notes
 
-- Sign-in is by username and password. Passwords are stored only as scrypt hashes. Five
-  failed attempts lock an account for 15 minutes, even with the right password (owner
-  recovery in [OPERATIONS.md](OPERATIONS.md) lifts it for an owner); thirty lock an address,
-  and an IPv6 /64 counts as one address.
-- Sessions last at most 12 hours and are cookies Crumb's pages cannot read. Using a
-  password-reset link, owner recovery and deactivation end that person's sessions. There is
-  no self-service password change in this version: an admin makes a reset link.
+- Owners and admins sign in with a username and password. Passwords are stored only as
+  scrypt hashes. Five failed attempts lock an account for 15 minutes, even with the right
+  password (owner recovery in [OPERATIONS.md](OPERATIONS.md) lifts it for an owner); thirty
+  lock an address, and an IPv6 /64 counts as one address.
+- Team members have no password. They sign in with a personal link an admin makes for them:
+  it works once, within 7 days, and is stored only as a hash. Whoever opens it first is
+  signed in as that member, so send it privately. A member is signed in on one device at a
+  time: using a link, or an admin making a new one, signs them out everywhere else — which is
+  also how a lost phone is cut off (or deactivate the account).
+- An owner's or admin's session lasts at most 12 hours; a team member's device stays signed
+  in for up to 180 days. Sessions are cookies Crumb's pages cannot read. Using a
+  password-reset link, a role change, owner recovery and deactivation end that person's
+  sessions. There is no self-service password change in this version: an owner makes a
+  reset link.
 - Every permission is checked by the server. Members can only see their own balance,
   collection, history and requests; there are no leaderboards or cross-member comparisons.
 - The server logs startup, errors by type, and nothing else: no passwords, links, cookies or

@@ -124,6 +124,17 @@ test('recover-owner lifts the sign-in lock on that owner, and only on that owner
     ['account:member', 'address:203.0.113.9']);
 });
 
+test('recover-owner gives a password to an owner who joined as a team member, without one', t => {
+  const { db, dir } = fixture(t);
+  const promoted = randomUUID();
+  const now = new Date().toISOString();
+  db.prepare(`INSERT INTO users (id, username, display_name, password_hash, role, active, joined_at, created_at)
+              VALUES (?, 'was.member', 'Was Member', NULL, 'owner', 1, ?, ?)`).run(promoted, now, now);
+  const result = run('recover-owner.mjs', ['--username', 'was.member'], { env: { DATA_DIR: dir }, input: 'a completely new owner password\n' });
+  assert.equal(result.status, 0, result.stderr);
+  assert.notEqual(db.prepare('SELECT password_hash FROM users WHERE id = ?').get(promoted).password_hash, null);
+});
+
 test('recover-owner does not give a password to an owner who never joined', t => {
   const { db, owner, dir } = fixture(t);
   const pendingId = randomUUID();
