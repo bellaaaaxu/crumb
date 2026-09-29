@@ -181,13 +181,13 @@ index.html  the public demo (with assets/)
 
 ## Where it came from
 
-Crumb began as an internal staff-credit tool for a bakery, in daily use by about thirty
-people. This repository generalises it for any team.
+Crumb began as an internal staff-credit tool for a bakery. This repository generalises it for
+any team.
 
-For that tool, I wrote the specifications, chose and reviewed what came back, and validated
-every release before rollout — including the pixel art, which I directed and selected rather
-than placed cell by cell. I don't write the code by hand. The judgment on display is in the
-data model, the permissions and the decisions about what to show.
+For that tool, I wrote the specifications and chose and reviewed what came back — including
+the pixel art, which I directed and selected rather than placed cell by cell. I don't write the
+code by hand. The judgment on display is in the data model, the permissions and the decisions
+about what to show.
 
 ## License
 

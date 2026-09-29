@@ -12,7 +12,7 @@ been run at all — nothing is marked passed on the strength of reading the code
 
 | Requirement | Status | Evidence |
 | --- | --- | --- |
-| For any kind of team; MIT; the non-goals stated | Passed | README (EN/ZH) and demo checked by `tests/docs.test.mjs`; `LICENSE`; non-goals in README "What each side sees" and CONTRIBUTING. The README's "about thirty people" is **not verified** (the maintainer to confirm). |
+| For any kind of team; MIT; the non-goals stated | Passed | README (EN/ZH) and demo checked by `tests/docs.test.mjs`; `LICENSE`; non-goals in README "What each side sees" and CONTRIBUTING. The README makes no claim about how many people used the original tool. |
 | Setup once, three roles, invitations, resets, permissions, sessions | Passed | `tests/auth.test.mjs` (setup once, even with two at the same time; sessions; limits; CSRF), `tests/members.test.mjs` (roles, links, last owner, deactivation), `tests/permissions.test.mjs`, `tests/api.test.mjs` (every management endpoint refuses members), E2E setup and invitation journeys |
 | Credit or points, currency, rules locking, exact amounts | Passed | `tests/units.test.mjs` (browser and server parsers agree), `tests/org.test.mjs` (locks), `tests/ledger.test.mjs` (unit changed meanwhile), E2E journeys in both units, E2E settings lock notices |
 | One ledger, revoke, refund, retries, two devices at once | Passed | `tests/ledger.test.mjs`, `tests/redemptions.test.mjs`, `tests/concurrency.test.mjs` (worker threads, separate connections), `tests/api.test.mjs` (retries, busy database), `tests/pending.test.mjs` (retry keys across reloads), E2E tests with answers lost, cut short, or lost before a reload |
@@ -48,8 +48,9 @@ been run at all — nothing is marked passed on the strength of reading the code
       `67a174b`; later commits must stay green on the pull request.
 - [x] Record that run in [VALIDATION.md](VALIDATION.md).
 - [ ] A human review of the change.
-- [ ] Decide the open items listed under "Known limits" in VALIDATION.md, agree to keeping
-      request keys in the browser, and confirm or reword the README's "about thirty people".
+- [x] Agree to keeping request keys in the browser, and remove the README's unconfirmed
+      statements about the original tool (done on 2026-09-28).
+- [ ] Decide the open items listed under "Known limits" in VALIDATION.md.
 - [ ] Try the HTTPS setup on a real domain once, including a backup and a restore.
 - [ ] After merging, check that the demo, the README links and the GitHub Pages site work,
       and that GitHub Pages does not publish the app folder as a page that cannot work.

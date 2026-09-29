@@ -162,10 +162,12 @@ reward could still be recorded twice, both fixed in `96199ea`:
 | A success whose answer arrived cut short was taken as done, so the page dropped the request key, showed an error, and sending again recorded a second reward | Fixed: an answer that does not arrive whole counts as no answer; the key is kept, and sending again is a retry |
 | Request keys lived only in the page, so after a lost answer and a reload the same reward sent again was recorded twice | Fixed: keys for unanswered changes are kept in the browser across reloads, per person; dialogs say when an earlier change was not confirmed. A deliberate second reward is still possible once the first is settled |
 
-Left for the maintainer to decide (documented as limits below): the account lock design,
-managers rewarding themselves, anonymous sessions, the loopback port under HTTPS, invitation
-links in browser history, password screening, keeping request keys in the browser, and the
-"about thirty people" statement in the README.
+Decided by the maintainer on 2026-09-28: request keys stay in the browser as described below,
+and the README's two unconfirmed statements about the original tool ("in daily use by about
+thirty people", "validated every release before rollout") were removed. Still to decide
+(documented as limits below): the account lock design, managers rewarding themselves,
+anonymous sessions, the loopback port under HTTPS, invitation links in browser history and
+password screening.
 
 ## Where this differs from the plan
 
@@ -179,7 +181,7 @@ links in browser history, password screening, keeping request keys in the browse
   changes whose answer never arrived — per signed-in person, a random key, a one-way
   fingerprint of the change, its kind and a time; never names, amounts or messages; gone once
   answered or after seven days. The design allowed `localStorage` only for the demo and
-  non-sensitive interface preferences, so this needs the maintainer's agreement.
+  non-sensitive interface preferences; the maintainer approved this change on 2026-09-28.
 - **Incomplete answers:** a success whose body does not arrive whole is treated as no answer
   (`INCOMPLETE_ANSWER`), so the change can be retried safely.
 - **Restore keeps the backup's database version** instead of upgrading it, and refuses copies
@@ -195,8 +197,9 @@ links in browser history, password screening, keeping request keys in the browse
   controls; the CSV export only starts from Crumb's own pages.
 - **Screens:** roles change through a dialog; admins can cancel a request; the settings page
   says which rule is fixed; a page opened at the wrong address says where to go.
-- **Documents:** the README shows three screenshots; its "validated every release" sentence
-  was scoped to the original bakery tool, for the maintainer to confirm.
+- **Documents:** the README shows three screenshots, and no longer says how many people used
+  the original tool or that every release of it was validated (the maintainer could not
+  confirm either).
 - **Hand-over:** the plan's last step asks to attach an artifact to the pull request; no
   such tool exists in this environment, so the screenshots are in the pull request's
   description instead.
