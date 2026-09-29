@@ -7,7 +7,7 @@ import {
   checkToken, consumeToken, inviteMember, issueReset, issueSignInLink, previewSignInLink, renewInvitation, updateMember, useSignInLink,
 } from '../server/members.mjs';
 import {
-  PASSWORD, authenticatedClient, client, fixture, joinTeam, setupOrganization, startServer, tokenFrom,
+  PASSWORD, authenticatedClient, client, fixture, joinTeam, readQr, setupOrganization, startServer, tokenFrom,
 } from './helpers.mjs';
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -587,4 +587,20 @@ test('over HTTP, admins make sign-in links for team members and password links f
   const visitor = client(server.base);
   await visitor.bootstrap();
   assert.equal((await visitor.request('POST', `/api/admin/members/${mina.id}/signin-link`)).status, 401);
+});
+
+test('every link an admin makes comes with a QR code that reads back as that link', async t => {
+  const server = await startServer(t);
+  const { api: owner } = await setupOrganization(server);
+  const member = await owner.request('POST', '/api/admin/invitations', { username: 'mina.p', displayName: 'Mina', role: 'member' });
+  assert.equal(await readQr(member.body.qr), member.body.signinUrl);
+  const again = await owner.request('POST', `/api/admin/members/${member.body.user.id}/signin-link`);
+  assert.equal(await readQr(again.body.qr), again.body.signinUrl);
+  const admin = await owner.request('POST', '/api/admin/invitations', { username: 'ada.a', displayName: 'Ada', role: 'admin' });
+  assert.equal(await readQr(admin.body.qr), admin.body.invitationUrl);
+  const renewed = await owner.request('POST', `/api/admin/members/${admin.body.user.id}/invitation`);
+  assert.equal(await readQr(renewed.body.qr), renewed.body.invitationUrl);
+  const { user: joined } = await joinTeam(server, owner, { username: 'amy.a', role: 'admin' });
+  const reset = await owner.request('POST', `/api/admin/members/${joined.id}/reset`);
+  assert.equal(await readQr(reset.body.qr), reset.body.resetUrl);
 });
