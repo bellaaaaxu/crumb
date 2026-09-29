@@ -1,7 +1,7 @@
 import express from 'express';
 import { AppError } from '../errors.mjs';
 import { hashPassword } from '../passwords.mjs';
-import { deleteSession, setSessionCookie } from '../auth.mjs';
+import { setSessionCookie } from '../auth.mjs';
 import {
   checkToken, consumeToken, inviteMember, issueReset, issueSignInLink, previewSignInLink, renewInvitation, updateMember,
   useSignInLink,
@@ -30,8 +30,8 @@ export function memberRoutes({ db, config, clock }) {
   router.post('/admin/members/:id/signin-link', (req, res) => {
     requireRole(req.actor, MANAGERS);
     noBody(req);
-    const { token } = issueSignInLink(db, req.actor, req.params.id, clock);
-    res.json({ signinUrl: link('signin', token) });
+    const { token, user } = issueSignInLink(db, req.actor, req.params.id, clock);
+    res.json({ user, signinUrl: link('signin', token) });
   });
 
   router.post('/admin/members/:id/invitation', (req, res) => {
@@ -69,8 +69,8 @@ export function memberRoutes({ db, config, clock }) {
 
   router.post('/signin/accept', (req, res) => {
     const body = readObject(req.body, { token: secret({ max: 100 }) });
-    const { user, session } = useSignInLink(db, { token: body.token }, clock);
-    if (req.session) deleteSession(db, req.session.tokenHash);
+    // The session this browser had ends in the same transaction that claims the link.
+    const { user, session } = useSignInLink(db, { token: body.token, previousSessionHash: req.session?.tokenHash }, clock);
     setSessionCookie(res, config, session);
     res.json({ user: { id: user.id, username: user.username, displayName: user.displayName, role: user.role }, csrfToken: session.csrfToken });
   });

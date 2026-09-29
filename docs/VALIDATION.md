@@ -14,7 +14,7 @@ here is marked as passing unless it was actually run. The per-requirement view i
   restore into a new volume, owner recovery and rollback.
 - **Not checked:** HTTPS through Caddy on a real domain (only its Compose configuration was
   validated), arm64, Docker Desktop, and browsers other than Chromium.
-- **Reviewed by AI only:** five review passes (four by Claude agents, one by ChatGPT). No human
+- **Reviewed by AI only:** six review passes (five by Claude agents, one by ChatGPT). No human
   review and no professional security audit has happened yet.
 - So Crumb 0.1 is **not yet validated for managing a real team's benefits.** What is still
   needed is at the end of the checklist.
@@ -84,7 +84,7 @@ there, not recorded here.
 | Retry keys in the browser | `tests/pending.test.mjs` | Kept across a reload, per person, dropped on an answer, expiring, capped, working when storage is blocked, storing no names, amounts or messages. |
 | Settings, logo upload, CSV export | `tests/org.test.mjs`, `tests/csv.test.mjs` | Upload limits and re-encoding, formula-safe CSV, export only from Crumb's own pages. |
 | Backup, restore, owner recovery | `tests/backup.test.mjs`, `tests/ops.test.mjs`, the drills | See the record below. |
-| Member and team journeys | `tests/e2e/product.spec.mjs` | Credit and points, two browser contexts as two devices, a team member joining with a sign-in link and a new link signing the old phone out, an admin joining with a password, deactivation, settings in Chinese; answers lost, cut short, or lost and followed by a reload. |
+| Member and team journeys | `tests/e2e/product.spec.mjs` | Credit and points, two browser contexts as two devices, a team member joining with a sign-in link and a new link signing the old phone out, an admin joining with a password, deactivation, settings in Chinese; answers lost, cut short, or lost and followed by a reload. For sign-in links also: signing out, a used link opened again, a tap whose answer is cut short or lost, and a link page replaced while it loads. |
 | Phone and laptop layout, keyboard, reduced motion, HTML-looking input | `tests/e2e/accessibility.spec.mjs` | 390 px and 1440 px widths, no sideways scrolling, no CSP violations. |
 | Public demo, documents and source | `tests/e2e/demo.spec.mjs`, `tests/docs.test.mjs`, `tests/source.test.mjs` | Local links and images resolve; no invisible direction or byte-order characters. External links are not fetched by the tests. |
 
@@ -103,6 +103,13 @@ there, not recorded here.
   sessions in place on a role change, and letting an owner's session last as long as a team
   member's each made its test fail. In the browser, hiding the "you are signed in here as…"
   warning and the message for a used link each made the journey test fail.
+- After the sixth review: letting a team member make sign-in links, leaving the browser's
+  earlier session in place, turning that session into the member's, and letting a sign-in
+  link work for an owner or admin each made a server test fail. In the browser, each of these
+  made its own test fail: a late answer painting over a newer link page, hiding "New sign-in
+  link" from admins or showing it for someone deactivated, not asking the server again after
+  a failed tap, treating a used link on a signed-in phone as an error, signing a member out
+  without asking, and making a new link without asking.
 - Every problem found in review got a test first, and each was seen failing for the reported
   reason before the fix (for example, restoring with a copy of the code that has one more
   migration reproduced the reported "schema too new" failure).
@@ -166,6 +173,26 @@ reward could still be recorded twice, both fixed in `96199ea`:
 | A success whose answer arrived cut short was taken as done, so the page dropped the request key, showed an error, and sending again recorded a second reward | Fixed: an answer that does not arrive whole counts as no answer; the key is kept, and sending again is a retry |
 | Request keys lived only in the page, so after a lost answer and a reload the same reward sent again was recorded twice | Fixed: keys for unanswered changes are kept in the browser across reloads, per person; dialogs say when an earlier change was not confirmed. A deliberate second reward is still possible once the first is settled |
 
+A sixth review, by a Claude agent at `0e321bb`, looked only at the change to sign-in links. It
+found nothing critical: checking and claiming a link is one transaction, links are stored as
+hashes and checked again when used, and the 12-hour limit for owners and admins held under
+every probe. Most findings below were shown by running probes against throwaway servers; the
+rest came from reading the code:
+
+| Finding | Outcome |
+| --- | --- |
+| Two server tests meant to show that team members are refused passed for the wrong reason (the member had just been signed out), and nothing stopped a team member making sign-in links | Fixed: the tests keep the member signed in and check the refusal code; a member asking for a sign-in link, for someone else or themselves, is tested |
+| No test showed that a sign-in link replaces the browser's earlier session instead of upgrading it | Added, including an owner signed in on the same browser; the earlier session now ends in the same transaction that uses the link |
+| A team member who signs out cannot get back in without a new link | The page asks first and says why; documented |
+| The link page never checked whether the browser was already signed in: after a lost or cut-short answer, or when a used link was tapped again, it sent members to ask for a new link | Fixed: after anything but a clear answer the page asks the server who is signed in and goes straight in; a used link on a signed-in phone opens Crumb; a lost answer is explained without promising a safe retry |
+| Using a link after joining left nothing in the activity log | Every use is logged, as the member |
+| After a failed tap, focus was lost and a button that could no longer work stayed | Replaced by the explanation and "Go to sign in", focused |
+| Several messages did not say what the person needs next (a role change between admin and owner, reactivating a team member) or said "signed out" of someone who never signed in | Fixed; the note after a new link uses the server's current answer, since the list on screen may be older |
+| "New sign-in link" signed a member out everywhere in one tap | It asks first, like deactivating |
+| An owner can manage their own account through the API (make themselves a reset link, or step down while another owner remains) | Not changed: the design only forbids removing the last active owner, and the server lets one of two owners leave on purpose (tested); the screens never offer it |
+| A late answer could paint over a newer page | Checked again after every wait; tested |
+| Documents: opening a link does not sign in, the tap does; each browser counts as its own device; a member who never joined and is made an admin needs an invitation, not a reset; the design's §4 still said everyone uses a password | Corrected; the design now points to the 2026-09-29 decision |
+
 Decided by the maintainer on 2026-09-28: request keys stay in the browser as described below,
 and the README's two unconfirmed statements about the original tool ("in daily use by about
 thirty people", "validated every release before rollout") were removed. Still to decide
@@ -211,11 +238,13 @@ password screening.
   in on one device at a time, and a new link signs the old device out. Owners and admins keep
   passwords and 12-hour sessions. New endpoints: `POST /api/admin/members/:id/signin-link`,
   `POST /api/signin/preview` and `POST /api/signin/accept`; `POST /api/admin/invitations`
-  returns `signinUrl` for a team member; the invitation and reset endpoints answer
-  `USE_SIGNIN_LINK` for team members, and the sign-in link endpoint `USE_PASSWORD` for owners
-  and admins. The first migration gained a `joined_at` column (it is still unreleased). A
-  role change signs the person out; a member made an admin chooses a password through a reset
-  link, and an admin made a member loses theirs.
+  returns `signinUrl` for a team member, and the sign-in link endpoint also returns the member
+  as they are now; the invitation and reset endpoints answer `USE_SIGNIN_LINK` for team
+  members, and the sign-in link endpoint `USE_PASSWORD` for owners and admins. The first
+  migration gained a `joined_at` column (it is still unreleased). A role change signs the
+  person out: a member who had joined and is made an admin chooses a password through a reset
+  link (one who never joined gets a new invitation), and an admin made a member loses their
+  password. A member is asked before signing out, and an admin before making a new link.
 - **Hand-over:** the plan's last step asks to attach an artifact to the pull request; no
   such tool exists in this environment, so the screenshots are in the pull request's
   description instead.
@@ -263,6 +292,10 @@ password screening.
   whoever holds that unlocked phone is signed in as them until an admin makes a new link or
   deactivates the account.
 - A team member is signed in on one device at a time, and after a restore every team member
-  needs a new sign-in link.
+  needs a new sign-in link. So does a member who signs out, or who opens their link in a
+  different browser (a chat app's built-in browser counts as one).
+- If the answer to the tap on "Sign in on this device" is lost after the server used the
+  link, and the cookie never reached the phone, the link is spent: the page says to ask the
+  admin for a new one. (When the cookie did arrive, the page notices and goes straight in.)
 - A change sent again from a different browser or device after a lost answer is not
   recognised as a retry: request keys live in the browser that sent the change.

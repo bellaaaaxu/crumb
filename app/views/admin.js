@@ -233,10 +233,15 @@ function changeRole(ctx, person, refresh) {
       const changed = t('members.roleChanged', { name: person.displayName, role: t(`role.${updated.role}`) });
       // The server ends links made for the old role, and signs the person out. Team members
       // sign in with a personal link, owners and admins with a password: say what they need now.
+      // (Someone deactivated needs nothing yet; reactivating them says what to do.)
+      const name = person.displayName;
       let next = null;
       if (updated.status === 'invited') next = t('members.roleNewLink');
-      else if (updated.role === 'member') next = t('members.roleNowLink', { name: person.displayName });
-      else if (person.role === 'member') next = t('members.roleNowPassword', { name: person.displayName });
+      else if (updated.status === 'active') {
+        if (updated.role === 'member') next = t('members.roleNowLink', { name });
+        else if (person.role === 'member') next = t('members.roleNowPassword', { name });
+        else next = t('members.roleSignedOut', { name });
+      }
       toast(next ? `${changed} ${next}` : changed);
       refresh();
     },
@@ -249,13 +254,22 @@ function memberRow(ctx, person, money, refresh, showLink) {
   const actions = [];
   const memberPath = `/api/admin/members/${person.id}`;
   const teamMember = person.role === 'member';
-  // A team member's only way in is their personal link: a new one also signs a lost phone out.
+  // A team member's only way in is their personal link. A new one signs them out everywhere
+  // at once (that is how a lost phone is cut off), so like deactivating it asks first.
   if (manageable && teamMember && person.status !== 'deactivated') {
     actions.push(button(t('members.newSigninLink'), {
       attrs: { 'aria-label': t('members.newSigninLinkNamed', { name: person.displayName }) },
       on: {
-        click: () => oneTap(ctx, `signin:${person.id}`, { path: `${memberPath}/signin-link` },
-          result => showLink(linkPanel(t('members.signinLink'), result.signinUrl, t('members.signinRenewNote', { name: person.displayName })))),
+        click: () => actionDialog(ctx, {
+          title: t('members.newSigninTitle', { name: person.displayName }),
+          intro: [t('members.newSigninExplain')],
+          submitLabel: t('members.newSigninConfirm'),
+          action: () => `signin:${person.id}`,
+          send: key => request(`${memberPath}/signin-link`, { method: 'POST', key }),
+          // Whether they had joined comes from the server: this list may be older than that.
+          done: result => showLink(linkPanel(t('members.signinLink'), result.signinUrl,
+            t(result.user.status === 'active' ? 'members.signinRenewNote' : 'members.signinNote', { name: person.displayName }))),
+        }),
       },
     }));
   }
@@ -301,8 +315,14 @@ function memberRow(ctx, person, money, refresh, showLink) {
     actions.push(button(t('members.reactivate'), {
       attrs: { 'aria-label': t('members.reactivateNamed', { name: person.displayName }) },
       on: {
-        click: () => oneTap(ctx, `reactivate:${person.id}`, { method: 'PATCH', path: memberPath, body: { active: true } }, () => {
-          toast(t('members.reactivated', { name: person.displayName }));
+        click: () => oneTap(ctx, `reactivate:${person.id}`, { method: 'PATCH', path: memberPath, body: { active: true } }, updated => {
+          // Deactivating ended their sessions and links: a team member needs a new sign-in link,
+          // and someone who never joined a new invitation.
+          const back = t('members.reactivated', { name: person.displayName });
+          let next = null;
+          if (updated.role === 'member') next = t('members.reactivatedLink');
+          else if (updated.status === 'invited') next = t('members.reactivatedInvite');
+          toast(next ? `${back} ${next}` : back);
           refresh();
         }),
       },

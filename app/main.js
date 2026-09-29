@@ -2,7 +2,7 @@
  * the page, says who is signed in and what their role is. */
 
 import { ApiError, request, setActor, setCsrf } from './api.js';
-import { button, closeAllDialogs, el, safeUrl, toast, uid } from './dom.js';
+import { button, closeAllDialogs, el, openDialog, safeUrl, toast, uid } from './dom.js';
 import { LANGUAGES, getLocale, has, preferredLocale, rememberLocale, setLocale, t } from './i18n.js';
 import { spriteCanvas } from './pixels.js';
 import { renderAuth } from './views/auth.js';
@@ -95,6 +95,30 @@ async function signOut() {
   render();
 }
 
+/* A team member has no password: once signed out, only a new link from an admin gets them
+ * back in. Say so before doing it. */
+function confirmSignOut() {
+  const opened = {};
+  const cancel = button(t('common.cancel'), { on: { click: () => opened.close() } });
+  const leave = button(t('nav.signOut'), {
+    kind: 'danger',
+    on: {
+      click: () => {
+        opened.close();
+        signOut();
+      },
+    },
+  });
+  Object.assign(opened, openDialog({
+    title: t('signOut.title'),
+    content: el('div', { attrs: { class: 'stack' } }, [
+      el('p', { text: t('signOut.memberNote') }),
+      el('div', { attrs: { class: 'dialog-actions' } }, [cancel, leave]),
+    ]),
+  }));
+  cancel.focus();
+}
+
 function context(generation) {
   return {
     session: state.session,
@@ -112,8 +136,9 @@ function context(generation) {
       await loadSession();
       render();
     },
-    async renewSession() {
-      await loadSession();
+    /* Asks the server again who this browser is; returns that session. */
+    renewSession() {
+      return loadSession();
     },
     /* Shows the error in the given form area (or as a toast) unless the session is gone. */
     async fail(error, area) {
@@ -170,7 +195,7 @@ function header(section) {
     el('div', { attrs: { class: 'account' } }, [
       languagePicker(),
       el('span', { text: user.displayName, attrs: { class: 'who' } }),
-      button(t('nav.signOut'), { kind: 'quiet', on: { click: signOut } }),
+      button(t('nav.signOut'), { kind: 'quiet', on: { click: () => (user.role === 'member' ? confirmSignOut() : signOut()) } }),
     ]),
   ]);
 }

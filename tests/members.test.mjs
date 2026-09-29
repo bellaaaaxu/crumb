@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
+import { newSecret, sha256 } from '../server/auth.mjs';
 import { grant } from '../server/ledger.mjs';
 import {
   checkToken, consumeToken, inviteMember, issueReset, issueSignInLink, previewSignInLink, renewInvitation, updateMember, useSignInLink,
@@ -70,14 +71,18 @@ test('members cannot use any management function', t => {
   assert.throws(() => issueReset(db, member, member2.id), code('FORBIDDEN'));
   assert.throws(() => updateMember(db, member, member2.id, { active: false }), code('FORBIDDEN'));
   assert.throws(() => updateMember(db, member, member.id, { role: 'owner' }), code('FORBIDDEN'));
+  assert.throws(() => issueSignInLink(db, member, member2.id), code('FORBIDDEN'), 'that would be taking over their account');
+  assert.throws(() => issueSignInLink(db, member, member.id), code('FORBIDDEN'));
+  assert.throws(() => renewInvitation(db, member, member2.id), code('FORBIDDEN'));
 });
 
 test('a stale session role does not outlive a demotion', t => {
-  const { db, owner, member } = fixture(t);
+  const { db, owner, member, member2 } = fixture(t);
   updateMember(db, owner, member.id, { role: 'admin' });
   updateMember(db, owner, member.id, { role: 'member' });
   // The caller still believes it is an admin; the database says otherwise.
   assert.throws(() => inviteMember(db, { id: member.id, role: 'admin' }, { username: 'sneaky', displayName: 'S', role: 'member' }), code('FORBIDDEN'));
+  assert.throws(() => issueSignInLink(db, { id: member.id, role: 'admin' }, member2.id), code('FORBIDDEN'));
 });
 
 test('member updates accept only role and active', t => {
@@ -270,18 +275,68 @@ test('roles are enforced by the server, not by hidden buttons', async t => {
   const { api: owner, user: ownerUser } = await setupOrganization(server);
   const { api: admin } = await joinTeam(server, owner, { username: 'ada', role: 'admin' });
   const { api: member, user: memberUser } = await joinTeam(server, owner, { username: 'max' });
+  const { user: otherUser } = await joinTeam(server, owner, { username: 'moe.m' });
+  // The code, not just the status: a request refused for having no session is a 403 too.
+  const forbidden = async (pending, what) => {
+    const response = await pending;
+    assert.equal(response.status, 403, what);
+    assert.equal(response.body.error.code, 'FORBIDDEN', what);
+  };
 
-  assert.equal((await admin.request('POST', `/api/admin/members/${ownerUser.id}/reset`)).status, 403);
-  assert.equal((await admin.request('PATCH', `/api/admin/members/${ownerUser.id}`, { active: false })).status, 403);
-  assert.equal((await admin.request('POST', '/api/admin/invitations', { username: 'x.admin', displayName: 'X', role: 'admin' })).status, 403);
-  assert.equal((await admin.request('PATCH', `/api/admin/members/${memberUser.id}`, { role: 'admin' })).status, 403);
-  assert.equal((await admin.request('POST', `/api/admin/members/${memberUser.id}/signin-link`)).status, 200);
+  // A team member who is still signed in is refused every management call, above all a
+  // sign-in link for someone else: that would be taking over their account.
+  await forbidden(member.request('POST', `/api/admin/members/${otherUser.id}/signin-link`), 'a sign-in link for another member');
+  await forbidden(member.request('POST', `/api/admin/members/${memberUser.id}/signin-link`), 'a sign-in link for themselves');
+  await forbidden(member.request('POST', '/api/admin/invitations', { username: 'y.member', displayName: 'Y', role: 'member' }), 'an invitation');
+  await forbidden(member.request('PATCH', `/api/admin/members/${otherUser.id}`, { active: false }), 'a deactivation');
+  await forbidden(member.request('PATCH', `/api/admin/members/${memberUser.id}`, { role: 'owner' }), 'a role change');
+  await forbidden(member.request('POST', `/api/admin/members/${ownerUser.id}/reset`), 'a reset link');
+  assert.equal((await member.request('GET', '/api/me')).status, 200, 'still signed in: every refusal was about the role');
 
-  assert.equal((await member.request('POST', '/api/admin/invitations', { username: 'y.member', displayName: 'Y', role: 'member' })).status, 403);
-  assert.equal((await member.request('PATCH', `/api/admin/members/${memberUser.id}`, { role: 'owner' })).status, 403);
+  await forbidden(admin.request('POST', `/api/admin/members/${ownerUser.id}/reset`), 'an admin resetting an owner');
+  await forbidden(admin.request('PATCH', `/api/admin/members/${ownerUser.id}`, { active: false }), 'an admin deactivating an owner');
+  await forbidden(admin.request('POST', '/api/admin/invitations', { username: 'x.admin', displayName: 'X', role: 'admin' }), 'an admin inviting an admin');
+  await forbidden(admin.request('PATCH', `/api/admin/members/${memberUser.id}`, { role: 'admin' }), 'an admin changing a role');
+  assert.equal((await admin.request('POST', `/api/admin/members/${otherUser.id}/signin-link`)).status, 200);
+
   const signedOut = client(server.base);
   await signedOut.bootstrap();
   assert.equal((await signedOut.request('POST', '/api/admin/invitations', { username: 'z.member', displayName: 'Z', role: 'member' })).status, 401);
+  assert.equal((await signedOut.request('POST', `/api/admin/members/${otherUser.id}/signin-link`)).status, 401);
+});
+
+test('a sign-in link replaces the session the browser had instead of upgrading it', async t => {
+  const server = await startServer(t);
+  const { api: owner } = await setupOrganization(server);
+  const first = await owner.request('POST', '/api/admin/invitations', { username: 'mina.p', displayName: 'Mina', role: 'member' });
+  const second = await owner.request('POST', '/api/admin/invitations', { username: 'moe.m', displayName: 'Moe', role: 'member' });
+  const rowsFor = cookie => server.db.prepare('SELECT count(*) AS n FROM sessions WHERE token_hash = ?').get(sha256(cookie)).n;
+  const holding = (name, { cookie, csrf }) => {
+    const other = client(server.base);
+    other.cookies.set(name, cookie);
+    other.csrf = csrf;
+    return other;
+  };
+
+  // A fresh phone: its anonymous session is gone, not turned into Mina's.
+  const phone = client(server.base);
+  await phone.bootstrap();
+  const [name] = phone.cookies.keys();
+  const anonymous = { cookie: phone.cookies.get(name), csrf: phone.csrf };
+  const signedIn = await phone.request('POST', '/api/signin/accept', { token: tokenFrom(first.body.signinUrl, 'signin') });
+  assert.equal(signedIn.status, 200);
+  assert.notEqual(phone.cookies.get(name), anonymous.cookie);
+  assert.notEqual(signedIn.body.csrfToken, anonymous.csrf);
+  assert.equal(rowsFor(anonymous.cookie), 0);
+  assert.equal((await holding(name, anonymous).request('GET', '/api/session')).body.user, null, 'the old cookie did not become Mina');
+
+  // The owner's own laptop: the owner is signed out there, and their old cookie is dead.
+  const before = { cookie: owner.cookies.get(name), csrf: owner.csrf };
+  const taken = await owner.request('POST', '/api/signin/accept', { token: tokenFrom(second.body.signinUrl, 'signin') });
+  assert.equal(taken.body.user.username, 'moe.m');
+  assert.equal(rowsFor(before.cookie), 0);
+  assert.equal((await holding(name, before).request('GET', '/api/admin/members')).status, 401);
+  assert.equal((await owner.request('GET', '/api/admin/members')).body.error.code, 'FORBIDDEN', 'this browser is Moe now, a team member');
 });
 
 test('a link stops working when the account it is for changes role', t => {
@@ -451,6 +506,31 @@ test('a sign-in link lasts seven days and never brings back someone who was deac
   useSignInLink(db, { token: issueSignInLink(db, owner, invited.user.id, clock).token }, clock);
 });
 
+test('every use of a sign-in link is in the activity log, as the member', t => {
+  const { db, owner } = fixture(t);
+  const invited = inviteMember(db, owner, { username: 'mina.p', displayName: 'Mina', role: 'member' });
+  useSignInLink(db, { token: invited.token });
+  useSignInLink(db, { token: issueSignInLink(db, owner, invited.user.id).token });
+  const rows = db.prepare('SELECT action, actor_id FROM audit WHERE target_id = ? ORDER BY rowid').all(invited.user.id);
+  assert.deepEqual(rows.map(row => row.action), ['member.invite', 'member.joined', 'member.signin_link', 'member.signin'],
+    'after a lost phone, an admin can see when the new link was used');
+  assert.equal(rows.at(-1).actor_id, invited.user.id);
+});
+
+test('a sign-in link never signs in an owner or an admin, whoever made it', t => {
+  const { db, owner } = fixture(t);
+  const admin = inviteMember(db, owner, { username: 'ada', displayName: 'Ada', role: 'admin' });
+  // Planted directly, since making one is refused: this tests the check made when a link is used.
+  const now = Date.now();
+  for (const userId of [admin.user.id, owner.id]) {
+    const raw = newSecret();
+    db.prepare(`INSERT INTO tokens (token_hash, purpose, user_id, issued_by, created_at, expires_at) VALUES (?, 'signin', ?, ?, ?, ?)`)
+      .run(sha256(raw), userId, owner.id, new Date(now).toISOString(), new Date(now + DAY).toISOString());
+    assert.throws(() => previewSignInLink(db, { token: raw }), code('INVALID_TOKEN'));
+    assert.throws(() => useSignInLink(db, { token: raw }), code('INVALID_TOKEN'));
+  }
+});
+
 test('a role change signs the person out; a new admin sets a password, a demoted admin loses theirs', t => {
   const { db, owner } = fixture(t);
   const invited = inviteMember(db, owner, { username: 'mina.p', displayName: 'Mina', role: 'member' });
@@ -498,6 +578,10 @@ test('over HTTP, admins make sign-in links for team members and password links f
   const link = await owner.request('POST', `/api/admin/members/${mina.id}/signin-link`);
   assert.equal(link.status, 200);
   assert.match(link.body.signinUrl, /#signin=[A-Za-z0-9_-]{43}$/);
+  // Whether they had joined, as it is now: the admin's list may be older than that.
+  assert.equal(link.body.user.status, 'active');
+  const pending = await owner.request('POST', '/api/admin/invitations', { username: 'moe.m', displayName: 'Moe', role: 'member' });
+  assert.equal((await owner.request('POST', `/api/admin/members/${pending.body.user.id}/signin-link`)).body.user.status, 'invited');
   assert.equal((await owner.request('POST', `/api/admin/members/${ada.id}/signin-link`)).body.error.code, 'USE_PASSWORD');
   assert.equal((await owner.request('POST', `/api/admin/members/${mina.id}/reset`)).body.error.code, 'USE_SIGNIN_LINK');
   const visitor = client(server.base);

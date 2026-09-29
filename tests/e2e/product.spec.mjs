@@ -186,9 +186,13 @@ test('a new team member gets a sign-in link, opens it on their phone and is in, 
     await expect(again.getByRole('button', { name: 'Sign in', exact: true })).toBeVisible();
     await again.context().close();
 
-    // A lost or new phone: a new link from the admin signs the old one out at once.
+    // A lost or new phone: a new link from the admin signs the old one out at once, so it asks first.
     await ownerPage.getByRole('button', { name: 'New sign-in link for Sam Okafor', exact: true }).click();
+    const confirm = ownerPage.getByRole('dialog');
+    await expect(confirm).toContainText('signed out on every device');
+    await confirm.getByRole('button', { name: 'Make a new link', exact: true }).click();
     await expect(ownerPage.getByLabel('Sign-in link', { exact: true })).toBeVisible();
+    await expect(ownerPage.locator('.link-panel')).toContainText('signed out everywhere else');
     await phone.reload();
     await expect(phone.getByRole('button', { name: 'Sign in', exact: true })).toBeVisible();
     await expect(phone.getByText(/personal link/)).toBeVisible();
@@ -220,8 +224,10 @@ test('an admin invitation is opened on another device and used to set a password
     await expect(page.getByLabel('Username')).toHaveValue('sam');
     await page.getByLabel('Password', { exact: true }).fill(PASSWORD);
     await page.getByRole('button', { name: 'Sign in', exact: true }).click();
-    // An admin starts on the team pages.
-    await expect(page.getByRole('link', { name: 'Members', exact: true })).toBeVisible();
+    // An admin starts on the team pages, and makes sign-in links for team members, but changes no roles.
+    await page.getByRole('link', { name: 'Members', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'New sign-in link for Mina Park', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Change role for Mina Park', exact: true })).toHaveCount(0);
     await context.close();
   } finally {
     await fx.close();
@@ -247,6 +253,12 @@ test('a deactivated member is signed out on their next action', async ({ browser
     await expect(fx.memberPage.getByTestId('available-balance')).toHaveCount(0);
     const { body } = await fx.api.request('GET', '/api/admin/redemptions?status=pending');
     expect(body.items).toHaveLength(0);
+
+    // No sign-in link while deactivated; once back, the admin is told they need one.
+    await expect(fx.ownerPage.getByRole('button', { name: 'New sign-in link for Mina Park', exact: true })).toHaveCount(0);
+    await fx.ownerPage.getByRole('button', { name: 'Reactivate Mina Park', exact: true }).click();
+    await expect(fx.ownerPage.getByRole('status').filter({ hasText: 'Mina Park was reactivated' })).toContainText('new sign-in link');
+    await expect(fx.ownerPage.getByRole('button', { name: 'New sign-in link for Mina Park', exact: true })).toBeVisible();
   } finally {
     await fx.close();
   }
@@ -318,6 +330,13 @@ test('a role changes only after a deliberate confirmation', async ({ browser }) 
     await expect(ownerPage.getByRole('button', { name: 'Password reset link for Mina Park', exact: true })).toBeVisible();
     await expect(ownerPage.getByRole('button', { name: 'New sign-in link for Mina Park', exact: true })).toHaveCount(0);
     expect(await roleOf(fx.memberId)).toBe('admin');
+
+    // Between admin and owner the password stays, but the person is still signed out: say so.
+    await ownerPage.getByRole('button', { name: 'Change role for Mina Park', exact: true }).click();
+    await dialog.getByRole('radio', { name: /^Owner/ }).check();
+    await dialog.getByRole('button', { name: 'Change role', exact: true }).click();
+    await expect(ownerPage.getByRole('status').filter({ hasText: 'changed to Owner' })).toContainText('was signed out');
+    expect(await roleOf(fx.memberId)).toBe('owner');
 
     // Someone who has not joined yet: the link made for the old role stops working.
     const invite = await fx.api.request('POST', '/api/admin/invitations', { username: 'sam', displayName: 'Sam Lee', role: 'member' });
@@ -590,6 +609,149 @@ test('after a lost answer and a reload, asking for the same benefit finishes the
     await memberPage.getByRole('button', { name: 'Confirm request', exact: true }).click();
     await expect(memberPage.getByRole('status').filter({ hasText: 'had already gone through' })).toBeVisible();
     expect(pendingRequests(fx)).toBe(1);
+  } finally {
+    await fx.close();
+  }
+});
+
+/* ---------------------------------------------------------------- sign-in links, the rough edges */
+
+test('a team member is asked before signing out, since only a new link gets them back in', async ({ browser }) => {
+  const fx = await provision(browser, { mode: 'points' });
+  try {
+    const { memberPage, ownerPage } = fx;
+    await memberPage.getByRole('button', { name: 'Sign out', exact: true }).click();
+    const dialog = memberPage.getByRole('dialog');
+    await expect(dialog).toContainText('new link from your admin');
+    await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await expect(memberPage.getByTestId('available-balance')).toBeVisible();
+    await memberPage.getByRole('button', { name: 'Sign out', exact: true }).click();
+    await dialog.getByRole('button', { name: 'Sign out', exact: true }).click();
+    await expect(memberPage.getByRole('button', { name: 'Sign in', exact: true })).toBeVisible();
+
+    // Owners and admins have a password to come back with: they sign out at once.
+    await ownerPage.getByRole('button', { name: 'Sign out', exact: true }).click();
+    await expect(ownerPage.getByRole('button', { name: 'Sign in', exact: true })).toBeVisible();
+    await expect(ownerPage.getByRole('dialog')).toHaveCount(0);
+  } finally {
+    await fx.close();
+  }
+});
+
+test('a used link opened again on the phone it signed in simply opens Crumb', async ({ browser }) => {
+  const fx = await provision(browser, { mode: 'points' });
+  try {
+    // Tapping the old link in the chat again, as people do to open the app.
+    const again = await fx.memberPage.context().newPage();
+    await again.goto(fx.memberLink);
+    await expect(again.getByTestId('available-balance')).toHaveText('0 points');
+    await expect(again.getByRole('status').filter({ hasText: 'already been used' })).toContainText('Mina Park');
+  } finally {
+    await fx.close();
+  }
+});
+
+test('a tap whose answer is cut short, though the phone was signed in, goes straight in', async ({ browser }) => {
+  const fx = await provision(browser, { mode: 'points' });
+  try {
+    const invite = await fx.api.request('POST', '/api/admin/invitations', { username: 'sam', displayName: 'Sam Lee', role: 'member' });
+    const context = await browser.newContext();
+    const phone = await context.newPage();
+    await phone.route('**/api/signin/accept', cutShort);
+    await phone.goto(invite.body.signinUrl);
+    await phone.getByRole('button', { name: 'Sign in on this device', exact: true }).click();
+    await expect(phone.getByTestId('available-balance')).toHaveText('0 points');
+    await context.close();
+  } finally {
+    await fx.close();
+  }
+});
+
+test('a tap whose answer is lost says what to do, then that the link is used, with the way out focused', async ({ browser }) => {
+  const fx = await provision(browser, { mode: 'points' });
+  try {
+    const invite = await fx.api.request('POST', '/api/admin/invitations', { username: 'sam', displayName: 'Sam Lee', role: 'member' });
+    const context = await browser.newContext();
+    const phone = await context.newPage();
+    // The server gets the tap and uses the link, but no answer and no cookie reach the phone.
+    await phone.route('**/api/signin/accept', async route => {
+      const request = route.request();
+      const headers = await request.allHeaders();
+      await fetch(request.url(), {
+        method: 'POST', body: request.postData(),
+        headers: { 'content-type': headers['content-type'], cookie: headers.cookie, origin: headers.origin, 'x-csrf-token': headers['x-csrf-token'] },
+      });
+      await route.abort('connectionreset');
+    }, { times: 1 });
+    await phone.goto(invite.body.signinUrl);
+    const tap = phone.getByRole('button', { name: 'Sign in on this device', exact: true });
+    await tap.click();
+    await expect(phone.getByRole('alert')).toContainText('did not answer');
+    await expect(phone.getByRole('alert')).not.toContainText('safe');
+    await tap.click();
+    await expect(phone.getByRole('alert')).toContainText('already used');
+    await expect(phone.getByRole('button', { name: 'Go to sign in', exact: true })).toBeFocused();
+    await expect(tap).toHaveCount(0);
+    await context.close();
+  } finally {
+    await fx.close();
+  }
+});
+
+test('a new sign-in link for someone who has not joined asks first, and cancelling changes nothing', async ({ browser }) => {
+  const fx = await provision(browser, { mode: 'points' });
+  try {
+    const invite = await fx.api.request('POST', '/api/admin/invitations', { username: 'sam', displayName: 'Sam Lee', role: 'member' });
+    const { ownerPage } = fx;
+    await ownerPage.goto(`${fx.origin}/#/team/members`);
+    const dialog = ownerPage.getByRole('dialog');
+    await ownerPage.getByRole('button', { name: 'New sign-in link for Sam Lee', exact: true }).click();
+    await expect(dialog).toContainText('current link stops working');
+    await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+    const visitor = client(fx.origin);
+    await visitor.bootstrap();
+    const preview = await visitor.request('POST', '/api/signin/preview', { token: tokenFrom(invite.body.signinUrl, 'signin') });
+    expect(preview.status, 'the first link still works').toBe(200);
+
+    await ownerPage.getByRole('button', { name: 'New sign-in link for Sam Lee', exact: true }).click();
+    await dialog.getByRole('button', { name: 'Make a new link', exact: true }).click();
+    const panel = ownerPage.locator('.link-panel');
+    await expect(panel).toContainText('They open it on their phone');
+    await expect(panel).not.toContainText('signed out');
+  } finally {
+    await fx.close();
+  }
+});
+
+test('a link page replaced while it loads never shows or uses the old link', async ({ browser }) => {
+  const fx = await provision(browser, { mode: 'points' });
+  try {
+    const first = await fx.api.request('POST', '/api/admin/invitations', { username: 'sam', displayName: 'Sam Okafor', role: 'member' });
+    const second = await fx.api.request('POST', '/api/admin/invitations', { username: 'lee', displayName: 'Lee Chan', role: 'member' });
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    let release;
+    const held = new Promise(resolve => { release = resolve; });
+    let heldRequest = null;
+    await page.route('**/api/signin/preview', async route => {
+      if (!heldRequest) {
+        heldRequest = route.request();
+        await held;
+      }
+      await route.continue();
+    });
+    await page.goto(first.body.signinUrl);
+    await page.evaluate(hash => { window.location.hash = hash; }, new URL(second.body.signinUrl).hash);
+    await expect(page.getByText('This link signs in Lee Chan on this device')).toBeVisible();
+    const finished = page.waitForEvent('requestfinished', request => request === heldRequest);
+    release();
+    await finished;
+    // Let the page handle that late answer before looking.
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(resolve, 50)))));
+    await expect(page.getByText('Sam Okafor')).toHaveCount(0);
+    await page.getByRole('button', { name: 'Sign in on this device', exact: true }).click();
+    await expect(page.locator('.who')).toHaveText('Lee Chan');
+    await context.close();
   } finally {
     await fx.close();
   }

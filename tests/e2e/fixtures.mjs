@@ -96,6 +96,7 @@ export async function provision(browser, { mode = 'points', memberName = 'Mina P
     api,
     mode,
     memberId: invite.body.user.id,
+    memberLink: invite.body.signinUrl,
     coffeeId: coffee.body.id,
     ownerPage,
     memberPage,

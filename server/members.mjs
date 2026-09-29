@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { AppError } from './errors.mjs';
 import { writeTransaction } from './db.mjs';
 import { writeAudit } from './audit.mjs';
-import { MEMBER_SESSION_TTL_MS, createSession, looksLikeSecret, newSecret, revokeSessionsOf, sha256 } from './auth.mjs';
+import { MEMBER_SESSION_TTL_MS, createSession, deleteSession, looksLikeSecret, newSecret, revokeSessionsOf, sha256 } from './auth.mjs';
 import { MANAGERS, canManageRole, freshActor, requireRole } from './permissions.mjs';
 import { bool, invalid, isUuid, oneOf, readObject, text, username } from './validate.mjs';
 
@@ -163,7 +163,8 @@ export function issueSignInLink(db, actor, userId, clock = () => Date.now()) {
     revokeSessionsOf(db, target.id);
     const token = issueToken(db, target.id, 'signin', INVITE_TTL_MS, now, current.id);
     writeAudit(db, { actorId: current.id, action: 'member.signin_link', targetId: target.id }, iso(now));
-    return { token };
+    // The person as they are now (joined or not), since the admin's list may be older than that.
+    return { token, user: memberView(loadUser(db, target.id)) };
   });
 }
 
@@ -177,9 +178,12 @@ export function previewSignInLink(db, { token }, clock = () => Date.now()) {
 /**
  * Signs a team member in with their link, all in one transaction: the link is
  * claimed, a first use completes joining, any other session of theirs ends
- * (one phone at a time), and a long session starts on this device.
+ * (one phone at a time), the session this browser had ends too (it is
+ * replaced, never upgraded), and a long session starts on this device. Every
+ * use is in the activity log, so after a lost phone an admin can see when the
+ * new link was used.
  */
-export function useSignInLink(db, { token }, clock = () => Date.now()) {
+export function useSignInLink(db, { token, previousSessionHash = null }, clock = () => Date.now()) {
   if (!looksLikeSecret(token)) throw invalidLink();
   return writeTransaction(db, () => {
     const now = iso(clock());
@@ -190,8 +194,11 @@ export function useSignInLink(db, { token }, clock = () => Date.now()) {
     if (statusOf(user) === 'invited') {
       db.prepare('UPDATE users SET active = 1, joined_at = ? WHERE id = ?').run(now, user.id);
       writeAudit(db, { actorId: user.id, action: 'member.joined', targetId: user.id }, now);
+    } else {
+      writeAudit(db, { actorId: user.id, action: 'member.signin', targetId: user.id }, now);
     }
     revokeSessionsOf(db, user.id);
+    if (previousSessionHash) deleteSession(db, previousSessionHash);
     const session = createSession(db, user.id, clock, MEMBER_SESSION_TTL_MS);
     return { user: memberView(loadUser(db, user.id)), session };
   });
