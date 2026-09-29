@@ -52,9 +52,10 @@ been run at all — nothing is marked passed on the strength of reading the code
       statements about the original tool (done on 2026-09-28).
 - [x] Decide how team members sign in: with a personal link, no password (decided on
       2026-09-29), shown as a QR code too, and kept for a fixed 180 days.
-- [ ] On a real iPhone and an Android phone: scan a code, open a sent picture with a long
-      press, sign in, add Crumb to the home screen, and check the icon opens it still signed in.
-      In WeChat, long-press a sent code, follow the note to "Open in Browser", and sign in there.
+- [x] On a real iPhone: scan a code, sign in, add Crumb to the home screen and open it from the
+      icon still signed in; in WeChat, scan a code, follow the note to open it in the browser,
+      and sign in there (passed, reported by the maintainer on 2026-09-29).
+- [ ] The same on an Android phone, and opening a sent picture with a long press.
 - [ ] Decide the open items listed under "Known limits" in VALIDATION.md.
 - [ ] Try the HTTPS setup on a real domain once, including a backup and a restore.
 - [ ] After merging, check that the demo, the README links and the GitHub Pages site work,

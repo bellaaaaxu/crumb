@@ -12,8 +12,11 @@ here is marked as passing unless it was actually run. The per-requirement view i
 - **Checked in CI** (GitHub Actions, Linux): the same tests with none skipped, and the
   container drill — the Docker image was built and taken through setup, restart, backup,
   restore into a new volume, owner recovery and rollback.
+- **Checked by hand on one iPhone:** signing in by QR code with the camera and through
+  WeChat, and the home-screen icon (reported by the maintainer; see "Real phone check").
 - **Not checked:** HTTPS through Caddy on a real domain (only its Compose configuration was
-  validated), arm64, Docker Desktop, and browsers other than Chromium.
+  validated), arm64, Docker Desktop, Android phones, and browsers other than Chromium apart
+  from that one iPhone.
 - **Reviewed by AI only:** seven review passes (six by Claude agents, one by ChatGPT). No human
   review and no professional security audit has happened yet.
 - So Crumb 0.1 is **not yet validated for managing a real team's benefits.** What is still
@@ -121,6 +124,20 @@ there, not recorded here.
 - Every problem found in review got a test first, and each was seen failing for the reported
   reason before the fix (for example, restoring with a copy of the code that has one more
   migration reproduced the reported "schema too new" failure).
+
+## Real phone check
+
+On 2026-09-29 the maintainer tried the QR codes on their own iPhone, against a temporary
+Crumb (commit `8523d47`, invented data) running on a computer on the same network:
+
+- scanned the code on the computer screen with the iPhone camera, signed in with one tap,
+  added Crumb to the home screen, and opened it from the icon still signed in;
+- scanned a new code with WeChat, followed the note to open it in the browser, and signed in
+  there.
+
+Both passed, as the maintainer reported. Not recorded: the iOS version, whether "Open as Web
+App" was offered when adding the icon, and what WeChat calls its menu item. No Android phone
+was tried, and a picture opened with a long press was not tried separately from scanning.
 
 ## Backup and restore record
 
@@ -301,11 +318,11 @@ password screening.
   covered only by reading the code; the browser tests drop or cut short the answer instead.
 - **Browsers and assistive technology:** only Chromium was used; no Firefox, Safari or
   mobile browsers; no real screen reader.
-- **Real phones:** scanning a code with a phone camera, opening a sent picture with a long
-  press (in WeChat, Photos or another app), the share sheet, and whether a home-screen icon
-  on iPhone stays signed in; which address WeChat's "Open in Browser" hands over, and what
-  that menu item is called on iPhone. The tests decode the picture with jsqr and stand in for
-  the share sheet; WeChat and home-screen apps are simulated by their browser signs.
+- **Real phones, beyond one iPhone:** any Android phone; opening a sent picture with a long
+  press (the iPhone check scanned instead); the share sheet on a real phone. One iPhone passed
+  the camera, home-screen and WeChat checks (see "Real phone check"). Otherwise the tests
+  decode the picture with jsqr, stand in for the share sheet, and simulate WeChat and
+  home-screen apps by their browser signs.
 - **Stopping mid-request:** the container drill's restart stops Crumb with SIGTERM while it is
   idle; stopping it with requests in flight was not tried.
 - **Links that only work after merging:** the demo's "Deploy it for your team" link, the
