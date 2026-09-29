@@ -3,7 +3,7 @@
  * password, for owners and admins). */
 
 import { request, setCsrf, wasRefused } from '../api.js';
-import { button, el, field, formError, radios, toast } from '../dom.js';
+import { button, el, field, formError, openedAsHomeScreenApp, radios, toast } from '../dom.js';
 import { LANGUAGES, getLocale, t } from '../i18n.js';
 import { amountToUnits } from '../format.js';
 import { pixelWord, spriteCanvas } from '../pixels.js';
@@ -68,6 +68,7 @@ function login(root, ctx) {
   root.replaceChildren(frame(ctx, org ? t('auth.signInTo', { name: org.name }) : t('auth.signInTitle'), [
     ctx.notice ? el('p', { text: ctx.notice, attrs: { class: 'notice', role: 'status' } }) : null,
     el('p', { text: t('auth.memberHint'), attrs: { class: 'muted' } }),
+    openedAsHomeScreenApp() ? el('p', { text: t('auth.homeScreenApp'), attrs: { class: 'notice' } }) : null,
     form,
     el('p', { text: t('auth.forgot'), attrs: { class: 'muted small' } }),
   ]));

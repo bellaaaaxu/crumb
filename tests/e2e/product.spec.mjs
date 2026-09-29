@@ -873,3 +873,23 @@ test('opened from the home screen, Crumb does not suggest adding it again', asyn
     await fx.close();
   }
 });
+
+test('opened as a separate app from the home screen and signed out, the sign-in page says how to fix the icon', async ({ browser }) => {
+  const fx = await provision(browser, { mode: 'points' });
+  try {
+    const app = await browser.newContext();
+    await app.addInitScript(() => Object.defineProperty(navigator, 'standalone', { value: true, configurable: true }));
+    const page = await app.newPage();
+    await page.goto(fx.origin);
+    await expect(page.getByText(/separate app/)).toContainText('Open as Web App');
+    await app.close();
+
+    const tab = await (await browser.newContext()).newPage();
+    await tab.goto(fx.origin);
+    await expect(tab.getByRole('button', { name: 'Sign in', exact: true })).toBeVisible();
+    await expect(tab.getByText(/separate app/)).toHaveCount(0);
+    await tab.context().close();
+  } finally {
+    await fx.close();
+  }
+});

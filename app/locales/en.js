@@ -49,7 +49,8 @@ export default {
   'auth.mismatch': 'The two passwords do not match.',
   'auth.missing': 'Enter your username and password.',
   'auth.signIn': 'Sign in',
-  'auth.memberHint': 'Team members sign in with the personal link from their admin, no password needed. If yours stopped working, ask your admin for a new one.',
+  'auth.memberHint': 'Team members sign in with the personal link or QR code from their admin, no password needed. If yours stopped working, ask your admin for a new one.',
+  'auth.homeScreenApp': 'This home-screen icon opens Crumb as a separate app, which does not share the sign-in of your browser. Delete the icon and add Crumb to the home screen again from the browser; if you see Open as Web App, turn it off. Not signed in there either? Ask your admin for a new code.',
   'auth.forgot': 'Owners and admins: forgot your password? Ask an owner for a reset link.',
   'auth.toSignIn': 'Go to sign in',
 
