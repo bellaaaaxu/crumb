@@ -4,6 +4,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { createServer, request as httpRequest } from 'node:http';
+import sharp from 'sharp';
+import jsqr from 'jsqr';
 import { openDatabase } from '../server/db.mjs';
 
 export const PASSWORD = 'correct horse battery staple';
@@ -203,4 +205,13 @@ export async function authenticatedClient(t, { role = 'owner', mode = 'credit' }
     return { api: owner, db: server.db, actor: { id: ownerUser.id, role: 'owner' }, base: server.base, server, owner };
   const { api, user } = await joinTeam(server, owner, { username: `${role}.one`, role });
   return { api, db: server.db, actor: { id: user.id, role }, base: server.base, server, owner };
+}
+
+const decodeQr = jsqr.default ?? jsqr;
+
+/* Reads a QR code picture back the way a phone camera would: pixels in, text out. */
+export async function readQr(image) {
+  const png = Buffer.isBuffer(image) ? image : Buffer.from(image.slice(image.indexOf(',') + 1), 'base64');
+  const { data, info } = await sharp(png).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  return decodeQr(new Uint8ClampedArray(data.buffer, data.byteOffset, data.length), info.width, info.height)?.data ?? null;
 }
