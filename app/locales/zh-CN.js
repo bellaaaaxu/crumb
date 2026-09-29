@@ -67,6 +67,7 @@ export default {
   'signin.submit': '在这台设备上登录',
   'signin.alreadyUsed': '这个链接已经用过了。你目前以 {name} 登录。',
   'signin.noAnswer': 'Crumb 没有回应。请再点一次；如果提示链接已被使用，请让管理员再发一个新链接。',
+  'signin.wechat': '你是在微信里打开的。请点右上角「···」，选择「在浏览器打开」，在浏览器里登录，这样才能把 Crumb 放到桌面。',
 
   'setup.title': '设置 Crumb',
   'setup.intro': '这一步会创建你的组织和第一个所有者账户，只能进行一次。',

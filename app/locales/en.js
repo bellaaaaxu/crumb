@@ -67,6 +67,7 @@ export default {
   'signin.submit': 'Sign in on this device',
   'signin.alreadyUsed': 'This link has already been used. You are signed in as {name}.',
   'signin.noAnswer': 'Crumb did not answer. Tap again; if it then says the link was already used, ask your admin for a new one.',
+  'signin.wechat': 'You opened this inside WeChat. Tap ··· at the top right, choose Open in Browser, and sign in there, so Crumb can go on your home screen.',
 
   'setup.title': 'Set up Crumb',
   'setup.intro': 'This creates your organization and its first owner account. It can only be done once.',

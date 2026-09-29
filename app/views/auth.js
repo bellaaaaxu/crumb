@@ -9,6 +9,9 @@ import { amountToUnits } from '../format.js';
 import { pixelWord, spriteCanvas } from '../pixels.js';
 import { loading } from './member.js';
 
+/* WeChat opens links and scanned codes in its own browser: a sign-in there stays there. */
+const inWeChat = () => /MicroMessenger/i.test(navigator.userAgent);
+
 const USERNAME = /^[a-z0-9._-]{3,64}$/;
 const CURRENCIES = ['CAD', 'USD', 'CNY'];
 const passwordLength = value => [...value].length;
@@ -208,6 +211,7 @@ async function signInWithLink(root, ctx) {
     el('p', { text: t('signin.note'), attrs: { class: 'muted' } }),
     // Someone else signed in on this browser is signed out by the link.
     before ? el('p', { text: t('signin.replaces', { name: before.displayName }), attrs: { class: 'notice' } }) : null,
+    inWeChat() ? el('p', { text: t('signin.wechat'), attrs: { class: 'notice' } }) : null,
     form,
     leave(),
   ]);

@@ -815,3 +815,26 @@ test('on a phone the QR code goes straight to the share sheet, as the same pictu
     await fx.close();
   }
 });
+
+test('opened inside WeChat, the link page says to open it in the browser first, without blocking', async ({ browser }) => {
+  const fx = await provision(browser, { mode: 'points' });
+  try {
+    const invite = await fx.api.request('POST', '/api/admin/invitations', { username: 'sam', displayName: 'Sam Lee', role: 'member' });
+    const wechat = await browser.newContext({
+      userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 MicroMessenger/8.0.50 NetType/WIFI Language/zh_CN',
+    });
+    const phone = await wechat.newPage();
+    await phone.goto(invite.body.signinUrl);
+    await expect(phone.getByText(/inside WeChat/)).toContainText('Open in Browser');
+    await expect(phone.getByRole('button', { name: 'Sign in on this device', exact: true })).toBeEnabled();
+    await wechat.close();
+
+    const plain = await (await browser.newContext()).newPage();
+    await plain.goto(invite.body.signinUrl);
+    await expect(plain.getByRole('button', { name: 'Sign in on this device', exact: true })).toBeVisible();
+    await expect(plain.getByText(/inside WeChat/)).toHaveCount(0);
+    await plain.context().close();
+  } finally {
+    await fx.close();
+  }
+});
