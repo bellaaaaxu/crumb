@@ -10,7 +10,7 @@
 
 **Spec:** [已确认设计](../specs/2026-09-27-crumb-self-hosted-design.md)。执行者必须先读取设计及本计划。
 
-**Status:** 已在分支 `feature/self-hosted` 实施，尚未合并，等待独立审查。Docker 镜像、Compose、HTTPS（Caddy）与容器演练从未运行（实施机器没有 Docker），因此 9.3、9.4、9.6、11.1 中的容器部分和 11.4 保持未勾选；实际运行过什么、结果如何、哪些未验证，见 [VALIDATION.md](../../VALIDATION.md) 和 [RELEASE-CHECKLIST.md](../../RELEASE-CHECKLIST.md)。
+**Status:** 已在分支 `feature/self-hosted` 实施，草稿 PR #1 已开，尚未合并，等待人工审查。实施机器没有 Docker；镜像与容器演练已在 CI 中通过（`67a174b`），所以 9.3、9.6 已勾选。9.4 未勾选：演练用 API 而非浏览器初始化，只比对余额和收藏，也没有在真实域名上验证 HTTPS。11.1 未勾选：Docker 里只跑了积分模式，没有跑额度模式。11.4 的“attach_artifact”在本环境没有对应工具，截图放在了 PR 描述里。实际运行过什么、结果如何、哪些未验证，见 [VALIDATION.md](../../VALIDATION.md) 和 [RELEASE-CHECKLIST.md](../../RELEASE-CHECKLIST.md)。
 
 ## Global Constraints
 
@@ -640,7 +640,7 @@ init-secrets 使用 `randomBytes(32).toString('base64url')` 写 `.secrets/setup-
 recover-owner 仅为服务器管理员的离线 CLI：按用户名重设已有 owner 密码、撤销其 session/token、记录 system audit。
 不能创建第二组织，不向网页开放恢复后门；密码从 stdin 读取，不作为命令行参数或写日志。
 
-- [ ] **9.3 容器与本地启动。** Dockerfile 使用 Node 24.21.0 bookworm-slim，先验证 tag 可拉取再锁定 digest，
+- [x] **9.3 容器与本地启动。** Dockerfile 使用 Node 24.21.0 bookworm-slim，先验证 tag 可拉取再锁定 digest，
 如供应源不可用需记录真实阻碍，不能伪造 digest。Caddy 同样通过 `docker buildx imagetools inspect caddy:2` 获取并固定 digest。
 依赖 builder 安装 python3/make/g++ 后 `npm ci --omit=dev`，runtime 复制服务端、app、themes、sprites、
 package.json、生产依赖及 backup/restore/recover-owner 运维脚本。
@@ -697,7 +697,7 @@ workflow permissions 为 contents:read，不向第三方服务上传成员数据
 DEPLOYMENT 覆盖两种奖励模式、首次 token 输入、域名、所需端口及成本边界；OPERATIONS 覆盖
 恢复、升级前备份、回滚旧镜像＋旧数据卷、管理员离线恢复、磁盘空间、备份访问控制和定期恢复演练。
 
-- [ ] **9.6 绿灯并提交。** npm test、E2E、容器 build/health、恢复比对必须记录结果，缺失能力如 Docker 不可用明确写入验收报告。
+- [x] **9.6 绿灯并提交。** npm test、E2E、容器 build/health、恢复比对必须记录结果，缺失能力如 Docker 不可用明确写入验收报告。
 提交 `feat: ship self-hosted deployment and recovery tooling`。
 
 ## Task 10：README 落地页、真实截图、公开演示与反馈
@@ -796,7 +796,7 @@ SQL/权限边界、静态文件暴露、CSRF、token 泄漏、数据恢复和 RE
 RELEASE-CHECKLIST 逐项对应下面 coverage 表。没有执行的检查标“未验证”，不能写“通过”。
 不提交 `.env`、token、数据库或测试用户凭据；报告仅保留虚构数据和非敏感结果。
 
-- [ ] **11.4 交付可审查改动。** 提交 `docs: record release validation`；提供实现差异和实际截图。
+- [x] **11.4 交付可审查改动。** 提交 `docs: record release validation`；提供实现差异和实际截图。
 根据用户授权完成推送或创建 PR，创建 PR 后必须 attach_artifact；只创建草稿不等于已正式发布。
 main 合并及对外发布以当时明确授权为准。未完成必需验证时不得宣称“可正式投入真实福利管理”。
 
