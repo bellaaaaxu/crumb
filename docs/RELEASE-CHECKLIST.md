@@ -8,8 +8,9 @@ round", one row for each part of
 the checks ran is in [VALIDATION.md](VALIDATION.md); the one-page round, with its review
 fixes and the four decisions taken after the review, was checked on a fresh clone of the
 development branch on 2026-10-01, whose code is the code of this release (earlier, during
-development, on two fresh clones and in the development folder), not in CI. The commit that
-records this run names the squashed 0.2.0 commit that was cloned.
+development, on two fresh clones and in the development folder), not in CI. The commit
+cloned was `1421aa2` ("Crumb 0.2.0"), the squashed release commit; the earlier runs were
+made on the development branch before it was squashed, and the squash changed no code.
 
 The one-page round is released as Crumb 0.2.0 and moves the database to schema 2. "0.1" on
 this page means the earlier release — commit `643e237`, with its database at schema 1.
@@ -57,8 +58,9 @@ Checked on a fresh clone of the development branch on 2026-10-01, which includes
 fixes, the tests they added and the four decisions taken after the review, on one Windows
 computer, in Chromium only (`npm test` 227 passed and 2 skipped of 229, collectible manifest
 current, process drill 20 of 20, browser tests 75 of 75). Since that run only this checklist
-and VALIDATION.md have changed, so its code is the code of this release. The commit that
-records this run names the squashed 0.2.0 commit that was cloned.
+and VALIDATION.md have changed, so its code is the code of this release. The commit cloned
+was `1421aa2` ("Crumb 0.2.0"), the squashed release commit; a fresh clone of the development
+branch made earlier the same day, before the squash and on the same code, gave the same counts.
 
 During development, before the branch history was squashed into the 0.2.0 commit: before the
 decisions, a fresh clone with the review fixes, on 2026-09-30, gave `npm test` 219 passed and

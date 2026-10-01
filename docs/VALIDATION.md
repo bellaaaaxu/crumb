@@ -41,7 +41,7 @@ development" below.
 
 | | Local | CI |
 | --- | --- | --- |
-| Commit | The development branch `feature/one-page`, from a fresh clone, after the review fixes and the four decisions taken after the review (see "Results from a fresh clone (local)"). The commit that records this run names the squashed 0.2.0 commit that was cloned. Earlier runs during development, before the branch history was squashed into the 0.2.0 commit, are listed under "Earlier runs during development". | `67a174b`, [run 36412250215](https://github.com/bellaaaaxu/crumb/actions/runs/36412250215) (0.1; not run on `feature/one-page`) |
+| Commit | The development branch `feature/one-page`, from a fresh clone, after the review fixes and the four decisions taken after the review (see "Results from a fresh clone (local)"). The commit cloned was `1421aa2` ("Crumb 0.2.0"), the squashed release commit. Earlier runs during development, before the branch history was squashed into the 0.2.0 commit, are listed under "Earlier runs during development". | `67a174b`, [run 36412250215](https://github.com/bellaaaaxu/crumb/actions/runs/36412250215) (0.1; not run on `feature/one-page`) |
 | Date | 2026-10-01 (the fresh clone); 2026-09-30 and 2026-10-01 (the earlier runs during development) | 2026-09-28 |
 | Machine | Windows 11 Pro 10.0.26200 | GitHub Actions `ubuntu-24.04` (image 20260920.314.1), x64 |
 | Node.js | 24.14.0, npm 11.9.0 | 24.14.0 for the tests; 24.21.0 inside the image |
@@ -54,8 +54,11 @@ development" below.
 A new clone of the development branch `feature/one-page`, after the review fixes and the four
 decisions taken after the review, into an empty temporary folder, with no files carried over
 (deleted afterwards), on 2026-10-01. Its code is the code of this release; only this report
-and the release checklist have changed since. The commit that records this run names the
-squashed 0.2.0 commit that was cloned.
+and the release checklist have changed since. The commit cloned was `1421aa2` ("Crumb
+0.2.0"), the squashed release commit. A fresh clone of the development branch made earlier
+the same day, before its history was squashed and on the same code, gave the same counts as
+the table below. The earlier runs listed under "Earlier runs during development" were all
+made on the development branch before it was squashed; the squash itself changed no code.
 
 | Step | Command | Result |
 | --- | --- | --- |
