@@ -15,19 +15,22 @@ export const FIXTURE_PASSWORD_HASH = 'fixture-no-login';
 
 /**
  * A fresh on-disk database with an organization and three active users.
+ * Without `spending` the column is left to the schema's default ('self').
  * Cleans up only its own temporary directory.
  */
-export function fixture(t, { mode = 'credit', thresholdUnits = 5000 } = {}) {
+export function fixture(t, { mode = 'credit', thresholdUnits = 5000, spending } = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'crumb-test-'));
   const path = join(dir, 'crumb.sqlite');
   const db = openDatabase(path);
   const createdAt = new Date().toISOString();
-  db.prepare(`INSERT INTO organization (id, name, mode, currency, unit_label, threshold_units, locale, created_at)
-              VALUES (1, 'Test Team', @mode, @currency, @unitLabel, @thresholdUnits, 'en', @createdAt)`).run({
+  const chosen = spending === undefined ? { column: '', value: '', params: {} } : { column: ', spending', value: ', @spending', params: { spending } };
+  db.prepare(`INSERT INTO organization (id, name, mode, currency, unit_label, threshold_units, locale${chosen.column}, created_at)
+              VALUES (1, 'Test Team', @mode, @currency, @unitLabel, @thresholdUnits, 'en'${chosen.value}, @createdAt)`).run({
     mode,
     currency: mode === 'credit' ? 'CAD' : null,
     unitLabel: mode === 'credit' ? 'Team credit' : 'points',
     thresholdUnits,
+    ...chosen.params,
     createdAt,
   });
   const insertUser = db.prepare(`INSERT INTO users (id, username, display_name, password_hash, role, active, joined_at, created_at)

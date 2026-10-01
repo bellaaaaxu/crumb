@@ -1,25 +1,28 @@
 import { readFileSync } from 'node:fs';
 import { test, expect } from '@playwright/test';
-import { PASSWORD, provision, signIn, startCrumb } from './fixtures.mjs';
+import { PASSWORD, askFor, openPerson, provision, signIn, signOut, startCrumb } from './fixtures.mjs';
 import { client, readQr, tokenFrom } from '../helpers.mjs';
 
 test('member requests a benefit and owner completes it', async ({browser}) => {
   const fx = await provision(browser,{mode:'points'});
   try {
-    await fx.ownerPage.getByRole('button',{name:'Give recognition',exact:true}).click();
-    await fx.ownerPage.getByLabel('Team member').selectOption(fx.memberId);
-    await fx.ownerPage.getByLabel('Amount').fill('100');
-    await fx.ownerPage.getByLabel('Message').fill('Thanks for helping a teammate');
-    await fx.ownerPage.getByRole('button',{name:'Send reward',exact:true}).click();
+    await fx.ownerPage.getByRole('button',{name:'Treat someone',exact:true}).click();
+    await fx.ownerPage.getByRole('checkbox',{name:'Mina Park'}).check();
+    await fx.ownerPage.getByLabel('How much each').fill('100');
+    await fx.ownerPage.getByLabel('A few words').fill('Thanks for helping a teammate');
+    await fx.ownerPage.getByRole('button',{name:'Send it',exact:true}).click();
+    await expect(fx.ownerPage.getByRole('status').filter({hasText:'Mina Park just got 100 points'})).toBeVisible();
     await fx.memberPage.reload();
     await expect(fx.memberPage.getByTestId('available-balance')).toHaveText('100 points');
-    await fx.memberPage.getByRole('button',{name:'Redeem Coffee',exact:true}).click();
-    await fx.memberPage.getByRole('button',{name:'Confirm request',exact:true}).click();
-    await expect(fx.memberPage.getByText('Awaiting confirmation',{exact:true})).toBeVisible();
-    await fx.ownerPage.getByRole('link',{name:'Redemptions',exact:true}).click();
+    await askFor(fx.memberPage,'Coffee').click();
+    await fx.memberPage.getByRole('button',{name:'Yes, please',exact:true}).click();
+    // In confirmed mode the request shows under "Your requests" until someone confirms it.
+    await expect(fx.memberPage.getByRole('region',{name:'Your requests',exact:true}).getByText('Awaiting confirmation',{exact:true})).toBeVisible();
+    // The Team page was drawn before the request; drawn again, it shows it under "Waiting on you".
+    await fx.ownerPage.reload();
     await fx.ownerPage.getByRole('button',{name:'Confirm delivery',exact:true}).click();
     await fx.memberPage.reload();
-    await expect(fx.memberPage.getByTestId('collection-count')).toHaveText('1');
+    await expect(fx.memberPage.locator('.slot.filled')).toHaveCount(1);
   } finally { await fx.close(); }
 });
 
@@ -27,28 +30,31 @@ test('the same journey in credit mode keeps cents exact and the collection after
   const fx = await provision(browser, { mode: 'credit' });
   try {
     const { ownerPage, memberPage } = fx;
-    await ownerPage.getByRole('button', { name: 'Give recognition', exact: true }).click();
-    await ownerPage.getByLabel('Team member').selectOption(fx.memberId);
-    await ownerPage.getByLabel('Amount').fill('50.25');
-    await ownerPage.getByLabel('Message').fill('Closed the café on your own on Sunday');
-    await ownerPage.getByRole('button', { name: 'Send reward', exact: true }).click();
+    await ownerPage.getByRole('button', { name: 'Treat someone', exact: true }).click();
+    await ownerPage.getByRole('checkbox', { name: 'Mina Park' }).check();
+    await ownerPage.getByLabel('How much each').fill('50.25');
+    await ownerPage.getByLabel('A few words').fill('Closed the café on your own on Sunday');
+    await ownerPage.getByRole('button', { name: 'Send it', exact: true }).click();
     await expect(ownerPage.getByRole('status').filter({ hasText: '$50.25' })).toBeVisible();
 
     await memberPage.reload();
     await expect(memberPage.getByTestId('available-balance')).toHaveText('$50.25');
+    // A treat's message is shown in the opened log only.
+    await memberPage.getByRole('button', { name: /Log · Recent/ }).click();
     await expect(memberPage.getByText('Closed the café on your own on Sunday')).toBeVisible();
-    await expect(memberPage.getByTestId('collection-count')).toHaveText('1');
-    await memberPage.getByRole('button', { name: 'Redeem Coffee', exact: true }).click();
+    await expect(memberPage.locator('.slot.filled')).toHaveCount(1);
+    await askFor(memberPage, 'Coffee').click();
     await expect(memberPage.getByRole('dialog')).toContainText('$12.50');
-    await memberPage.getByRole('button', { name: 'Confirm request', exact: true }).click();
+    await memberPage.getByRole('button', { name: 'Yes, please', exact: true }).click();
     await expect(memberPage.getByTestId('available-balance')).toHaveText('$37.75');
 
-    await ownerPage.getByRole('link', { name: 'Redemptions', exact: true }).click();
+    await ownerPage.reload();
     await ownerPage.getByRole('button', { name: 'Confirm delivery', exact: true }).click();
-    await expect(ownerPage.getByText('Completed', { exact: true })).toBeVisible();
+    await expect(ownerPage.getByText('Mina Park · Redeemed Coffee', { exact: true })).toBeVisible();
     await memberPage.reload();
+    await expect(memberPage.getByText('Completed', { exact: true })).toBeVisible();
     await expect(memberPage.getByTestId('available-balance')).toHaveText('$37.75');
-    await expect(memberPage.getByTestId('collection-count')).toHaveText('1');
+    await expect(memberPage.locator('.slot.filled')).toHaveCount(1);
   } finally {
     await fx.close();
   }
@@ -58,12 +64,12 @@ test('amounts the unit cannot hold are refused before anything is sent', async (
   const fx = await provision(browser, { mode: 'points' });
   try {
     const page = fx.ownerPage;
-    await page.getByRole('button', { name: 'Give recognition', exact: true }).click();
-    await page.getByLabel('Team member').selectOption(fx.memberId);
+    await page.getByRole('button', { name: 'Treat someone', exact: true }).click();
+    await page.getByRole('checkbox', { name: 'Mina Park' }).check();
     for (const amount of ['1.5', '0', '-3', 'ten']) {
-      await page.getByLabel('Amount').fill(amount);
-      await page.getByRole('button', { name: 'Send reward', exact: true }).click();
-      await expect(page.getByLabel('Amount')).toHaveAttribute('aria-invalid', 'true');
+      await page.getByLabel('How much each').fill(amount);
+      await page.getByRole('button', { name: 'Send it', exact: true }).click();
+      await expect(page.getByLabel('How much each')).toHaveAttribute('aria-invalid', 'true');
     }
     expect(fx.db.prepare('SELECT count(*) AS n FROM ledger').get().n).toBe(0);
   } finally {
@@ -78,23 +84,26 @@ test('a member can cancel a request; the owner can decline and refund', async ({
     await fx.api.request('POST', '/api/admin/grants', { userId: fx.memberId, amount: '200', mode: fx.mode, reason: 'Great month' },
       { 'idempotency-key': 'e2e-grant-refund-0001' });
     await memberPage.reload();
-    await memberPage.getByRole('button', { name: 'Redeem Coffee', exact: true }).click();
-    await memberPage.getByRole('button', { name: 'Confirm request', exact: true }).click();
+    await askFor(memberPage, 'Coffee').click();
+    await memberPage.getByRole('button', { name: 'Yes, please', exact: true }).click();
     await memberPage.getByRole('button', { name: 'Cancel request', exact: true }).click();
     await expect(memberPage.getByText('Cancelled', { exact: true })).toBeVisible();
     await expect(memberPage.getByTestId('available-balance')).toHaveText('200 points');
 
-    await memberPage.getByRole('button', { name: 'Redeem Coffee', exact: true }).click();
-    await memberPage.getByRole('button', { name: 'Confirm request', exact: true }).click();
-    await ownerPage.getByRole('link', { name: 'Redemptions', exact: true }).click();
+    await askFor(memberPage, 'Coffee').click();
+    await memberPage.getByRole('button', { name: 'Yes, please', exact: true }).click();
+    await expect(memberPage.getByText('Awaiting confirmation', { exact: true })).toBeVisible();
+    await ownerPage.reload();
     await ownerPage.getByRole('button', { name: 'Decline', exact: true }).click();
     await ownerPage.getByLabel('Reason').fill('The machine is broken this week');
     await ownerPage.getByRole('button', { name: 'Decline request', exact: true }).click();
+    await expect(ownerPage.getByRole('status').filter({ hasText: 'Declined Coffee.' })).toBeVisible();
     await memberPage.reload();
     await expect(memberPage.getByText('The machine is broken this week')).toBeVisible();
 
-    await memberPage.getByRole('button', { name: 'Redeem Coffee', exact: true }).click();
-    await memberPage.getByRole('button', { name: 'Confirm request', exact: true }).click();
+    await askFor(memberPage, 'Coffee').click();
+    await memberPage.getByRole('button', { name: 'Yes, please', exact: true }).click();
+    await expect(memberPage.getByText('Awaiting confirmation', { exact: true })).toBeVisible();
     await ownerPage.reload();
     await ownerPage.getByRole('button', { name: 'Confirm delivery', exact: true }).click();
     await ownerPage.getByRole('button', { name: 'Refund', exact: true }).click();
@@ -103,7 +112,7 @@ test('a member can cancel a request; the owner can decline and refund', async ({
     await expect(ownerPage.getByText('Refunded', { exact: true })).toBeVisible();
     await memberPage.reload();
     await expect(memberPage.getByTestId('available-balance')).toHaveText('200 points');
-    await expect(memberPage.getByTestId('collection-count')).toHaveText('2');
+    await expect(memberPage.locator('.slot.filled')).toHaveCount(2);
   } finally {
     await fx.close();
   }
@@ -115,15 +124,17 @@ test('a mistaken grant is revoked with a reason and stays visible as revoked', a
     const { ownerPage, memberPage } = fx;
     await fx.api.request('POST', '/api/admin/grants', { userId: fx.memberId, amount: '100', mode: fx.mode, reason: 'For the Sunday shift' },
       { 'idempotency-key': 'e2e-grant-revoke-0001' });
-    await ownerPage.getByRole('link', { name: 'History', exact: true }).click();
-    await ownerPage.getByRole('button', { name: 'Revoke', exact: true }).click();
+    // The Team page was drawn before the treat; drawn again, its log has it.
+    await ownerPage.reload();
+    await ownerPage.getByRole('button', { name: 'Take back', exact: true }).click();
     await ownerPage.getByLabel('Reason').fill('Meant for another teammate');
-    await ownerPage.getByRole('button', { name: 'Revoke grant', exact: true }).click();
-    await expect(ownerPage.getByText('Revoked', { exact: true })).toBeVisible();
+    await ownerPage.getByRole('button', { name: 'Take it back', exact: true }).click();
+    await expect(ownerPage.getByText('Taken back', { exact: true })).toBeVisible();
     await memberPage.reload();
     await expect(memberPage.getByTestId('available-balance')).toHaveText('0 points');
+    await memberPage.getByRole('button', { name: /Log · Recent/ }).click();
     await expect(memberPage.getByText('Meant for another teammate')).toBeVisible();
-    await expect(memberPage.getByTestId('collection-count')).toHaveText('1');
+    await expect(memberPage.locator('.slot.filled')).toHaveCount(1);
   } finally {
     await fx.close();
   }
@@ -143,10 +154,10 @@ test('first-time setup in the browser creates the organization and signs the own
     await page.getByLabel('Password', { exact: true }).fill(PASSWORD);
     await page.getByLabel('Confirm password').fill(PASSWORD);
     await page.getByRole('button', { name: 'Create organization', exact: true }).click();
-    await expect(page.getByRole('button', { name: 'Give recognition', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Treat someone', exact: true })).toBeVisible();
     await expect(page.getByText('Harbour Books').first()).toBeVisible();
     await page.reload();
-    await expect(page.getByRole('button', { name: 'Sign out', exact: true })).toBeVisible();
+    await expect(page.locator('.who')).toBeVisible();
   } finally {
     await crumb.close();
   }
@@ -156,9 +167,11 @@ test('a new team member gets a sign-in link, opens it on their phone and is in, 
   const fx = await provision(browser, { mode: 'points' });
   try {
     const { ownerPage } = fx;
-    await ownerPage.getByRole('link', { name: 'Members', exact: true }).click();
-    await ownerPage.getByLabel('Name', { exact: true }).fill('Sam Okafor');
-    await ownerPage.getByLabel('Username').fill('sam');
+    await ownerPage.locator('summary', { hasText: 'Invite someone' }).click();
+    // Scoped to the form: the benefit form on the same page has a "Name" too.
+    const form = ownerPage.locator('.invite-form');
+    await form.getByLabel('Name', { exact: true }).fill('Sam Okafor');
+    await form.getByLabel('Username').fill('sam');
     await ownerPage.getByRole('button', { name: 'Create invitation', exact: true }).click();
     const link = await ownerPage.getByLabel('Sign-in link', { exact: true }).inputValue();
     expect(link).toMatch(new RegExp(`^${fx.origin}/#signin=[A-Za-z0-9_-]{43}$`));
@@ -188,12 +201,14 @@ test('a new team member gets a sign-in link, opens it on their phone and is in, 
     await again.context().close();
 
     // A lost or new phone: a new link from the admin signs the old one out at once, so it asks first.
+    const sam = await openPerson(ownerPage, 'Sam Okafor');
     await ownerPage.getByRole('button', { name: 'New sign-in link for Sam Okafor', exact: true }).click();
     const confirm = ownerPage.getByRole('dialog');
     await expect(confirm).toContainText('signed out on every device');
     await confirm.getByRole('button', { name: 'Make a new link', exact: true }).click();
-    await expect(ownerPage.getByLabel('Sign-in link', { exact: true })).toBeVisible();
-    await expect(ownerPage.locator('.link-panel')).toContainText('signed out everywhere else');
+    // The new link shows in Sam's row; the first one is still under the invitation form.
+    await expect(sam.getByLabel('Sign-in link', { exact: true })).toBeVisible();
+    await expect(sam.locator('.link-panel')).toContainText('signed out everywhere else');
     await phone.reload();
     await expect(phone.getByRole('button', { name: 'Sign in', exact: true })).toBeVisible();
     await expect(phone.getByText(/personal link/)).toBeVisible();
@@ -207,10 +222,11 @@ test('an admin invitation is opened on another device and used to set a password
   const fx = await provision(browser, { mode: 'points' });
   try {
     const { ownerPage } = fx;
-    await ownerPage.getByRole('link', { name: 'Members', exact: true }).click();
-    await ownerPage.getByLabel('Name', { exact: true }).fill('Sam Okafor');
-    await ownerPage.getByLabel('Username').fill('sam');
-    await ownerPage.getByLabel('Role', { exact: true }).selectOption('admin');
+    await ownerPage.locator('summary', { hasText: 'Invite someone' }).click();
+    const form = ownerPage.locator('.invite-form');
+    await form.getByLabel('Name', { exact: true }).fill('Sam Okafor');
+    await form.getByLabel('Username').fill('sam');
+    await form.getByLabel('Role', { exact: true }).selectOption('admin');
     await ownerPage.getByRole('button', { name: 'Create invitation', exact: true }).click();
     const link = await ownerPage.getByLabel('Invitation link', { exact: true }).inputValue();
     expect(link).toMatch(new RegExp(`^${fx.origin}/#invite=[A-Za-z0-9_-]{43}$`));
@@ -225,8 +241,8 @@ test('an admin invitation is opened on another device and used to set a password
     await expect(page.getByLabel('Username')).toHaveValue('sam');
     await page.getByLabel('Password', { exact: true }).fill(PASSWORD);
     await page.getByRole('button', { name: 'Sign in', exact: true }).click();
-    // An admin starts on the team pages, and makes sign-in links for team members, but changes no roles.
-    await page.getByRole('link', { name: 'Members', exact: true }).click();
+    // An admin starts on the Team page, and makes sign-in links for team members, but changes no roles.
+    await openPerson(page, 'Mina Park');
     await expect(page.getByRole('button', { name: 'New sign-in link for Mina Park', exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Change role for Mina Park', exact: true })).toHaveCount(0);
     await context.close();
@@ -242,13 +258,13 @@ test('a deactivated member is signed out on their next action', async ({ browser
       { 'idempotency-key': 'e2e-deactivated-member-grant' });
     await fx.memberPage.reload();
     await expect(fx.memberPage.getByTestId('available-balance')).toHaveText('100 points');
-    await fx.ownerPage.getByRole('link', { name: 'Members', exact: true }).click();
+    await openPerson(fx.ownerPage, 'Mina Park');
     await fx.ownerPage.getByRole('button', { name: 'Deactivate Mina Park', exact: true }).click();
     await fx.ownerPage.getByRole('button', { name: 'Deactivate', exact: true }).click();
     await expect(fx.ownerPage.getByText('Deactivated', { exact: true })).toBeVisible();
     // The phone still shows the old page; the next thing Mina does takes her to sign-in instead.
-    await fx.memberPage.getByRole('button', { name: 'Redeem Coffee', exact: true }).click();
-    await fx.memberPage.getByRole('button', { name: 'Confirm request', exact: true }).click();
+    await askFor(fx.memberPage, 'Coffee').click();
+    await fx.memberPage.getByRole('button', { name: 'Yes, please', exact: true }).click();
     await expect(fx.memberPage.getByText('You have been signed out')).toBeVisible();
     await expect(fx.memberPage.getByText(/personal link/)).toBeVisible();
     await expect(fx.memberPage.getByTestId('available-balance')).toHaveCount(0);
@@ -256,6 +272,7 @@ test('a deactivated member is signed out on their next action', async ({ browser
     expect(body.items).toHaveLength(0);
 
     // No sign-in link while deactivated; once back, the admin is told they need one.
+    // (The page was drawn again with Mina's row open.)
     await expect(fx.ownerPage.getByRole('button', { name: 'New sign-in link for Mina Park', exact: true })).toHaveCount(0);
     await fx.ownerPage.getByRole('button', { name: 'Reactivate Mina Park', exact: true }).click();
     await expect(fx.ownerPage.getByRole('status').filter({ hasText: 'Mina Park was reactivated' })).toContainText('new sign-in link');
@@ -275,12 +292,14 @@ test('the owner changes settings in Chinese and the member sees the organization
     await ownerPage.getByRole('button', { name: 'Save settings', exact: true }).click();
     await expect(ownerPage.getByRole('status').filter({ hasText: 'Settings saved' })).toBeVisible();
     await memberPage.reload();
-    await expect(memberPage.getByRole('button', { name: '退出登录', exact: true })).toBeVisible();
+    await expect(memberPage.getByRole('button', { name: 'Mina Park 的菜单', exact: true })).toBeVisible();
     await expect(memberPage.getByText('谢谢大家')).toBeVisible();
+    // The language picker is in the name menu.
+    await memberPage.locator('.who').click();
     await memberPage.getByLabel('语言').selectOption('en');
-    await expect(memberPage.getByRole('button', { name: 'Sign out', exact: true })).toBeVisible();
+    await expect(memberPage.getByRole('button', { name: 'Menu for Mina Park', exact: true })).toBeVisible();
     await memberPage.reload();
-    await expect(memberPage.getByRole('button', { name: 'Sign out', exact: true })).toBeVisible();
+    await expect(memberPage.getByRole('button', { name: 'Menu for Mina Park', exact: true })).toBeVisible();
   } finally {
     await fx.close();
   }
@@ -313,7 +332,10 @@ test('a role changes only after a deliberate confirmation', async ({ browser }) 
     const { ownerPage } = fx;
     const roleOf = async id => (await fx.api.request('GET', '/api/admin/members')).body.items.find(item => item.id === id).role;
     await ownerPage.goto(`${fx.origin}/#/team/members`);
+    // The old address lands on the Team page, drawn again: wait for that before opening a row.
+    await expect(ownerPage).toHaveURL(`${fx.origin}/#/team`);
     const dialog = ownerPage.getByRole('dialog');
+    await openPerson(ownerPage, 'Mina Park');
     await ownerPage.getByRole('button', { name: 'Change role for Mina Park', exact: true }).click();
     // Arrow keys move between the choices. Nothing is saved until the button is pressed.
     await dialog.getByRole('radio', { name: /^Member/ }).focus();
@@ -328,6 +350,7 @@ test('a role changes only after a deliberate confirmation', async ({ browser }) 
     await dialog.getByRole('button', { name: 'Change role', exact: true }).click();
     await expect(ownerPage.getByRole('status').filter({ hasText: 'Role for Mina Park changed to Admin.' })).toBeVisible();
     await expect(ownerPage.getByRole('status').filter({ hasText: 'now signs in with a password' })).toBeVisible();
+    // The page is drawn again with Mina's row open.
     await expect(ownerPage.getByRole('button', { name: 'Password reset link for Mina Park', exact: true })).toBeVisible();
     await expect(ownerPage.getByRole('button', { name: 'New sign-in link for Mina Park', exact: true })).toHaveCount(0);
     expect(await roleOf(fx.memberId)).toBe('admin');
@@ -342,6 +365,7 @@ test('a role changes only after a deliberate confirmation', async ({ browser }) 
     // Someone who has not joined yet: the link made for the old role stops working.
     const invite = await fx.api.request('POST', '/api/admin/invitations', { username: 'sam', displayName: 'Sam Lee', role: 'member' });
     await ownerPage.reload();
+    await openPerson(ownerPage, 'Sam Lee');
     await ownerPage.getByRole('button', { name: 'Change role for Sam Lee', exact: true }).click();
     await dialog.getByRole('radio', { name: /^Admin/ }).check();
     await dialog.getByRole('button', { name: 'Change role', exact: true }).click();
@@ -365,11 +389,11 @@ test('sending again after a lost answer records the reward once, even from a reo
       await route.abort('connectionreset');
     });
     const give = async () => {
-      await ownerPage.getByRole('button', { name: 'Give recognition', exact: true }).click();
-      await ownerPage.getByLabel('Team member').selectOption(fx.memberId);
-      await ownerPage.getByLabel('Amount').fill('100');
-      await ownerPage.getByLabel('Message').fill('Thanks for the Sunday shift');
-      await ownerPage.getByRole('button', { name: 'Send reward', exact: true }).click();
+      await ownerPage.getByRole('button', { name: 'Treat someone', exact: true }).click();
+      await ownerPage.getByRole('checkbox', { name: 'Mina Park' }).check();
+      await ownerPage.getByLabel('How much each').fill('100');
+      await ownerPage.getByLabel('A few words').fill('Thanks for the Sunday shift');
+      await ownerPage.getByRole('button', { name: 'Send it', exact: true }).click();
     };
     await give();
     await expect(ownerPage.getByRole('dialog').getByRole('alert')).toContainText('Could not reach Crumb');
@@ -379,11 +403,11 @@ test('sending again after a lost answer records the reward once, even from a reo
       .filter(item => item.kind === 'grant');
     // The retry is answered from storage, and the page says so rather than "Sent".
     await give();
-    await expect(ownerPage.getByRole('status').filter({ hasText: 'had already been recorded' })).toBeVisible();
+    await expect(ownerPage.getByRole('status').filter({ hasText: 'was already recorded' })).toBeVisible();
     expect(await grants()).toHaveLength(1);
     // Sending the same thing again on purpose, after that answer, is a second reward.
     await give();
-    await expect(ownerPage.getByRole('status').filter({ hasText: 'Sent 100 points to Mina Park.' })).toBeVisible();
+    await expect(ownerPage.getByRole('status').filter({ hasText: 'Mina Park just got 100 points.' })).toBeVisible();
     expect(await grants()).toHaveLength(2);
   } finally {
     await fx.close();
@@ -402,8 +426,8 @@ test('asking again after a lost answer makes one request, even from a reopened d
       await route.abort('connectionreset');
     });
     const ask = async () => {
-      await memberPage.getByRole('button', { name: 'Redeem Coffee', exact: true }).click();
-      await memberPage.getByRole('button', { name: 'Confirm request', exact: true }).click();
+      await askFor(memberPage, 'Coffee').click();
+      await memberPage.getByRole('button', { name: 'Yes, please', exact: true }).click();
     };
     await ask();
     await expect(memberPage.getByRole('dialog').getByRole('alert')).toContainText('Could not reach Crumb');
@@ -425,10 +449,10 @@ test('asking at a price that just changed shows the new price instead of chargin
       { 'idempotency-key': 'e2e-price-change-grant-01' });
     const { memberPage } = fx;
     await memberPage.reload();
-    await memberPage.getByRole('button', { name: 'Redeem Coffee', exact: true }).click();
+    await askFor(memberPage, 'Coffee').click();
     // While the member is looking at 40 points, a manager changes the price.
     expect((await fx.api.request('PATCH', `/api/admin/rewards/${fx.coffeeId}`, { amount: '60', mode: fx.mode })).status).toBe(200);
-    await memberPage.getByRole('button', { name: 'Confirm request', exact: true }).click();
+    await memberPage.getByRole('button', { name: 'Yes, please', exact: true }).click();
     await expect(memberPage.getByRole('status').filter({ hasText: 'The price of this benefit just changed' })).toBeVisible();
     await expect(memberPage.getByText('60 points', { exact: true })).toBeVisible();
     expect((await fx.api.request('GET', '/api/admin/redemptions?status=pending')).body.items).toHaveLength(0);
@@ -444,8 +468,8 @@ test('an admin can cancel a request the member withdrew in person', async ({ bro
       { 'idempotency-key': 'e2e-admin-cancel-grant-01' });
     const { ownerPage, memberPage } = fx;
     await memberPage.reload();
-    await memberPage.getByRole('button', { name: 'Redeem Coffee', exact: true }).click();
-    await memberPage.getByRole('button', { name: 'Confirm request', exact: true }).click();
+    await askFor(memberPage, 'Coffee').click();
+    await memberPage.getByRole('button', { name: 'Yes, please', exact: true }).click();
     await expect(memberPage.getByText('Awaiting confirmation', { exact: true })).toBeVisible();
 
     await ownerPage.goto(`${fx.origin}/#/team/redemptions`);
@@ -499,17 +523,17 @@ test('settings say which rule is fixed, and why', async ({ browser }) => {
 const grantRows = fx => fx.db.prepare(`SELECT count(*) AS n FROM ledger WHERE kind = 'grant'`).get().n;
 const pendingRequests = fx => fx.db.prepare(`SELECT count(*) AS n FROM redemptions WHERE status = 'pending'`).get().n;
 
-async function giveHundred(page, fx) {
-  await page.getByRole('button', { name: 'Give recognition', exact: true }).click();
-  await page.getByLabel('Team member').selectOption(fx.memberId);
-  await page.getByLabel('Amount', { exact: true }).fill('100');
-  await page.getByLabel('Message', { exact: true }).fill('Thanks for the Sunday shift');
-  await page.getByRole('button', { name: 'Send reward', exact: true }).click();
+async function giveHundred(page) {
+  await page.getByRole('button', { name: 'Treat someone', exact: true }).click();
+  await page.getByRole('checkbox', { name: 'Mina Park' }).check();
+  await page.getByLabel('How much each', { exact: true }).fill('100');
+  await page.getByLabel('A few words', { exact: true }).fill('Thanks for the Sunday shift');
+  await page.getByRole('button', { name: 'Send it', exact: true }).click();
 }
 
 async function askForCoffee(page) {
-  await page.getByRole('button', { name: 'Redeem Coffee', exact: true }).click();
-  await page.getByRole('button', { name: 'Confirm request', exact: true }).click();
+  await askFor(page, 'Coffee').click();
+  await page.getByRole('button', { name: 'Yes, please', exact: true }).click();
 }
 
 // The server records the change; the answer then arrives with a body cut short.
@@ -525,12 +549,12 @@ test('a success whose answer arrives cut short is not taken as done: sending aga
   try {
     const { ownerPage } = fx;
     await ownerPage.route('**/api/admin/grants', cutShort, { times: 1 });
-    await giveHundred(ownerPage, fx);
+    await giveHundred(ownerPage);
     await expect(ownerPage.getByRole('dialog').getByRole('alert')).toContainText('did not arrive completely');
     expect(grantRows(fx)).toBe(1);
     await ownerPage.getByRole('dialog').getByRole('button', { name: 'Cancel', exact: true }).click();
-    await giveHundred(ownerPage, fx);
-    await expect(ownerPage.getByRole('status').filter({ hasText: 'had already been recorded' })).toBeVisible();
+    await giveHundred(ownerPage);
+    await expect(ownerPage.getByRole('status').filter({ hasText: 'was already recorded' })).toBeVisible();
     expect(grantRows(fx)).toBe(1);
   } finally {
     await fx.close();
@@ -553,10 +577,20 @@ test('a request or a new benefit whose answer arrives cut short is not made twic
     expect(pendingRequests(fx)).toBe(1);
 
     await ownerPage.goto(`${fx.origin}/#/team/benefits`);
-    await ownerPage.route('**/api/admin/rewards', cutShort, { times: 1 });
+    await expect(ownerPage).toHaveURL(`${fx.origin}/#/team`);
+    // Only the first "add": the Team page reads the benefit list from the same address as it draws.
+    let added = false;
+    await ownerPage.route('**/api/admin/rewards', route => {
+      if (route.request().method() !== 'POST' || added) return route.fallback();
+      added = true;
+      return cutShort(route);
+    });
+    // The form sits folded under "Add a benefit"; the invitation form on the same page has a "Name" too.
+    await ownerPage.locator('summary', { hasText: 'Add a benefit' }).click();
+    const form = ownerPage.locator('details', { has: ownerPage.locator('summary', { hasText: 'Add a benefit' }) });
     const addTea = async () => {
-      await ownerPage.getByLabel('Name', { exact: true }).fill('Tea');
-      await ownerPage.getByLabel('Price', { exact: true }).fill('15');
+      await form.getByLabel('Name', { exact: true }).fill('Tea');
+      await form.getByLabel('Price', { exact: true }).fill('15');
       await ownerPage.getByRole('button', { name: 'Add benefit', exact: true }).click();
     };
     await addTea();
@@ -574,20 +608,20 @@ test('after a lost answer and a reload, the same reward finishes the first attem
   try {
     const { ownerPage } = fx;
     await ownerPage.route('**/api/admin/grants', lost, { times: 1 });
-    await giveHundred(ownerPage, fx);
+    await giveHundred(ownerPage);
     await expect(ownerPage.getByRole('dialog').getByRole('alert')).toContainText('Could not reach Crumb');
     expect(grantRows(fx)).toBe(1);
     await ownerPage.reload();
     // The page still knows an attempt was left unconfirmed, and says what sending again will do.
-    await ownerPage.getByRole('button', { name: 'Give recognition', exact: true }).click();
-    await expect(ownerPage.getByRole('dialog')).toContainText('was not confirmed by Crumb');
+    await ownerPage.getByRole('button', { name: 'Treat someone', exact: true }).click();
+    await expect(ownerPage.getByRole('dialog')).toContainText('get back to you about the treat');
     await ownerPage.getByRole('dialog').getByRole('button', { name: 'Cancel', exact: true }).click();
-    await giveHundred(ownerPage, fx);
-    await expect(ownerPage.getByRole('status').filter({ hasText: 'had already been recorded' })).toBeVisible();
+    await giveHundred(ownerPage);
+    await expect(ownerPage.getByRole('status').filter({ hasText: 'was already recorded' })).toBeVisible();
     expect(grantRows(fx)).toBe(1);
     // Once that is settled, the same reward sent on purpose is a second one.
-    await giveHundred(ownerPage, fx);
-    await expect(ownerPage.getByRole('status').filter({ hasText: 'Sent 100 points to Mina Park.' })).toBeVisible();
+    await giveHundred(ownerPage);
+    await expect(ownerPage.getByRole('status').filter({ hasText: 'Mina Park just got 100 points.' })).toBeVisible();
     expect(grantRows(fx)).toBe(2);
   } finally {
     await fx.close();
@@ -605,9 +639,9 @@ test('after a lost answer and a reload, asking for the same benefit finishes the
     await askForCoffee(memberPage);
     await expect(memberPage.getByRole('dialog').getByRole('alert')).toContainText('Could not reach Crumb');
     await memberPage.reload();
-    await memberPage.getByRole('button', { name: 'Redeem Coffee', exact: true }).click();
+    await askFor(memberPage, 'Coffee').click();
     await expect(memberPage.getByRole('dialog')).toContainText('was not confirmed by Crumb');
-    await memberPage.getByRole('button', { name: 'Confirm request', exact: true }).click();
+    await memberPage.getByRole('button', { name: 'Yes, please', exact: true }).click();
     await expect(memberPage.getByRole('status').filter({ hasText: 'had already gone through' })).toBeVisible();
     expect(pendingRequests(fx)).toBe(1);
   } finally {
@@ -621,17 +655,17 @@ test('a team member is asked before signing out, since only a new link gets them
   const fx = await provision(browser, { mode: 'points' });
   try {
     const { memberPage, ownerPage } = fx;
+    await memberPage.locator('.who').click();
     await memberPage.getByRole('button', { name: 'Sign out', exact: true }).click();
     const dialog = memberPage.getByRole('dialog');
     await expect(dialog).toContainText('new link from your admin');
     await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
     await expect(memberPage.getByTestId('available-balance')).toBeVisible();
-    await memberPage.getByRole('button', { name: 'Sign out', exact: true }).click();
-    await dialog.getByRole('button', { name: 'Sign out', exact: true }).click();
+    await signOut(memberPage, { member: true });
     await expect(memberPage.getByRole('button', { name: 'Sign in', exact: true })).toBeVisible();
 
     // Owners and admins have a password to come back with: they sign out at once.
-    await ownerPage.getByRole('button', { name: 'Sign out', exact: true }).click();
+    await signOut(ownerPage);
     await expect(ownerPage.getByRole('button', { name: 'Sign in', exact: true })).toBeVisible();
     await expect(ownerPage.getByRole('dialog')).toHaveCount(0);
   } finally {
@@ -706,6 +740,7 @@ test('a new sign-in link for someone who has not joined asks first, and cancelli
     const { ownerPage } = fx;
     await ownerPage.goto(`${fx.origin}/#/team/members`);
     const dialog = ownerPage.getByRole('dialog');
+    const sam = await openPerson(ownerPage, 'Sam Lee');
     await ownerPage.getByRole('button', { name: 'New sign-in link for Sam Lee', exact: true }).click();
     await expect(dialog).toContainText('current link stops working');
     await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
@@ -716,7 +751,7 @@ test('a new sign-in link for someone who has not joined asks first, and cancelli
 
     await ownerPage.getByRole('button', { name: 'New sign-in link for Sam Lee', exact: true }).click();
     await dialog.getByRole('button', { name: 'Make a new link', exact: true }).click();
-    const panel = ownerPage.locator('.link-panel');
+    const panel = sam.locator('.link-panel');
     await expect(panel).toContainText('They open it on their phone');
     await expect(panel).not.toContainText('signed out');
   } finally {
@@ -751,7 +786,7 @@ test('a link page replaced while it loads never shows or uses the old link', asy
     await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(resolve, 50)))));
     await expect(page.getByText('Sam Okafor')).toHaveCount(0);
     await page.getByRole('button', { name: 'Sign in on this device', exact: true }).click();
-    await expect(page.locator('.who')).toHaveText('Lee Chan');
+    await expect(page.locator('.who')).toContainText('Lee Chan');
     await context.close();
   } finally {
     await fx.close();
@@ -761,7 +796,7 @@ test('a link page replaced while it loads never shows or uses the old link', asy
 /* ---------------------------------------------------------------- QR codes */
 
 /* An admin who can make links, with Mina Park (a team member) and Ada Lin (an admin who has
- * joined) on the members page. */
+ * joined) on the Team page. */
 async function membersPage(fx) {
   const invite = await fx.api.request('POST', '/api/admin/invitations', { username: 'ada', displayName: 'Ada Lin', role: 'admin' });
   const joiner = client(fx.origin);
@@ -780,9 +815,10 @@ test('the link panel shows the link as a QR code, which saves as a picture of th
     const { ownerPage } = fx;
     await ownerPage.context().addInitScript(noShareSheet);
     await ownerPage.reload();
-    await ownerPage.getByRole('link', { name: 'Members', exact: true }).click();
-    await ownerPage.getByLabel('Name', { exact: true }).fill('Sam Okafor');
-    await ownerPage.getByLabel('Username').fill('sam');
+    await ownerPage.locator('summary', { hasText: 'Invite someone' }).click();
+    const form = ownerPage.locator('.invite-form');
+    await form.getByLabel('Name', { exact: true }).fill('Sam Okafor');
+    await form.getByLabel('Username').fill('sam');
     await ownerPage.getByRole('button', { name: 'Create invitation', exact: true }).click();
     const link = await ownerPage.getByLabel('Sign-in link', { exact: true }).inputValue();
     const image = ownerPage.getByRole('img', { name: 'QR code of the link for Sam Okafor' });
@@ -809,10 +845,12 @@ test('the invitation and password panels show their QR code too', async ({ brows
     await fx.api.request('POST', '/api/admin/invitations', { username: 'noor', displayName: 'Noor Haddad', role: 'admin' });
     const ownerPage = await membersPage(fx);
     const qrOf = async name => readQr(await ownerPage.getByRole('img', { name: `QR code of the link for ${name}` }).getAttribute('src'));
+    const noor = await openPerson(ownerPage, 'Noor Haddad');
     await ownerPage.getByRole('button', { name: 'New invitation link for Noor Haddad', exact: true }).click();
-    expect(await qrOf('Noor Haddad')).toBe(await ownerPage.getByLabel('Invitation link', { exact: true }).inputValue());
+    expect(await qrOf('Noor Haddad')).toBe(await noor.getByLabel('Invitation link', { exact: true }).inputValue());
+    const ada = await openPerson(ownerPage, 'Ada Lin');
     await ownerPage.getByRole('button', { name: 'Password reset link for Ada Lin', exact: true }).click();
-    expect(await qrOf('Ada Lin')).toBe(await ownerPage.getByLabel('Password reset link', { exact: true }).inputValue());
+    expect(await qrOf('Ada Lin')).toBe(await ada.getByLabel('Password reset link', { exact: true }).inputValue());
   } finally {
     await fx.close();
   }
@@ -835,6 +873,7 @@ test('where the system can share files, Share QR code is offered as well, with t
     });
     await ownerPage.goto(`${fx.origin}/#/team/members`);
     await ownerPage.reload();
+    await openPerson(ownerPage, 'Mina Park');
     await ownerPage.getByRole('button', { name: 'New sign-in link for Mina Park', exact: true }).click();
     await ownerPage.getByRole('dialog').getByRole('button', { name: 'Make a new link', exact: true }).click();
     const link = await ownerPage.getByLabel('Sign-in link', { exact: true }).inputValue();
@@ -867,6 +906,7 @@ test('a share that fails saves the picture instead; closing the share sheet does
     await ownerPage.reload();
     const downloads = [];
     ownerPage.on('download', download => downloads.push(download.suggestedFilename()));
+    await openPerson(ownerPage, 'Mina Park');
     await ownerPage.getByRole('button', { name: 'New sign-in link for Mina Park', exact: true }).click();
     await ownerPage.getByRole('dialog').getByRole('button', { name: 'Make a new link', exact: true }).click();
     await ownerPage.getByRole('button', { name: 'Share QR code', exact: true }).click();
@@ -891,12 +931,13 @@ test('a QR code that is missing, odd or not a PNG never breaks the panel: the li
       if (odd === undefined) delete json.qr; else json.qr = odd;
       await route.fulfill({ response, json });
     });
-    await ownerPage.getByRole('link', { name: 'Members', exact: true }).click();
+    await ownerPage.locator('summary', { hasText: 'Invite someone' }).click();
+    const form = ownerPage.locator('.invite-form');
     const values = [null, undefined, 'javascript:alert(1)', 'data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=', 'data:image/png;base64,A'];
     for (const [index, value] of values.entries()) {
       odd = value;
-      await ownerPage.getByLabel('Name', { exact: true }).fill(`Odd ${index}`);
-      await ownerPage.getByLabel('Username').fill(`odd${index}`);
+      await form.getByLabel('Name', { exact: true }).fill(`Odd ${index}`);
+      await form.getByLabel('Username').fill(`odd${index}`);
       await ownerPage.getByRole('button', { name: 'Create invitation', exact: true }).click();
       // The panel for this person, not the one before it.
       await expect(ownerPage.locator('.link-panel')).toContainText(`Send this to Odd ${index} yourself`);

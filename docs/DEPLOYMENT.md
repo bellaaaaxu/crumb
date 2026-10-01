@@ -7,7 +7,7 @@ This guide covers trying Crumb on your own computer, then running it for real on
 behind HTTPS. Day-to-day care — backups, restores, upgrades, locked-out owners — is in
 [OPERATIONS.md](OPERATIONS.md).
 
-> Crumb is early software (version 0.1). Read [what has and has not been tested](VALIDATION.md)
+> Crumb is early software (version 0.2). Read [what has and has not been tested](VALIDATION.md)
 > before you rely on it for your team's benefits.
 
 ## What you need
@@ -28,22 +28,29 @@ passes them on privately, however the team normally talks. (With the HTTPS setup
 contacts Let's Encrypt to obtain and renew the certificate — that is the only outside
 connection, and it is Caddy's, not Crumb's.)
 
-## Before you start: credit or points?
+## Before you start: credit or points? And how do people spend?
 
 The first owner chooses how rewards are counted, once:
 
-- **Credit** — an amount of money for benefits, in CAD, USD or CNY, to the cent
+- **Credit** — an amount of money to spend, in CAD, USD or CNY, to the cent
   (for example "$12.50 of café credit").
 - **Points** — whole numbers under a name you choose (for example "100 stars").
 
-You also choose the **unlock step**: each time someone's total recognition passes another
-step of this size, a new pixel collectible joins their shelf.
+You also choose the **unlock step**: each time someone's treats add up past another step of
+this size, a new pixel collectible joins their shelf.
 
 The type and currency can change until the **first benefit gets a price** or the first
-reward is recorded; the unlock step until the first reward. After that they are fixed, so
+treat is recorded; the unlock step until the first treat. After that they are fixed, so
 amounts already recorded keep their meaning. So settle credit or points, and the currency,
 before you add benefits. Names, the welcome message, the language and links can always
 change.
+
+And you choose **how people spend**, which an owner can change at any time:
+
+- **Self-recorded** (the default) — people key in what they took on a keypad, and it comes
+  off at once. No list to keep.
+- **Confirmed** — people ask for a benefit from a list you keep, and it comes off once an
+  admin confirms it was handed over.
 
 ## 1. Get the code and create the setup code
 
@@ -84,8 +91,8 @@ docker compose up -d --build
 ```
 
 Open <http://localhost:3000>. Crumb shows **Set up Crumb**. Paste the setup code — print it
-with `cat .secrets/setup-token` — then name your organization, choose credit or points, and
-create your owner account (a password of 12 to 128 characters).
+with `cat .secrets/setup-token` — then name your organization, choose credit or points and how
+people spend, and create your owner account (a password of 12 to 128 characters).
 
 `docker compose ps` shows the container as `healthy` once it is ready. The app only listens
 on `127.0.0.1:3000`, so other devices on your network cannot reach this local copy.
@@ -120,22 +127,34 @@ expects it to exist).
 
 ## After setup
 
-- **Team → Members:** invite admins and members. Each invitation gives you a one-time link
-  (valid 7 days) and its QR code. In person, the person scans the code with their phone's
-  camera; otherwise send the picture — **Save QR code** and drag it into the chat, or **Share
-  QR code** where the system offers it — and a long press on it opens the link on their phone;
-  or copy the link instead. A team
-  member is then signed in, with no password; an admin or owner uses theirs to choose a
-  password. When a member changes or loses their phone, or their link expired, **New sign-in
-  link** makes another (after asking) and signs the old phone out. Until a team member
-  dismisses it in that browser, My Crumb suggests putting it on their home screen.
-- **Team → Benefits:** add what people can redeem, with a price in your unit. (The first
+Owners and admins have a **Team** page; owners also have **Settings**. On a wide screen the
+pages are in the header; on a phone they are in the menu under your name, with the language
+and signing out.
+
+- **Team → People → Invite someone:** invite admins and members. Each invitation gives you a
+  one-time link (valid 7 days) and its QR code. In person, the person scans the code with
+  their phone's camera; otherwise send the picture — **Save QR code** and drag it into the
+  chat, or **Share QR code** where the system offers it — and a long press on it opens the
+  link on their phone; or copy the link instead. A team member is then signed in, with no
+  password; an admin or owner uses theirs to choose a password. When a member changes or loses
+  their phone, or their link expired, open their row and choose **New sign-in link**: it makes
+  another (after asking) and signs the old phone out. Until a team member dismisses it in that
+  browser, their page suggests putting Crumb on their home screen.
+- **Team → Benefits** (only when people spend the confirmed way): add what people can ask
+  for, with a price in your unit and, if you like, one of the pastries as its icon. (The first
   price fixes credit or points and the currency.)
-- **Give recognition** (on the Team overview): choose a person, an amount and a message. They
-  see it on My Crumb.
-- **Settings:** your logo, welcome message, default language, and where "Contact your admin"
-  should lead (an `https://` page or a `mailto:` address).
+- **Treat someone** (at the top of the Team page): tick one person or several, an amount each
+  and, if you like, a few words. Each of them sees it on their own page.
+- **Settings:** your logo, welcome message, default language, how people spend, and where
+  "Contact your admin" should lead (an `https://` page or a `mailto:` address).
 - Schedule backups now — see [OPERATIONS.md](OPERATIONS.md).
+
+## Upgrading
+
+Upgrades, and going back, are in [OPERATIONS.md](OPERATIONS.md#upgrading). Coming from 0.1
+(its database is at schema 1), the first start of 0.2 updates the database once (it adds how
+people spend and rebuilds the ledger table): read
+[Upgrading from 0.1 to 0.2](OPERATIONS.md#upgrading-from-01-to-02) and back up first.
 
 ## Running without Docker
 
@@ -208,9 +227,19 @@ lock everyone out for 15 minutes. Run Crumb as an unprivileged user that owns `D
   collection, history and requests; there are no leaderboards or cross-member comparisons.
 - The server logs startup, errors by type, and nothing else: no passwords, links, cookies or
   request bodies.
-- The browser keeps three things for Crumb in its local storage: the chosen language, whether
-  a team member dismissed the home-screen tip, and — for a change whose answer never arrived —
-  a random request key with a one-way fingerprint of the change (never names, amounts or
-  messages), so sending it again after a reload is not recorded twice. Those keys go once an
-  answer arrives, and after seven days in any case.
+- The browser keeps four things for Crumb in its local storage: the chosen language; whether
+  a team member dismissed the home-screen tip; and, for the person signed in on that browser
+  now and no one else, two more. First, for a change whose answer never arrived, a random
+  request key with a fingerprint of the change, the person's id, the kind of change and when
+  it was sent (`crumb.pending`), so sending it again after a reload is not recorded twice. The
+  keys and the fingerprint of each unanswered change stay in this browser until an answer
+  arrives, and are used for at most seven days: an older one is deleted the next time Crumb is
+  opened in this browser. The fingerprint of a small change, such as an amount, could be
+  worked out by someone using the same browser before then. Second, the balance, pastry count and total received they last saw
+  (`crumb.seen.<user id>`, three numbers), so the page can roll the number on from there.
+  Both go when the person signs out, and as soon as the page finds no one, or someone else,
+  signed in there — someone else signing in, a new sign-in link, a deactivation or an expired
+  session, also when the page was closed at the time and only finds out on its next load.
+  Someone who signs out before a change is answered loses, with its key, the notice that it
+  was not confirmed.
 - Crumb has no analytics and sends no data to anyone, including the Crumb project.

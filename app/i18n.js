@@ -26,7 +26,14 @@ export function t(key, params = {}) {
 export const has = key => Object.hasOwn(DICTIONARIES[current], key) || Object.hasOwn(DICTIONARIES.en, key);
 
 /* A person's own choice wins; otherwise the organization's default.
- * Only this preference is kept in the browser — never accounts or balances. */
+ * The browser keeps this choice and, for this device only, three other things: that the
+ * home-screen tip was dismissed (views/member.js); and, for the person signed in here now,
+ * the keys of their requests still waiting for an answer with a fingerprint of each change,
+ * used for seven days at most (pending.js), and the balance, pastry count and total received
+ * they last saw, which the page animates from (motion.js). The fingerprint of a small change,
+ * such as an amount, could be worked out by someone using this browser, so the keys go with
+ * the numbers as soon as the page finds no one, or someone else, signed in here: after signing
+ * out, and after the server ends the session. Never accounts, passwords or anyone's history. */
 export function preferredLocale(orgLocale) {
   try {
     const saved = window.localStorage.getItem(STORE_KEY);

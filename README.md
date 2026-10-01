@@ -1,6 +1,6 @@
 # Crumb
 
-<img align="right" width="300" src="assets/screenshots/member.png" alt="A team member’s My Crumb page on a phone: $106.50 available, a welcome note from the team, and five pixel pastries on their collection shelf">
+<img align="right" width="300" src="assets/screenshots/member.png" alt="A team member’s page on a phone: 106.50 of Café credit in big pixel digits, five pixel pastries on her shelf with the next one in the oven, an “I grabbed something” button, her latest log entries and the team’s welcome line">
 
 ## Make appreciation something to keep.
 
@@ -10,11 +10,11 @@ Open-source recognition and rewards for teams. Self-hosted, with data under your
 
 Most thank-yous are gone the moment they are said. Crumb gives them somewhere to land.
 
-A team lead sends **recognition**: a few words about what someone did, with a reward
-alongside. The reward goes toward **real benefits** your team chooses — a coffee, a lunch,
-a voucher. And each time someone's total recognition passes a step you set, a new **pixel
-pastry** joins their shelf. Spending the reward never takes one away: the shelf counts
-thanks received, not money held.
+A team lead sends a **treat**: an amount, with a few words about what someone did if they
+like. It goes toward **real things** your team has to offer — a coffee, a lunch, a voucher.
+And each time someone's treats add up past a step you set, a new **pixel pastry** joins
+their shelf. Spending never takes one away: the shelf counts thanks received, not money
+held.
 
 Crumb runs on your own server, for one organization, with its data in one file you back up
 and control. No analytics, no email service, and the app itself sends nothing anywhere.
@@ -28,66 +28,124 @@ and control. No analytics, no email service, and the app itself sends nothing an
 **Thursday, 4:40 p.m.** The espresso machine floods an hour before close. Mina stays late,
 mops up and gets the bar ready for the morning.
 
-**Friday.** Olive, who runs the team, opens Crumb, chooses Mina, types $30 and writes:
-*Stayed late to close when the espresso machine flooded. The morning crew walked into a
-spotless bar.* Mina sees the message, the $30, and a new pastry on her shelf.
+**Friday.** Olive, who runs the team, opens Crumb, taps *Treat someone*, ticks Mina, types
+$30 and writes: *Stayed late to close when the espresso machine flooded. The morning crew
+walked into a spotless bar.* Mina's balance rolls up by $30, a new pastry drops onto her
+shelf, and Olive's words wait in her log.
 
-**The next week.** Mina asks for lunch from the kitchen. Crumb sets $14 aside. When lunch
-is handed over, Olive confirms it and the $14 is deducted.
+**The next week.** Mina takes lunch from the kitchen, taps *I grabbed something* and keys in
+$14. It comes off her balance there and then.
 
 **Months later.** Her balance has gone up and down. Her shelf has only grown, and the
-thank-you from that Thursday is still in her history.
+thank-you from that Thursday is still in her log.
 
 ## What each side sees
 
-**Team members** get *My Crumb* (above): what they can spend and what is set aside, their
-collection and what comes next, the benefits they can ask for, their requests and where each
-one stands, and every message of thanks they have received. Each person sees only their own
-account — there are no leaderboards and no comparisons.
+**Team members** have one page (above): what they can spend, in big pixel digits; their shelf
+of pastries and which one is in the oven; the way their team spends; and a log of what came
+in and what went out — the latest five entries, or everything by month. Each person sees only
+their own account — there are no leaderboards and no comparisons.
 
-**Team leads** — owners and admins — give recognition from the *Team* page:
+A team chooses how people spend. When people jot it down themselves, spending is one button,
+*I grabbed something*, and a keypad; the amount comes off at once:
 
-<img src="assets/screenshots/admin.png" width="100%" alt="The Give recognition dialog: choosing Leo Martins, entering 20.00 in CAD and a message about opening on a snow day">
+<img src="assets/screenshots/spend.png" width="300" alt="The keypad on a phone, rising over the page: “How much did you grab?”, $106.50 to spend, 12.50 keyed in, and the Cancel and “Jot it down” buttons">
 
-…and confirm benefits once they have actually been handed over. That is when the amount is
-deducted; declining or cancelling simply releases it.
+When an admin confirms, the page lists the benefits people can ask for and their requests
+instead. A request sets the amount aside, and it comes off once an admin confirms the benefit
+was handed over; declining or cancelling simply releases it.
 
-<img src="assets/screenshots/redemptions.png" width="100%" alt="The Redemptions page: two requests waiting, each with Confirm delivery, Decline and Cancel request, and a completed request with a Refund button">
+**Team leads** — owners and admins — give treats from the *Team* page, to one person or to
+several at once:
 
-They also invite people with one-time links, make a new sign-in link when someone changes
-phones, deactivate accounts, keep the benefits catalog, correct mistakes (a revoke needs a reason and stays visible, marked
-revoked), export the ledger and read the activity log. Owners set the name, logo, welcome
-message, language and reward rules.
+<img src="assets/screenshots/admin.png" width="100%" alt="The “Treat someone” dialog on the Team page: Dana Reyes, Leo Martins and Sam Okafor ticked, 20.00 each, a short Mid-Autumn thank-you, and the button “Treat 3 people · $60.00 all in”">
+
+The same page lists the people: each row opens to that person's actions — a one-time
+invitation or sign-in link (a new sign-in link when someone changes phones), a role change,
+deactivation. Below it is the team's log, where a treat can be taken back, a jotted-down entry
+fixed, and a confirmed benefit refunded. Each correction needs a reason, and both entries stay
+in the log, the original marked. A treat to several people is one line in the log that opens
+to each person. When the team confirms what people spend, the page also has the requests
+waiting and the benefit list, where each benefit can have a pastry as its icon.
+
+Owners also have *Settings*: the name, logo, welcome line, language, reward rules, how people
+spend, contact and feedback links, and the activity log, *Who did what*. Admins have no
+Settings; they read the same activity log, read-only, at the bottom of the Team page. The
+header stays one line: the name on the right opens a menu with the language and signing out,
+and on a phone the pages too.
 
 ## Where it fits
 
 Any team that wants thanks to add up to something — for example:
 
-- **A café or bakery:** thank the person who closed alone on a snowy night; the reward
+- **A café or bakery:** thank the person who closed alone on a snowy night; the treat
   becomes coffee or lunch on the house.
-- **A shop:** recognise the busiest Saturday of the season; the reward becomes a store voucher.
-- **An office team:** thank whoever unblocked a release; the reward becomes a book, a team
+- **A shop:** thank everyone who worked the busiest Saturday of the season, in one go; the
+  treat becomes a store voucher.
+- **An office team:** thank whoever unblocked a release; the treat becomes a book, a team
   lunch or event tickets.
 
 These are examples of how it can be used, not a list of teams that use it.
 
-## What is in version 0.1
+## Make it yours
 
-- **Recognition** with a message and an amount, in **credit** (CAD, USD or CNY, exact to the
-  cent) or whole **points** under a name you choose.
-- **Benefits** your team defines. A request sets the amount aside; an admin confirms delivery
-  or declines; members can cancel while it waits; a confirmed request can be refunded once.
-- **A permanent collection** of 39 pixel pastries, unlocked by recognition received. Spending
-  never removes one, and neither does correcting a mistaken reward.
+Crumb is for a small shop that wants to download it, fill in a few settings and get going: a
+bakery, a café, a bubble tea place, or any small team. No code needed.
+
+Settings do the rest: your name and logo, the language, what you call the credit ("Café
+credit", "stars"), credit or points, the currency, how much earns a pastry, a welcome line,
+how people spend (they jot it down themselves, or an admin confirms), a contact link and a
+feedback link.
+
+Want different pastries? That's one file: [docs/THEMES.md](docs/THEMES.md).
+
+Why "Crumb"? Eat the bread and the crumbs stay. Spend the credit and the shelf keeps what it
+earned.
+
+## What is in version 0.2
+
+New in 0.2:
+
+- **One page for team members**, with nothing to switch between: what they can spend, their
+  shelf and the pastry in the oven, how their team spends, and their log. Team leads work
+  from one *Team* page with no sub-pages, owners from *Settings* too, and the header stays
+  one line.
+- **Self-recorded spending**: people key in what they took, and it comes off at once. It sits
+  beside the benefit requests of 0.1, now called **confirmed**; each team uses one of the two,
+  and an owner can change it at any time. Setup picks self-recorded unless you choose
+  otherwise.
+- **Treats to several people at once**, with one amount each, all recorded or none; the log
+  shows them as one line.
+- **Corrections of self-recorded entries**: an admin fixes one, with a reason, and the
+  original stays in the log, marked.
+- **Benefit icons**: a benefit can take one of the pastries as its icon.
+- **The look of the original benefits site**, with five short animations, and no motion when
+  people ask for less.
+- **New words**: a *treat* is what 0.1 called recognition, throughout the app.
+
+Upgrading from 0.1 updates the database once, on the first start: read
+[Upgrading from 0.1 to 0.2](docs/OPERATIONS.md#upgrading-from-01-to-02) and back up first.
+
+Still there from 0.1:
+
+- **Treats** with an amount and an optional message, in **credit** (CAD, USD or CNY, exact
+  to the cent) or whole **points** under a name you choose.
+- **Benefits** your team defines, when it confirms what people spend: the amount is set
+  aside, an admin confirms delivery or declines, members can cancel while it waits, and a
+  confirmed request can be refunded once.
+- **Corrections that stay on the record**: an admin takes back a treat or refunds a benefit,
+  always with a reason; the original stays in the log, marked.
+- **A permanent collection** of 39 pixel pastries, unlocked by treats received. Spending
+  never removes one, and neither does correcting a mistaken treat.
 - **Roles**: owner, admin and member. Team members sign in with a personal link — no
   password to remember — and their phone stays signed in for up to 180 days; a new link
   signs a lost phone out. Owners and admins use a password. Every link is shown to an admin
   with its QR code: the person scans it in person, or it is sent as a picture that a long
   press opens. Sign-in and invitation links last 7 days, password resets 30 minutes — Crumb
   sends no email.
-- **Records that stay put**: an append-only ledger and activity log. A reward, request,
-  confirmation or refund that is retried after a dropped connection is still recorded once,
-  and two devices cannot spend the same balance.
+- **Records that stay put**: an append-only ledger and activity log. A treat, an entry, a
+  request, a confirmation or a correction that is retried after a dropped connection is still
+  recorded once, and two devices cannot spend the same balance.
 - **Your brand and language**: organization name, logo and welcome message; English and
   Simplified Chinese, with each person free to choose.
 - **Made for phones**, usable from the keyboard alone, with labelled controls and announced
@@ -96,7 +154,7 @@ These are examples of how it can be used, not a list of teams that use it.
   recovery from the server, Docker Compose with automatic HTTPS through Caddy, and a
   spreadsheet-safe CSV export.
 
-Crumb is deliberately **not** payroll or cash: rewards cannot be withdrawn or bought, it does
+Crumb is deliberately **not** payroll or cash: treats cannot be withdrawn or bought, it does
 not do performance reviews, leaderboards or automatic rewards, and it is not a hosted service
 — you run it.
 
@@ -110,11 +168,13 @@ docker compose up -d --build
 ```
 
 Open <http://localhost:3000>, paste the one-time setup code (`cat .secrets/setup-token`),
-choose credit or points, and create the owner account.
+choose credit or points and how people spend, and create the owner account.
 
 To look around first, with Node.js 24 and no Docker: `npm ci`, then `npm run demo`. It opens
 an invented team, "Corner Café (sample team)", at <http://localhost:3000> and prints the
 owner's sign-in and a team member's sign-in link; everything is deleted when you stop it.
+The sample team jots down what it spends; to see the other way, sign in as the owner and
+choose *Confirmed* under *How people spend* in Settings.
 
 For your team you need a server with Docker and Docker Compose v2, about 1 GB of memory, and
 a domain name so Crumb can run on HTTPS. [The deployment guide](docs/DEPLOYMENT.md) walks
@@ -135,7 +195,7 @@ stand in for each other.
 
 ## Status and limits
 
-Crumb is **early — version 0.1**. The money rules, permissions, concurrency and recovery
+Crumb is **early — version 0.2**. The money rules, permissions, concurrency and recovery
 are covered by automated tests, and [docs/VALIDATION.md](docs/VALIDATION.md) records exactly
 what was tested, where, and what has not been verified yet. It has not had an independent
 security audit.

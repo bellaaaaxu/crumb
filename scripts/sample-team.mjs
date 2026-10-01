@@ -46,14 +46,9 @@ export async function seedSampleTeam({ origin, direct = origin, setupToken, pass
   await owner.send('POST', '/api/setup', {
     setupToken, username: 'olive', password, displayName: 'Olive Chen',
     org: { name: 'Corner Café (sample team)', mode: 'credit', currency: 'CAD', unitLabel: 'Café credit', threshold: '25.00', locale: 'en',
-      welcome: 'Thank you for everything you do on the floor and behind the counter.' },
+      welcome: 'Thank you for everything you do on the floor and behind the counter.',
+      spending: 'self' },
   });
-  for (const [name, description, amount] of [
-    ['Coffee on the house', 'Any drink from the bar.', '4.50'],
-    ['Lunch from the kitchen', 'One meal, any day this week.', '14.00'],
-    ['Bookstore voucher', 'A card for the shop next door.', '25.00'],
-    ['Movie night for two', 'Two tickets at the Rio.', '32.00'],
-  ]) await owner.change('/api/admin/rewards', { name, description, amount, mode: 'credit', active: true });
 
   const people = {};
   for (const [username, displayName, role] of [
@@ -85,17 +80,12 @@ export async function seedSampleTeam({ origin, direct = origin, setupToken, pass
     await owner.change('/api/admin/grants', { userId: people[username].id, amount, mode: 'credit', reason });
   }
 
+  /* Mina takes a coffee, then a lunch: two entries she keyed in herself. */
   const mina = people.mina.client;
   time.now += DAY;
-  const rewards = await mina.send('GET', '/api/rewards');
-  const coffee = rewards.items.find(item => item.name === 'Coffee on the house');
-  const lunch = rewards.items.find(item => item.name === 'Lunch from the kitchen');
-  const firstCoffee = await mina.change('/api/redemptions', { rewardId: coffee.id, expectedCostUnits: coffee.costUnits });
-  await owner.signIn('olive');
-  await owner.change(`/api/admin/redemptions/${firstCoffee.redemption.id}/complete`);
+  await mina.change('/api/me/spend', { amount: '4.50', mode: 'credit' });
   time.now = Date.now() - 2 * 60 * 60 * 1000;
-  await mina.change('/api/redemptions', { rewardId: lunch.id, expectedCostUnits: lunch.costUnits });
-  await people.sam.client.change('/api/redemptions', { rewardId: coffee.id, expectedCostUnits: coffee.costUnits });
+  await mina.change('/api/me/spend', { amount: '14.00', mode: 'credit' });
   time.now = Date.now();
   await owner.signIn('olive');
   return { owner, people };

@@ -1,6 +1,6 @@
 /* Takes the README screenshots from the real app.
  *
- *   node scripts/screenshots.mjs                 writes assets/screenshots/member.png, admin.png and redemptions.png
+ *   node scripts/screenshots.mjs                 writes assets/screenshots/member.png, admin.png and spend.png
  *   node scripts/screenshots.mjs --all --out DIR also captures every page, for review
  *
  * It starts a throwaway Crumb on a random port with a temporary database,
@@ -25,6 +25,9 @@ const outIndex = args.indexOf('--out');
 const outDir = resolve(outIndex >= 0 ? args[outIndex + 1] : join(root, 'assets', 'screenshots'));
 const captureAll = args.includes('--all');
 const PASSWORD = 'sample-password-for-screenshots';
+// A large phone: the member page is made for one, and this is wide enough to read in the README.
+const PHONE = { viewport: { width: 430, height: 932 }, deviceScaleFactor: 2 };
+const DESK = { viewport: { width: 1200, height: 800 }, deviceScaleFactor: 2 };
 
 async function main() {
   const dir = mkdtempSync(join(tmpdir(), 'crumb-shots-'));
@@ -46,6 +49,8 @@ async function main() {
     const { owner, people } = await seedSampleTeam({ origin, setupToken, password: PASSWORD, time });
 
     mkdirSync(outDir, { recursive: true });
+    // The signed-in person's name in the header opens their menu; it is there once a page is.
+    const nameMenu = page => page.getByRole('button', { name: /^Menu for / });
     const signIn = async (context, username) => {
       const page = await context.newPage();
       if (people[username]?.role === 'member') {
@@ -59,7 +64,7 @@ async function main() {
         await page.getByLabel('Password', { exact: true }).fill(PASSWORD);
         await page.getByRole('button', { name: 'Sign in', exact: true }).click();
       }
-      await page.getByRole('button', { name: 'Sign out', exact: true }).waitFor();
+      await nameMenu(page).waitFor();
       return page;
     };
     const settle = async page => {
@@ -74,53 +79,72 @@ async function main() {
     };
 
     // The README images: sized to read clearly at README width rather than whole pages.
-    const phone = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, reducedMotion: 'reduce' });
+    // Mina's page as she sees it every day: the one-time home-screen tip dismissed, then a
+    // fresh load with the oven intro played through and the tile settled.
+    const phone = await browser.newContext(PHONE);
     const memberPage = await signIn(phone, 'mina');
     await memberPage.getByTestId('available-balance').waitFor();
-    // The README shows the page as it looks every day, after the one-time home-screen tip.
     if (captureAll) await shoot(memberPage, 'member-home-tip', false);
     await memberPage.getByRole('button', { name: 'Got it', exact: true }).click();
+    await memberPage.reload();
+    // The page is drawn only once the intro has left. Then wait for the page to come to rest
+    // (the tile sliding in, any pastry dropping) rather than for the intro itself, which a slow
+    // machine may never catch on screen, or for a set time. The number does not roll on this
+    // load: this device last saw the same balance.
+    await memberPage.getByTestId('available-balance').waitFor();
+    await memberPage.waitForFunction(() => !document.querySelector('.oven') && document.getAnimations().length === 0);
     await shoot(memberPage, 'member', false);
 
-    const desk = await browser.newContext({ viewport: { width: 1200, height: 800 }, deviceScaleFactor: 2, reducedMotion: 'reduce' });
+    // The keypad, with 12.50 keyed in and not confirmed: nothing is recorded.
+    await memberPage.getByRole('button', { name: 'I grabbed something', exact: true }).click();
+    const keypad = memberPage.getByRole('group', { name: 'Amount keypad' });
+    for (const digit of '1250') await keypad.getByRole('button', { name: digit, exact: true }).click();
+    await memberPage.getByRole('dialog').getByText('$12.50').first().waitFor();
+    await shoot(memberPage, 'spend', false);
+    await memberPage.keyboard.press('Escape');
+
+    // The Team page, treating three people at once.
+    const desk = await browser.newContext({ ...DESK, reducedMotion: 'reduce' });
     const ownerPage = await signIn(desk, 'olive');
     await ownerPage.goto(`${origin}/#/team`);
-    await ownerPage.getByRole('button', { name: 'Give recognition', exact: true }).click();
-    await ownerPage.getByLabel('Team member').selectOption(people.leo.id);
-    await ownerPage.getByLabel('Amount').fill('20.00');
-    await ownerPage.getByLabel('Message').fill('Opened on a snow day and kept the whole street caffeinated.');
+    await ownerPage.getByRole('button', { name: 'Treat someone', exact: true }).click();
+    const treat = ownerPage.getByRole('dialog');
+    for (const name of ['Dana Reyes', 'Leo Martins', 'Sam Okafor']) await treat.getByRole('checkbox', { name, exact: true }).check();
+    await treat.getByLabel('How much each').fill('20.00');
+    await treat.getByLabel('A few words').fill('Mid-Autumn: thank you for the mooncake rush.');
+    await treat.getByRole('button', { name: 'Treat 3 people · $60.00 all in', exact: true }).waitFor();
     await shoot(ownerPage, 'admin', false);
     await ownerPage.keyboard.press('Escape');
 
-    await ownerPage.goto(`${origin}/#/team/redemptions`);
-    await ownerPage.getByRole('button', { name: 'Confirm delivery', exact: true }).first().waitFor();
-    await shoot(ownerPage, 'redemptions', false);
-
     if (captureAll) {
-      for (const [route, name] of [['#/team', 'team-overview'], ['#/team/members', 'team-members'], ['#/team/benefits', 'team-benefits'],
-        ['#/team/history', 'team-history'], ['#/team/activity', 'team-activity'], ['#/settings', 'settings'], ['#/me', 'owner-me']]) {
+      for (const [route, name] of [['#/team', 'team'], ['#/settings', 'settings'], ['#/me', 'owner-me']]) {
         await ownerPage.goto(`${origin}/${route}`);
         await shoot(ownerPage, name);
       }
       await shoot(memberPage, 'member-full');
-      const phoneOwner = await signIn(await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, reducedMotion: 'reduce' }), 'olive');
-      await phoneOwner.goto(`${origin}/#/team/members`);
-      await shoot(phoneOwner, 'team-members-phone');
-      const signedOut = await (await browser.newContext({ viewport: { width: 390, height: 844 } })).newPage();
+      const phoneOwner = await signIn(await browser.newContext({ ...PHONE, reducedMotion: 'reduce' }), 'olive');
+      await phoneOwner.goto(`${origin}/#/team`);
+      await shoot(phoneOwner, 'team-phone');
+      await nameMenu(phoneOwner).click();
+      await shoot(phoneOwner, 'menu-phone', false);
+      await phoneOwner.keyboard.press('Escape');
+      const signedOut = await (await browser.newContext(PHONE)).newPage();
       await signedOut.goto(origin);
       await shoot(signedOut, 'sign-in-phone');
       const { signinUrl } = await owner.send('POST', `/api/admin/members/${people.dana.id}/signin-link`);
-      const linkPage = await (await browser.newContext({ viewport: { width: 390, height: 844 } })).newPage();
+      const linkPage = await (await browser.newContext(PHONE)).newPage();
       await linkPage.goto(signinUrl);
       await linkPage.getByRole('button', { name: 'Sign in on this device', exact: true }).waitFor();
       await shoot(linkPage, 'sign-in-link-phone');
-      await ownerPage.goto(`${origin}/#/team/members`);
+      await ownerPage.goto(`${origin}/#/team`);
+      await ownerPage.getByRole('button', { name: 'Dana Reyes', exact: true }).click();
       await ownerPage.getByRole('button', { name: 'New sign-in link for Dana Reyes', exact: true }).click();
       await ownerPage.getByRole('dialog').getByRole('button', { name: 'Make a new link', exact: true }).click();
       await ownerPage.locator('.qr-image').waitFor();
       await shoot(ownerPage, 'link-panel-qr');
-      await memberPage.evaluate(() => { document.querySelector('.language select').value = 'zh-CN'; });
-      await memberPage.locator('.language select').selectOption('zh-CN');
+      await nameMenu(memberPage).click();
+      await memberPage.getByLabel('Language').selectOption('zh-CN');
+      await memberPage.getByTestId('available-balance').waitFor();
       await shoot(memberPage, 'member-zh');
     }
   } finally {

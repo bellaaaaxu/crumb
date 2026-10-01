@@ -3,7 +3,9 @@ import { AppError } from './errors.mjs';
 import { writeAudit } from './audit.mjs';
 import { appendEntry, balanceOf } from './ledger.mjs';
 import { withIdempotency } from './idempotency.mjs';
+import { requireOrg } from './org.mjs';
 import { MANAGERS, freshActor, requireActor, requireRole } from './permissions.mjs';
+import { wrongSpendingMode } from './spending.mjs';
 import { MAX_UNITS, assertUnits } from './units.mjs';
 import { invalid, isUuid, text } from './validate.mjs';
 
@@ -50,6 +52,7 @@ export function requestRedemption(db, actor, { rewardId, expectedCostUnits, key 
   requireActor(actor);
   if (expectedCostUnits !== undefined) assertUnits(expectedCostUnits);
   return withIdempotency(db, actor, 'redemption.create', key, { rewardId, expectedCostUnits }, current => {
+    if (requireOrg(db).spending !== 'confirm') throw wrongSpendingMode();
     const reward = isUuid(rewardId) ? db.prepare('SELECT * FROM rewards WHERE id = ?').get(rewardId) : undefined;
     if (!reward) throw new AppError(404, 'REWARD_NOT_FOUND', 'That benefit does not exist.');
     if (reward.active !== 1) throw new AppError(409, 'REWARD_UNAVAILABLE', 'This benefit is not available right now.');

@@ -94,6 +94,12 @@ export function setActor(userId) {
 export const keyFor = action => pending.keyFor(actor, action);
 export const settleKey = action => pending.settle(actor, action);
 export const unconfirmedSince = kind => pending.unconfirmed(actor, kind);
+/* A key's fingerprint can give away a small change, so on a device people share the next
+ * person must find none of them: signing out forgets the leaving person's, and each time
+ * the page learns who is signed in only theirs stay (none when no one is). Someone who
+ * signs out with a change unanswered loses the notice that it was not confirmed. */
+export const forgetPendingFor = userId => pending.forget(userId);
+export const keepPendingOnlyFor = userId => pending.keepOnlyFor(userId);
 
 /* Only a 4xx means the server looked at the request and turned it down, so nothing
  * happened and its key can go. No answer, 503, a proxy's 502/504 or any other 5xx

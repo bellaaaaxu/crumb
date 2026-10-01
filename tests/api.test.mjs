@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
 import Database from 'better-sqlite3';
 import { authenticatedClient, joinTeam, setupOrganization, startServer } from './helpers.mjs';
 
@@ -8,7 +9,7 @@ const key = () => ({ 'idempotency-key': `api-test-request-${String(++keys).padSt
 
 async function team(t, { mode = 'credit' } = {}) {
   const server = await startServer(t);
-  const { api: owner, user: ownerUser } = await setupOrganization(server, { mode });
+  const { api: owner, user: ownerUser } = await setupOrganization(server, { mode, org: { spending: 'confirm' } });
   const one = await joinTeam(server, owner, { username: 'mina', displayName: 'Mina' });
   const two = await joinTeam(server, owner, { username: 'moe', displayName: 'Moe' });
   return { server, owner, ownerUser, member: one.api, memberUser: one.user, member2: two.api, member2User: two.user };
@@ -246,6 +247,20 @@ test('admins see the ledger with names, revoke from it, and read the activity lo
   assert.doesNotMatch(JSON.stringify(audit.body), /invite=|reset=|scrypt/);
 });
 
+test('an admin reads the activity log as an owner does; a team member cannot', async t => {
+  const { server, owner, member, memberUser } = await team(t);
+  const { api: admin } = await joinTeam(server, owner, { username: 'ada', displayName: 'Ada Lee', role: 'admin' });
+  // Rows made at the same instant come in id order, so the treat is made a moment later.
+  server.time.now += 1000;
+  await owner.request('POST', '/api/admin/grants', { userId: memberUser.id, amount: '5.00', mode: 'credit', reason: '' }, key());
+  const read = await admin.request('GET', '/api/admin/audit?limit=5');
+  assert.equal(read.status, 200);
+  const treat = read.body.items.find(item => item.action === 'grant.create');
+  assert.equal(treat.actor.displayName, 'Olive Owner');
+  assert.equal(treat.detail.userId, memberUser.id);
+  assert.equal((await member.request('GET', '/api/admin/audit?limit=5')).status, 403);
+});
+
 test('catalog edits go through the organization unit', async t => {
   const { owner, member } = await team(t, { mode: 'points' });
   assert.equal((await owner.request('POST', '/api/admin/rewards', { name: 'Coffee', description: '', amount: '1.50', mode: 'points', active: true })).status, 422);
@@ -296,6 +311,8 @@ test('adding a benefit again with the same key does not create a second one', as
   assert.equal(first.status, 201);
   assert.deepEqual(retry.body, first.body);
   assert.equal((await owner.request('POST', '/api/admin/rewards', { ...body, name: 'Tea' }, addKey)).body.error.code, 'IDEMPOTENCY_CONFLICT');
+  // The icon is part of the request too: a resend that picks one is a different benefit, not a replay.
+  assert.equal((await owner.request('POST', '/api/admin/rewards', { ...body, iconKey: 'tart' }, addKey)).body.error.code, 'IDEMPOTENCY_CONFLICT');
   const keyless = await owner.request('POST', '/api/admin/rewards', body);
   assert.equal(keyless.status, 422);
   assert.equal(keyless.body.error.code, 'IDEMPOTENCY_KEY_REQUIRED');
@@ -338,4 +355,243 @@ test('the CSV export cannot be triggered from another site', async t => {
   for (const site of ['same-origin', 'none', undefined])
     assert.equal((await owner.request('GET', '/api/admin/ledger.csv', undefined, { 'sec-fetch-site': site })).status, 200, String(site));
   assert.equal(exports(), 3);
+});
+
+test('a refunded redemption is marked on its ledger row', async t => {
+  const { owner, member, memberUser, server } = await team(t);
+  const coffee = await giveCoffee(owner, '1.00');
+  await owner.request('POST', '/api/admin/grants', { userId: memberUser.id, amount: '5.00', mode: 'credit', reason: '' }, key());
+  const requested = await member.request('POST', '/api/redemptions', { rewardId: coffee.id, expectedCostUnits: coffee.costUnits }, key());
+  server.time.now += 1000;
+  assert.equal((await owner.request('POST', `/api/admin/redemptions/${requested.body.redemption.id}/complete`, undefined, key())).status, 200);
+  const redeemRow = async () => (await owner.request('GET', '/api/admin/ledger?kind=redeem')).body.items[0];
+  assert.equal((await redeemRow()).refunded, false);
+  server.time.now += 1000;
+  const refunded = await owner.request('POST', `/api/admin/redemptions/${requested.body.redemption.id}/refund`, { reason: 'Machine was broken' }, key());
+  assert.equal(refunded.status, 200);
+  const row = await redeemRow();
+  assert.equal(row.refunded, true);
+  assert.equal(row.revoked, false);
+  // A refund is not a correction, so the log's revoked/voided badge stays off this row.
+  assert.equal(row.corrected, false);
+  assert.equal((await owner.request('GET', '/api/admin/ledger?kind=refund')).body.items[0].refunded, false);
+});
+
+async function selfTeam(t, { mode = 'credit' } = {}) {
+  const server = await startServer(t);
+  const { api: owner, user: ownerUser } = await setupOrganization(server, { mode, org: { spending: 'self' } });
+  const one = await joinTeam(server, owner, { username: 'mina', displayName: 'Mina' });
+  return { server, owner, ownerUser, member: one.api, memberUser: one.user };
+}
+
+test('a member records an entry over the API and a manager corrects it', async t => {
+  const { owner, member, memberUser, server } = await selfTeam(t);
+  await owner.request('POST', '/api/admin/grants', { userId: memberUser.id, amount: '50.00', mode: 'credit', reason: '' }, key());
+  // Later than the grant, so the newest-first history has one fixed order.
+  server.time.now += 1000;
+  const refused = await member.request('POST', '/api/me/spend', { amount: '60.00', mode: 'credit' }, key());
+  assert.equal(refused.status, 409);
+  assert.equal(refused.body.error.code, 'INSUFFICIENT_BALANCE');
+  const spendKey = key();
+  const spent = await member.request('POST', '/api/me/spend', { amount: '12.50', mode: 'credit' }, spendKey);
+  assert.equal(spent.status, 201);
+  assert.equal(spent.body.balance.availableUnits, 3750);
+  const again = await member.request('POST', '/api/me/spend', { amount: '12.50', mode: 'credit' }, spendKey);
+  assert.equal(again.status, 201);
+  assert.equal(again.headers.get('idempotent-replayed'), 'true');
+  assert.equal((await member.request('POST', '/api/me/spend', { amount: '12.50' }, key())).status, 422, 'mode is required');
+  assert.equal((await member.request('POST', '/api/me/spend', { amount: '1.00', mode: 'credit' })).status, 422, 'a key is required');
+
+  const ledger = await member.request('GET', '/api/me/ledger');
+  assert.deepEqual(ledger.body.items.map(item => [item.kind, item.deltaUnits, item.corrected]), [['spend', -1250, false], ['grant', 5000, false]]);
+  const spends = await owner.request('GET', '/api/admin/ledger?kind=spend');
+  assert.deepEqual(spends.body.items.map(item => item.id), [spent.body.entry.id]);
+  const voidPath = `/api/admin/spends/${spent.body.entry.id}/void`;
+  assert.equal((await member.request('POST', voidPath, { reason: 'x' }, key())).status, 403);
+  // Each refusal below comes before any write, so the void after them is still the first one.
+  const refusal = async (path, body, headers) => {
+    const response = await owner.request('POST', path, body, headers);
+    return [response.status, response.body.error.code];
+  };
+  assert.deepEqual(await refusal(voidPath, { reason: '' }, key()), [422, 'INVALID_INPUT'], 'a reason is required');
+  assert.deepEqual(await refusal(voidPath, { reason: 'x', amount: '1.00' }, key()), [422, 'UNKNOWN_FIELD']);
+  assert.deepEqual(await refusal(voidPath, { reason: 'x' }), [422, 'IDEMPOTENCY_KEY_REQUIRED']);
+  for (const id of [randomUUID(), 'not-an-entry'])
+    assert.deepEqual(await refusal(`/api/admin/spends/${id}/void`, { reason: 'x' }, key()), [404, 'ENTRY_NOT_FOUND'], id);
+  const voidKey = key();
+  const fixed = await owner.request('POST', voidPath, { reason: 'Keyed in twice' }, voidKey);
+  assert.equal(fixed.status, 200);
+  assert.equal(fixed.body.balance.availableUnits, 5000);
+  const replayed = await owner.request('POST', voidPath, { reason: 'Keyed in twice' }, voidKey);
+  assert.equal(replayed.status, 200);
+  assert.equal(replayed.headers.get('idempotent-replayed'), 'true');
+  assert.deepEqual(await refusal(voidPath, { reason: 'Keyed in twice' }, key()), [409, 'ALREADY_CORRECTED']);
+  const after = await owner.request('GET', '/api/admin/ledger?kind=void');
+  assert.equal(after.body.items.length, 1);
+  assert.equal(after.body.items[0].member.id, memberUser.id);
+  const corrected = await member.request('GET', '/api/me/ledger');
+  assert.equal(corrected.body.items.find(item => item.kind === 'spend').corrected, true);
+});
+
+test('a self-recorded entry in points is a whole number', async t => {
+  const { owner, member, memberUser } = await selfTeam(t, { mode: 'points' });
+  await owner.request('POST', '/api/admin/grants', { userId: memberUser.id, amount: '50', mode: 'points', reason: '' }, key());
+  for (const amount of ['1.5', '1,5', '1.0']) {
+    const refused = await member.request('POST', '/api/me/spend', { amount, mode: 'points' }, key());
+    assert.deepEqual([refused.status, refused.body.error.code], [422, 'INVALID_AMOUNT'], amount);
+  }
+  assert.equal((await member.request('GET', '/api/me')).body.balance.availableUnits, 50);
+  const spent = await member.request('POST', '/api/me/spend', { amount: '12', mode: 'points' }, key());
+  assert.deepEqual([spent.status, spent.body.balance.availableUnits], [201, 38]);
+});
+
+test('self-recorded entries are refused over the API in a team that confirms requests', async t => {
+  const { member } = await team(t);
+  const refused = await member.request('POST', '/api/me/spend', { amount: '1.00', mode: 'credit' }, key());
+  assert.equal(refused.status, 409);
+  assert.equal(refused.body.error.code, 'SPENDING_MODE');
+});
+
+test('requests are refused over the API in a self-recording team', async t => {
+  const { owner, member } = await selfTeam(t);
+  const created = await owner.request('POST', '/api/admin/rewards', { name: 'Coffee', description: '', amount: '4.50', mode: 'credit', active: true }, key());
+  assert.equal(created.status, 201);
+  const refused = await member.request('POST', '/api/redemptions', { rewardId: created.body.id, expectedCostUnits: 450 }, key());
+  assert.equal(refused.status, 409);
+  assert.equal(refused.body.error.code, 'SPENDING_MODE');
+});
+
+test('a batch treat over the API', async t => {
+  const { owner, member, member2, memberUser, member2User } = await team(t);
+  const batchKey = key();
+  const sent = await owner.request('POST', '/api/admin/grants/batch',
+    { userIds: [memberUser.id, member2User.id], amount: '20.00', mode: 'credit', reason: 'Mid-Autumn' }, batchKey);
+  assert.equal(sent.status, 201);
+  assert.equal(sent.body.count, 2);
+  assert.equal((await member.request('GET', '/api/me')).body.balance.availableUnits, 2000);
+  assert.equal((await member2.request('GET', '/api/me')).body.balance.availableUnits, 2000);
+  const again = await owner.request('POST', '/api/admin/grants/batch',
+    { userIds: [member2User.id, memberUser.id], amount: '20.00', mode: 'credit', reason: 'Mid-Autumn' }, batchKey);
+  assert.equal(again.headers.get('idempotent-replayed'), 'true');
+  const log = await owner.request('GET', '/api/admin/ledger?kind=grant');
+  // Compared with the id itself: a missing batchId would also make a set of one.
+  assert.deepEqual([...new Set(log.body.items.map(item => item.batchId))], [sent.body.batchId]);
+  assert.equal((await member.request('POST', '/api/admin/grants/batch', { userIds: [memberUser.id], amount: '1', mode: 'credit' }, key())).status, 403);
+});
+
+test('the Team log counts a batch on every row of it, and lists one batch on its own', async t => {
+  const { owner, memberUser, member2User, ownerUser, server } = await team(t);
+  const sent = await owner.request('POST', '/api/admin/grants/batch',
+    { userIds: [memberUser.id, member2User.id, ownerUser.id], amount: '20.00', mode: 'credit', reason: 'Mid-Autumn' }, key());
+  assert.equal(sent.status, 201);
+  server.time.now += 1000;
+  await owner.request('POST', '/api/admin/grants', { userId: memberUser.id, amount: '5.00', mode: 'credit', reason: '' }, key());
+  server.time.now += 1000;
+  // Taking back one person's treat adds a row outside the batch; the batch still counts three.
+  const mina = sent.body.entries.find(entry => entry.userId === memberUser.id);
+  assert.equal((await owner.request('POST', `/api/admin/grants/${mina.id}/revoke`, { reason: 'Not on shift' }, key())).status, 200);
+
+  const log = await owner.request('GET', '/api/admin/ledger');
+  assert.deepEqual(log.body.items.map(item => [item.kind, item.batchId, item.batchSize]), [
+    ['revoke', null, null], ['grant', null, null],
+    ...sent.body.entries.map(() => ['grant', sent.body.batchId, 3]),
+  ]);
+  // A page that ends inside the batch still says how big the whole batch is.
+  const first = await owner.request('GET', '/api/admin/ledger?limit=3');
+  assert.equal(first.body.items.at(-1).batchSize, 3);
+
+  const batch = await owner.request('GET', `/api/admin/ledger?batchId=${sent.body.batchId}&limit=2`);
+  assert.equal(batch.status, 200);
+  assert.equal(batch.body.items.length, 2);
+  const rest = await owner.request('GET', `/api/admin/ledger?batchId=${sent.body.batchId}&cursor=${batch.body.nextCursor}`);
+  assert.equal(rest.body.nextCursor, null);
+  const rows = [...batch.body.items, ...rest.body.items];
+  assert.deepEqual(rows.map(item => item.member.id).sort(), [memberUser.id, member2User.id, ownerUser.id].sort());
+  for (const row of rows) {
+    assert.deepEqual([row.kind, row.batchId, row.batchSize], ['grant', sent.body.batchId, 3]);
+    assert.equal(row.revoked, row.member.id === memberUser.id, row.member.displayName);
+  }
+  assert.deepEqual((await owner.request('GET', `/api/admin/ledger?batchId=${randomUUID()}`)).body.items, []);
+  for (const bad of ['not-a-batch', '', `${sent.body.batchId}x`]) {
+    const refused = await owner.request('GET', `/api/admin/ledger?batchId=${encodeURIComponent(bad)}`);
+    assert.deepEqual([refused.status, refused.body.error.code, refused.body.error.field], [422, 'INVALID_INPUT', 'batchId'], bad);
+  }
+});
+
+test('a benefit icon travels through the API, survives an edit without it, and null clears it', async t => {
+  const { owner, member } = await team(t);
+  const created = await owner.request('POST', '/api/admin/rewards',
+    { name: 'Coffee', description: '', amount: '4.50', mode: 'credit', active: true, iconKey: 'tart' }, key());
+  assert.equal(created.status, 201);
+  assert.equal(created.body.iconKey, 'tart');
+  assert.deepEqual((await member.request('GET', '/api/rewards')).body.items.map(item => item.iconKey), ['tart']);
+  // A price change as the current admin form sends it, with no iconKey.
+  const repriced = await owner.request('PATCH', `/api/admin/rewards/${created.body.id}`, { amount: '5.00', mode: 'credit' });
+  assert.deepEqual([repriced.status, repriced.body.costUnits, repriced.body.iconKey], [200, 500, 'tart']);
+  assert.deepEqual((await member.request('GET', '/api/rewards')).body.items.map(item => item.iconKey), ['tart']);
+  const unknown = await owner.request('PATCH', `/api/admin/rewards/${created.body.id}`, { iconKey: 'unicorn' });
+  assert.deepEqual([unknown.status, unknown.body.error.field], [422, 'iconKey']);
+  const cleared = await owner.request('PATCH', `/api/admin/rewards/${created.body.id}`, { iconKey: null });
+  assert.equal(cleared.status, 200);
+  assert.equal(cleared.body.iconKey, null);
+  assert.deepEqual((await owner.request('GET', '/api/admin/rewards')).body.items.map(item => item.iconKey), [null]);
+});
+
+test('a member lists their own requests by status, and only a known status', async t => {
+  const { owner, member, member2, memberUser, member2User, server } = await team(t);
+  const coffee = await giveCoffee(owner, '1.00');
+  for (const userId of [memberUser.id, member2User.id])
+    await owner.request('POST', '/api/admin/grants', { userId, amount: '10.00', mode: 'credit', reason: '' }, key());
+  const ask = async api => {
+    server.time.now += 1000;
+    const made = await api.request('POST', '/api/redemptions', { rewardId: coffee.id, expectedCostUnits: coffee.costUnits }, key());
+    assert.equal(made.status, 201);
+    return made.body.redemption.id;
+  };
+  // Oldest first: one waiting, then one of each finished state, then another waiting.
+  const olderWaiting = await ask(member);
+  const completed = await ask(member);
+  const cancelled = await ask(member);
+  const rejected = await ask(member);
+  const newerWaiting = await ask(member);
+  await ask(member2);
+  assert.equal((await owner.request('POST', `/api/admin/redemptions/${completed}/complete`, undefined, key())).status, 200);
+  assert.equal((await member.request('POST', `/api/redemptions/${cancelled}/cancel`, undefined, key())).status, 200);
+  assert.equal((await owner.request('POST', `/api/admin/redemptions/${rejected}/reject`, { reason: 'Out of beans' }, key())).status, 200);
+
+  const ids = async path => (await member.request('GET', path)).body.items.map(item => item.id);
+  assert.deepEqual(await ids('/api/me/redemptions'), [newerWaiting, rejected, cancelled, completed, olderWaiting]);
+  assert.deepEqual(await ids('/api/me/redemptions?status=pending'), [newerWaiting, olderWaiting], 'only this member\'s, only waiting');
+  assert.deepEqual(await ids('/api/me/redemptions?status=completed'), [completed]);
+  assert.deepEqual(await ids('/api/me/redemptions?status=cancelled'), [cancelled]);
+  assert.deepEqual(await ids('/api/me/redemptions?status=rejected'), [rejected]);
+  // The filter holds across pages: the older waiting request is on the second.
+  const first = await member.request('GET', '/api/me/redemptions?status=pending&limit=1');
+  assert.deepEqual(first.body.items.map(item => item.id), [newerWaiting]);
+  const next = await member.request('GET', `/api/me/redemptions?status=pending&limit=1&cursor=${first.body.nextCursor}`);
+  assert.deepEqual([next.body.items.map(item => item.id), next.body.nextCursor], [[olderWaiting], null]);
+  // Still listed after the team switches to self-recorded spending, so they can be seen through.
+  assert.equal((await owner.request('PATCH', '/api/org', { spending: 'self' })).status, 200);
+  assert.deepEqual(await ids('/api/me/redemptions?status=pending'), [newerWaiting, olderWaiting]);
+
+  for (const bad of ['refunded', 'PENDING', '', 'pending,completed']) {
+    const refused = await member.request('GET', `/api/me/redemptions?status=${encodeURIComponent(bad)}`);
+    assert.deepEqual([refused.status, refused.body.error.code, refused.body.error.field], [422, 'INVALID_INPUT', 'status'], bad);
+  }
+  const twice = await member.request('GET', '/api/me/redemptions?status=pending&status=completed');
+  assert.deepEqual([twice.status, twice.body.error.field], [422, 'status']);
+});
+
+test('managers get the theme\'s names in every language with the benefits', async t => {
+  const { owner, member } = await team(t);
+  const { theme } = await import('../server/collections.mjs');
+  const listed = await owner.request('GET', '/api/admin/rewards');
+  assert.equal(listed.status, 200);
+  assert.deepEqual(Object.keys(listed.body).sort(), ['items', 'theme']);
+  assert.deepEqual(listed.body.theme, { keys: theme.keys, names: theme.names });
+  assert.deepEqual(listed.body.theme.names.tart, { en: 'Egg Tart', 'zh-Hant': '蛋撻', 'zh-CN': '蛋挞' });
+  for (const spriteKey of listed.body.theme.keys)
+    assert.ok(listed.body.theme.names[spriteKey]?.en && listed.body.theme.names[spriteKey]['zh-CN'], spriteKey);
+  // The member's list of benefits stays as it was.
+  assert.deepEqual(Object.keys((await member.request('GET', '/api/rewards')).body), ['items']);
 });

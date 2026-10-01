@@ -73,7 +73,7 @@ Crumb demo, with an invented team ("Corner Café (sample team)"), at ${origin}
   Mina Park, a team member, signs in with this one-time link. Open it in a private window
   or on a phone:
     ${signinUrl}
-  More sign-in links, with their QR codes: Team, then Members, then "New sign-in link".
+  More sign-in links, with their QR codes: Team, then a person's name, then "New sign-in link".
 
   data folder: ${dir}
 Stop the demo with Ctrl+C; the invented data is deleted then.`);

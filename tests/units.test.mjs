@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { parseUnits, formatUnits, MAX_UNITS } from '../server/units.mjs';
-import { amountToUnits } from '../app/format.js';
+import { amountToUnits, isAlmostThere } from '../app/format.js';
 
 test('the browser check agrees with the server on every amount', () => {
   const samples = ['12.50', '12.5', '0.01', '0', '0.00', '1.001', '-1', '1e2', 'Infinity', '', '.5', '5.', ' 5',
@@ -82,4 +82,25 @@ test('a comma works as the decimal mark, since some phone keypads have no dot', 
   for (const value of ['1,000', '1,000.50', '1.000,50', '12,', ',5'])
     assert.throws(() => parseUnits(value, 'credit'), error => error.code === 'INVALID_AMOUNT', value);
   assert.throws(() => parseUnits('12,50', 'points'), error => error.code === 'INVALID_AMOUNT');
+});
+
+test('"Almost there" only when the gap is more than nothing and at most half the price', () => {
+  // Credit, a $4.50 benefit: half its price is $2.25.
+  assert.equal(isAlmostThere(450, 450), false, 'exactly enough');
+  assert.equal(isAlmostThere(1000, 450), false, 'more than enough');
+  assert.equal(isAlmostThere(300, 450), true, 'short by $1.50');
+  assert.equal(isAlmostThere(225, 450), true, 'short by exactly half');
+  assert.equal(isAlmostThere(224, 450), false, 'short by one cent over half');
+  assert.equal(isAlmostThere(100, 450), false, 'short by $3.50');
+  // Nothing to spend and a price of 1: the gap is the whole price.
+  assert.equal(isAlmostThere(0, 1), false, 'zero balance, a price of 1');
+  assert.equal(isAlmostThere(0, 450), false, 'zero balance');
+  // Points, with an even and an odd price: half of an odd price is not rounded either way.
+  assert.equal(isAlmostThere(40, 40), false, '40 of 40 points');
+  assert.equal(isAlmostThere(39, 40), true, '39 of 40 points');
+  assert.equal(isAlmostThere(20, 40), true, '20 of 40 points');
+  assert.equal(isAlmostThere(19, 40), false, '19 of 40 points');
+  assert.equal(isAlmostThere(21, 41), true, 'short by 20 of 41 points');
+  assert.equal(isAlmostThere(20, 41), false, 'short by 21 of 41 points');
+  assert.equal(isAlmostThere(MAX_UNITS - 1, MAX_UNITS), true, 'the largest price, one short');
 });

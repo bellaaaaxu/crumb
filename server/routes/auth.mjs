@@ -77,8 +77,8 @@ export function authRoutes({ db, config, clock }) {
     const created = writeTransaction(db, () => {
       if (readOrgRow(db)) throw new AppError(409, 'ALREADY_INITIALIZED', 'Crumb is already set up. Sign in instead.');
       const now = iso();
-      db.prepare(`INSERT INTO organization (id, name, mode, currency, unit_label, threshold_units, locale, welcome, created_at)
-                  VALUES (1, @name, @mode, @currency, @unitLabel, @thresholdUnits, @locale, @welcome, @now)`).run({ ...org, now });
+      db.prepare(`INSERT INTO organization (id, name, mode, currency, unit_label, threshold_units, locale, welcome, spending, created_at)
+                  VALUES (1, @name, @mode, @currency, @unitLabel, @thresholdUnits, @locale, @welcome, @spending, @now)`).run({ ...org, now });
       db.prepare(`INSERT INTO users (id, username, display_name, password_hash, role, active, joined_at, created_at)
                   VALUES (?, ?, ?, ?, 'owner', 1, ?, ?)`).run(owner.id, owner.username, owner.display_name, passwordHash, now, now);
       writeAudit(db, { actorId: owner.id, action: 'org.setup', targetId: owner.id,

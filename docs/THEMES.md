@@ -1,9 +1,10 @@
 # Collectibles and themes
 
-A **theme** is the set of pixel collectibles people unlock with recognition. Version 0.1 of
-Crumb has exactly one: the default theme of 39 pastries. There is no theme switcher yet, and
-this page does not describe one — it describes how the default theme is built and the rules
-anyone changing it must keep.
+A **theme** is the set of pixel collectibles people unlock with the treats they receive.
+Version 0.2 of Crumb has exactly one: the default theme of 39 pastries. There is no theme
+switcher yet, and this page does not describe one — it describes how the default theme is
+built and the rules anyone changing it must keep, including that a benefit's icon is one of
+its keys.
 
 ## Where it lives
 
@@ -68,14 +69,25 @@ every restart; two people rarely share one. Unlocked collectibles are stored wit
 position, so adding keys later never changes anything someone already has — new keys simply
 take their places among the positions not yet unlocked.
 
-Unlocking counts **recognition received** (grants minus revokes). Every time it passes
-another multiple of the organization's unlock step, the next collectible in that person's
-order unlocks. Spending, refunds and revokes never remove one. When every key is unlocked,
-My Crumb says the collection is complete, and recognition keeps counting as usual.
+Unlocking counts **treats received** (grants minus revokes; a treat to several people counts
+for each of them on its own). Every time it passes another multiple of the organization's
+unlock step, the next collectible in that person's order unlocks. Spending — self-recorded
+entries and their corrections included — refunds and revokes never remove one. When every key
+is unlocked, the person's page says the collection is complete, and treats keep counting as
+usual.
 
-Adding keys also catches people up. Someone whose recognition had earned more collectibles
-than the theme had — a complete shelf with steps to spare — gets the new ones on their next
-reward, possibly several at once.
+Adding keys also catches people up. Someone whose treats had earned more collectibles than
+the theme had — a complete shelf with steps to spare — gets the new ones on their next treat,
+possibly several at once.
+
+## Benefit icons
+
+A benefit may carry one collectible as its icon: one key, stored in `rewards.icon_key`, or
+none. The server accepts only a key of the manifest (`keys` in `themes/default.json`) and
+refuses anything else; the Team page offers exactly those keys, named in the interface's
+language from the manifest's `names`. This is the second reason a key must never be removed:
+a benefit may still point at it. Should a later theme drop a key anyway, the benefit stays
+and is shown with no icon.
 
 ## Adding a collectible to the default theme
 

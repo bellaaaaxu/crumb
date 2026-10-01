@@ -22,7 +22,9 @@ export const SCHEMA_VERSION = MIGRATIONS.at(-1).version;
 /**
  * Opens (or creates) the database and brings its schema up to date before
  * anything else can use it. A database written by a newer Crumb is refused
- * rather than guessed at. A new database file is readable by its owner only
+ * rather than guessed at. Migrations run with foreign keys off and every
+ * reference is verified before they commit; the connection handed back
+ * enforces foreign keys. A new database file is readable by its owner only
  * (it holds password hashes); SQLite gives its -wal and -shm the same mode.
  */
 export function openDatabase(path) {
@@ -34,7 +36,6 @@ export function openDatabase(path) {
   const db = new Database(path);
   try {
     db.pragma('busy_timeout = 5000');
-    db.pragma('foreign_keys = ON');
     db.pragma('journal_mode = WAL');
     migrate(db);
     return db;
@@ -56,18 +57,41 @@ export function tooNewError(version) {
     'Run a newer Crumb, or restore a backup made by this version.');
 }
 
+/* A migration may rebuild a table other tables point at (002 does), which SQLite only allows
+ * with foreign keys off. The pragma cannot change inside a transaction, so it is switched off
+ * around the run and back on however the run ends.
+ *
+ * With foreign keys off nothing stops a migration from leaving a reference to a missing row,
+ * so after one has run every reference is checked before the transaction commits, and a bad
+ * one rolls the whole update back. A database that is already current is not checked: an
+ * unrelated stray row must not keep Crumb, or owner recovery, from starting. */
 function migrate(db) {
-  db.exec('CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL)');
-  db.transaction(() => {
-    const current = schemaVersionOf(db);
-    if (current > SCHEMA_VERSION) throw tooNewError(current);
-    for (const migration of MIGRATIONS) {
-      if (migration.version <= current) continue;
-      db.exec(migration.sql);
-      db.prepare('INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)')
-        .run(migration.version, new Date().toISOString());
-    }
-  }).immediate();
+  db.pragma('foreign_keys = OFF');
+  try {
+    db.exec('CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL)');
+    db.transaction(() => {
+      const current = schemaVersionOf(db);
+      if (current > SCHEMA_VERSION) throw tooNewError(current);
+      const pending = MIGRATIONS.filter(migration => migration.version > current);
+      for (const migration of pending) {
+        db.exec(migration.sql);
+        db.prepare('INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)')
+          .run(migration.version, new Date().toISOString());
+      }
+      if (pending.length === 0) return;
+      const broken = db.pragma('foreign_key_check');
+      if (broken.length) throw danglingReferencesError(pending.at(-1).version, broken);
+    }).immediate();
+  } finally {
+    db.pragma('foreign_keys = ON');
+  }
+}
+
+/* Names a few of the rows, so whoever runs the update knows where to look. */
+function danglingReferencesError(version, broken) {
+  const first = broken.slice(0, 3).map(({ table, rowid, parent }) => `${table} row ${rowid} -> ${parent}`).join(', ');
+  return new Error(`Updating the database to schema ${version} was stopped and nothing was changed: ` +
+    `${broken.length} reference(s) point at missing rows (first: ${first}).`);
 }
 
 export function isBusy(error) {

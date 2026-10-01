@@ -3,7 +3,10 @@
  *
  * sprites.js declares `const Pixel` in a classic script. That makes a global
  * *lexical* binding, not a property of window, so `globalThis.Pixel` is
- * undefined — but a module can still reach it by its bare name. */
+ * undefined — but a module can still reach it by its bare name.
+ *
+ * Only drawing happens here. Which keys exist and what they are called come
+ * from the server's theme manifest, in each language the interface has. */
 
 const table = typeof Pixel === 'undefined' ? null : Pixel; // eslint-disable-line no-undef
 
@@ -34,4 +37,11 @@ export function pixelWord(text, size, color) {
   if (table) table.drawText(node, text, size, color);
   else node.hidden = true;
   return node;
+}
+
+/* Digits, dot and dash only, drawn on a canvas the caller keeps: the rolling balance
+ * repaints the same one many times a second. */
+export function pixelNumber(target, text, size, color) {
+  if (table) table.drawNumber(target, text, size, color);
+  else target.hidden = true;
 }

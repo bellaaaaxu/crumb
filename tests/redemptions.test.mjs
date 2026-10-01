@@ -2,10 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { balanceOf, grant } from '../server/ledger.mjs';
-import { saveReward } from '../server/rewards.mjs';
+import { listRewards, saveReward } from '../server/rewards.mjs';
 import { refundRedemption, requestRedemption, resolveRedemption } from '../server/redemptions.mjs';
 import { collectionOf } from '../server/collections.mjs';
 import { updateMember } from '../server/members.mjs';
+import { updateOrg } from '../server/org.mjs';
 import { fixture } from './helpers.mjs';
 
 const code = expected => error => {
@@ -17,14 +18,14 @@ const nextKey = () => `redeem-test-key-${String(++keys).padStart(4, '0')}`;
 const ledgerRows = (db, userId) => db.prepare('SELECT kind, delta_units FROM ledger WHERE user_id = ? ORDER BY created_at, rowid').all(userId);
 
 function funded(t, units = 5000) {
-  const setup = fixture(t);
+  const setup = fixture(t, { spending: 'confirm' });
   grant(setup.db, setup.owner, { userId: setup.member.id, units, reason: 'Thanks', key: nextKey() });
   const reward = saveReward(setup.db, setup.owner, { name: 'Coffee', description: 'One drink', costUnits: 3000, active: true });
   return { ...setup, reward };
 }
 
 test('reservation, completion and retry use one debit', t => {
-  const {db,owner,member} = fixture(t);
+  const {db,owner,member} = fixture(t, { spending: 'confirm' });
   grant(db,owner,{userId:member.id,units:5000,reason:'Thanks',key:'grant-request-0001'});
   const reward = saveReward(db,owner,{name:'Coffee',description:'One drink',costUnits:3000,active:true});
   const pending = requestRedemption(db,member,{rewardId:reward.id,key:'redeem-request-01'});
@@ -184,4 +185,34 @@ test('a request is refused if the price changed after the member saw it', t => {
   assert.equal(balanceOf(db, member.id).reservedUnits, 0);
   const ok = requestRedemption(db, member, { rewardId: reward.id, expectedCostUnits: 4500, key: nextKey() });
   assert.equal(ok.redemption.costUnits, 4500);
+});
+
+test('requests are only possible in confirmed mode', t => {
+  const { db, owner, member, reward } = funded(t);
+  updateOrg(db, owner, { spending: 'self' });
+  assert.throws(() => requestRedemption(db, member, { rewardId: reward.id, key: nextKey() }), code('SPENDING_MODE'));
+  updateOrg(db, owner, { spending: 'confirm' });
+  const { redemption } = requestRedemption(db, member, { rewardId: reward.id, key: nextKey() });
+  // Switching back leaves a waiting request where it is, and it can still be resolved.
+  updateOrg(db, owner, { spending: 'self' });
+  assert.equal(resolveRedemption(db, owner, { redemptionId: redemption.id, action: 'complete', key: nextKey() }).redemption.status, 'completed');
+});
+
+test('a benefit may carry one of the theme collectibles as its icon', t => {
+  const { db, owner } = fixture(t, { spending: 'confirm' });
+  const withIcon = saveReward(db, owner, { name: 'Coffee', description: '', costUnits: 450, active: true, iconKey: 'tart' });
+  assert.equal(withIcon.iconKey, 'tart');
+  const createdAudit = db.prepare("SELECT detail_json FROM audit WHERE action = 'reward.create' AND target_id = ?").get(withIcon.id);
+  assert.equal(JSON.parse(createdAudit.detail_json).iconKey, 'tart');
+  assert.equal(saveReward(db, owner, { name: 'Lunch', description: '', costUnits: 1400, active: true }).iconKey, null);
+  assert.equal(saveReward(db, owner, { name: 'Tea', description: '', costUnits: 300, active: true, iconKey: '' }).iconKey, null, "'' is no icon");
+  for (const iconKey of ['unicorn', 5, {}])
+    assert.throws(() => saveReward(db, owner, { name: 'Bad', description: '', costUnits: 1, active: true, iconKey }), code('INVALID_INPUT'));
+  const stored = () => listRewards(db, { includeInactive: true }).find(reward => reward.id === withIcon.id).iconKey;
+  assert.equal(saveReward(db, owner, { id: withIcon.id, iconKey: 'bolo' }).iconKey, 'bolo');
+  // Checked while an icon is set: forms and older clients edit without iconKey, and that must not wipe it.
+  assert.equal(saveReward(db, owner, { id: withIcon.id, name: 'Coffee, large' }).iconKey, 'bolo', 'leaving it out keeps it');
+  assert.equal(stored(), 'bolo');
+  assert.equal(saveReward(db, owner, { id: withIcon.id, iconKey: null }).iconKey, null, 'null clears the icon');
+  assert.equal(stored(), null);
 });

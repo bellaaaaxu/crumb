@@ -1,9 +1,10 @@
 /* Crumb — the self-hosted app. Boots from GET /api/session: the server, not
  * the page, says who is signed in and what their role is. */
 
-import { ApiError, request, setActor, setCsrf } from './api.js';
+import { ApiError, forgetPendingFor, keepPendingOnlyFor, request, setActor, setCsrf } from './api.js';
 import { button, closeAllDialogs, el, inWeChat, openDialog, safeUrl, toast, uid } from './dom.js';
 import { LANGUAGES, getLocale, has, preferredLocale, rememberLocale, setLocale, t } from './i18n.js';
+import { crackMascot, forgetSeen, keepSeenOnlyFor, ovenIntro } from './motion.js';
 import { spriteCanvas } from './pixels.js';
 import { renderAuth } from './views/auth.js';
 import { renderMember } from './views/member.js';
@@ -15,7 +16,7 @@ const PROJECT_FEEDBACK = 'https://github.com/bellaaaaxu/crumb/issues/new/choose'
 const PROJECT_README = 'https://github.com/bellaaaaxu/crumb#readme';
 
 const root = document.getElementById('app');
-const state = { session: null, link: null, notice: null, loginName: '', generation: 0 };
+const state = { session: null, link: null, notice: null, loginName: '', generation: 0, entering: false };
 
 /* Invitation, reset and sign-in links carry their token in the fragment (#invite=…).
  * Take it once and wipe it from the address bar and the history entry. Inside WeChat a
@@ -38,15 +39,25 @@ async function loadSession() {
   setCsrf(session.csrfToken);
   // Unanswered request keys are kept per person, so someone else signing in here never reuses them.
   setActor(session.user?.id);
+  // The last-seen balance and the unanswered request keys stay only for whoever is signed in
+  // here now. This is also where the page finds out that the server signed someone out: a new
+  // sign-in link, deactivation, expiry.
+  keepSeenOnlyFor(session.user?.id);
+  keepPendingOnlyFor(session.user?.id);
   state.session = session;
   return session;
 }
 
 const isManager = user => user?.role === 'owner' || user?.role === 'admin';
 
+/* Three pages: #/me, #/team and #/settings. Only the first segment counts, so the old
+ * sub-pages (#/team/members and the like) land on their page; the old activity page's
+ * log is on Settings now for owners, and an admin, who may not open Settings, is sent on to
+ * the Team page, where they read it. */
 function currentRoute() {
-  const [section = '', sub = ''] = window.location.hash.replace(/^#\/?/, '').split('/');
-  return { section, sub };
+  const [section = '', sub] = window.location.hash.replace(/^#\/?/, '').split('/');
+  if (section === 'team' && sub === 'activity') return { section: 'settings' };
+  return { section };
 }
 
 function errorText(error) {
@@ -76,8 +87,12 @@ function changeLanguage(code) {
   rememberLocale(code);
   setLocale(code);
   render();
-  // The page was rebuilt in the new language; keep the keyboard where it was.
-  document.querySelector('.language select')?.focus();
+  // The page was rebuilt in the new language; keep the keyboard where it was. On the sign-in
+  // pages that is the picker. Signed in, the picker sat in the name menu, which the rebuild
+  // closed, so the keyboard starts again at the page's content.
+  const picker = document.querySelector('.language select');
+  if (picker && picker.getClientRects().length > 0) picker.focus();
+  else document.getElementById('main')?.focus({ preventScroll: true });
 }
 
 function languagePicker() {
@@ -92,10 +107,16 @@ function languagePicker() {
 }
 
 async function signOut() {
+  const leaving = state.session.user?.id;
   try {
     await request('/api/logout', { method: 'POST' });
   } catch {
     // the session is dropped locally either way
+  }
+  // Before asking the server who is here now, so both go even when that question gets no answer.
+  if (leaving) {
+    forgetSeen(leaving);
+    forgetPendingFor(leaving);
   }
   state.notice = null;
   window.history.replaceState(null, '', window.location.pathname);
@@ -135,6 +156,12 @@ function context(generation) {
     notice: state.notice,
     loginName: state.loginName,
     link: state.link,
+    /* True on the one render that follows the intro: the tile then slides in. */
+    entering: state.entering,
+    /* Views open dialogs through the context, so they need no import of their own for it. */
+    openDialog,
+    /* Resolves true when the error meant the session was gone and the page went back to sign-in. */
+    recover: error => recoverFromSessionLoss(error),
     /* A view that finished loading after the person moved on must not paint. */
     isCurrent: () => generation === state.generation,
     render,
@@ -185,27 +212,97 @@ function skipLink() {
   });
 }
 
+/* The name menu. The header is rebuilt on every render, so these look up the menu that is on
+ * the page now, and the document listeners below serve every header there will be. */
+function closeMenu() {
+  const menu = document.querySelector('.topbar .menu');
+  const who = document.querySelector('.topbar .who');
+  if (!menu || menu.hidden) return;
+  // Focus inside a menu that disappears would fall back to the top of the page.
+  const hadFocus = menu.contains(document.activeElement);
+  menu.hidden = true;
+  who?.setAttribute('aria-expanded', 'false');
+  if (hadFocus) who?.focus();
+}
+
+document.addEventListener('click', event => {
+  const target = event.target instanceof Element ? event.target : null;
+  // A click outside closes it, and so does choosing one of its links (the current page's
+  // link changes nothing in the address, so no rebuild would close it).
+  if (!target?.closest('.topbar .account') || target.closest('.menu a')) closeMenu();
+});
+
+/* The keyboard leaving it closes it too, and stays where it went: an open menu left behind
+ * would hang over whatever has the keyboard next. */
+document.addEventListener('focusin', event => {
+  const target = event.target instanceof Element ? event.target : null;
+  if (!target?.closest('.topbar .account')) closeMenu();
+});
+
+/* Escape closes it and puts the keyboard back on the name. A dialog's Escape is its own. */
+document.addEventListener('keydown', event => {
+  if (event.key !== 'Escape' || (event.target instanceof Element && event.target.closest('dialog'))) return;
+  const menu = document.querySelector('.topbar .menu');
+  if (!menu || menu.hidden) return;
+  closeMenu();
+  document.querySelector('.topbar .who')?.focus();
+});
+
+/* One line: the mascot or logo and the team name; for managers, pills on wide screens; the
+ * person's name on the right, opening a small menu with language and sign out (and, on
+ * phones, the pills). */
 function header(section) {
   const { user, org } = state.session;
-  const links = [['me', t('nav.me')]];
+  const links = [['me', t('nav.mine')]];
   if (isManager(user)) links.push(['team', t('nav.team')]);
   if (user.role === 'owner') links.push(['settings', t('nav.settings')]);
+  const navLinks = () => links.map(([key, label]) => el('a', {
+    text: label, attrs: { href: `#/${key}`, 'aria-current': key === section ? 'page' : false },
+  }));
+  const mascot = el('button', {
+    attrs: { type: 'button', class: 'mascot', 'aria-label': 'Crumb' },
+    on: { click: event => crackMascot(event.currentTarget) },
+  }, [spriteCanvas('laopo', 3)]);
+  const brand = el('div', { attrs: { class: 'brand' } }, [
+    org.hasLogo ? el('img', { attrs: { src: '/api/org/logo', alt: '', class: 'brand-logo', width: 32, height: 32 } }) : mascot,
+    el('span', { text: org.name, attrs: { class: 'brand-name' } }),
+  ]);
+  const menuId = uid('menu');
+  const menu = el('div', { attrs: { id: menuId, class: 'menu', hidden: true } }, [
+    isManager(user) ? el('nav', { attrs: { class: 'menu-nav', 'aria-label': t('nav.label') } }, navLinks()) : null,
+    languagePicker(),
+    button(t('nav.signOut'), {
+      kind: 'quiet',
+      on: {
+        click: () => {
+          // Closed first, so the confirmation hands focus back to the name, which stays visible.
+          closeMenu();
+          if (user.role === 'member') confirmSignOut();
+          else signOut();
+        },
+      },
+    }),
+  ]);
+  // A disclosure, not an ARIA menu: it holds links, a select and a button, not menu items.
+  const who = el('button', {
+    attrs: { type: 'button', class: 'who', 'aria-expanded': 'false', 'aria-controls': menuId, 'aria-label': t('nav.menu', { name: user.displayName }) },
+    on: {
+      click: () => {
+        if (!menu.hidden) {
+          closeMenu();
+          return;
+        }
+        menu.hidden = false;
+        who.setAttribute('aria-expanded', 'true');
+        // The first item that is showing: on wide screens the pills stand in the header instead.
+        [...menu.querySelectorAll('a, select, button')].find(node => node.getClientRects().length > 0)?.focus();
+      },
+    },
+  }, [el('span', { text: user.displayName })]);
   return el('header', { attrs: { class: 'topbar' } }, [
-    el('div', { attrs: { class: 'brand' } }, [
-      org.hasLogo
-        ? el('img', { attrs: { src: '/api/org/logo', alt: '', class: 'brand-logo', width: 36, height: 36 } })
-        : el('span', { attrs: { class: 'brand-mark' } }, [spriteCanvas('laopo', 3)]),
-      el('span', { text: org.name, attrs: { class: 'brand-name' } }),
-    ]),
-    el('nav', { attrs: { class: 'main-nav', 'aria-label': t('nav.label') } },
-      links.map(([key, label]) => el('a', {
-        text: label, attrs: { href: `#/${key}`, 'aria-current': key === section ? 'page' : false },
-      }))),
-    el('div', { attrs: { class: 'account' } }, [
-      languagePicker(),
-      el('span', { text: user.displayName, attrs: { class: 'who' } }),
-      button(t('nav.signOut'), { kind: 'quiet', on: { click: () => (user.role === 'member' ? confirmSignOut() : signOut()) } }),
-    ]),
+    brand,
+    isManager(user) ? el('nav', { attrs: { class: 'main-nav', 'aria-label': t('nav.label') } }, navLinks()) : null,
+    el('div', { attrs: { class: 'account' } }, [who, menu]),
   ]);
 }
 
@@ -250,6 +347,8 @@ function wrongAddress() {
 function render() {
   state.generation += 1;
   const ctx = context(state.generation);
+  // The tile slides in once, on the render that follows the intro; later renders keep still.
+  state.entering = false;
   closeAllDialogs();
   const { session } = state;
   const elsewhere = wrongAddress();
@@ -263,12 +362,11 @@ function render() {
   if (!session.user) return renderAuth(root, ctx, 'login');
 
   const { user } = session;
-  let { section, sub } = currentRoute();
+  let { section } = currentRoute();
   const allowed = section === 'me' || (section === 'team' && isManager(user)) || (section === 'settings' && user.role === 'owner');
-  if (!allowed) {
-    window.history.replaceState(null, '', isManager(user) ? '#/team' : '#/me');
-    ({ section, sub } = currentRoute());
-  }
+  if (!allowed) section = isManager(user) ? 'team' : 'me';
+  // The address names the page shown, also after an old sub-page address such as #/team/members.
+  if (window.location.hash !== `#/${section}`) window.history.replaceState(null, '', `#/${section}`);
   const main = el('main', { attrs: { id: 'main', class: 'page', tabindex: '-1' } });
   root.replaceChildren(skipLink(), header(section), main, footer());
   document.title = `${t(`title.${section}`)} · ${session.org.name}`;
@@ -276,7 +374,7 @@ function render() {
   // screen-reader users at the new content, not back at the top of the document.
   main.focus({ preventScroll: true });
   if (section === 'me') renderMember(main, ctx);
-  else if (section === 'team') renderAdmin(main, ctx, sub);
+  else if (section === 'team') renderAdmin(main, ctx);
   else renderSettings(main, ctx);
 }
 
@@ -306,6 +404,12 @@ async function boot() {
     return;
   }
   setLocale(preferredLocale(state.session.org?.locale));
+  // Once per page load, for someone already signed in: the intro, then the tile slides in.
+  // A sign-in link or the sign-in page goes straight to its form.
+  if (state.session.user && !state.link) {
+    state.entering = true;
+    await ovenIntro({ title: t('intro.title'), skip: t('intro.skip') });
+  }
   render();
   window.addEventListener('hashchange', () => {
     const link = takeLinkFromFragment();

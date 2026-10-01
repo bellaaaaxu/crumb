@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import sharp from 'sharp';
 import { normalizeLogo, updateOrg } from '../server/org.mjs';
 import { grant } from '../server/ledger.mjs';
+import { updateMember } from '../server/members.mjs';
 import { saveReward } from '../server/rewards.mjs';
 import { client, fixture, joinTeam, setupOrganization, startServer } from './helpers.mjs';
 
@@ -172,4 +173,27 @@ test('a contact address that cannot be decoded is refused, not a server error', 
   const { db, owner } = fixture(t);
   for (const adminContact of ['mailto:%E0%A4%A', 'mailto:%zz@example.com'])
     assert.throws(() => updateOrg(db, owner, { adminContact }), code('INVALID_INPUT'), adminContact);
+});
+
+test('the spending mode defaults to self, and only an owner changes it, at any time', t => {
+  const { db, owner, member } = fixture(t);
+  assert.equal(updateOrg(db, owner, {}).spending, 'self');
+  grant(db, owner, { userId: member.id, units: 500, reason: 'First one', key: 'spending-lock-grant-01' });
+  assert.equal(updateOrg(db, owner, { spending: 'confirm' }).spending, 'confirm');
+  assert.equal(updateOrg(db, owner, { spending: 'self' }).spending, 'self');
+  assert.throws(() => updateOrg(db, owner, { spending: 'honour' }), code('INVALID_INPUT'));
+  const admin = updateMember(db, owner, member.id, { role: 'admin' });
+  assert.throws(() => updateOrg(db, { id: admin.id, role: 'admin' }, { spending: 'confirm' }), code('FORBIDDEN'));
+  const audit = db.prepare(`SELECT detail_json FROM audit WHERE action = 'org.update' ORDER BY created_at DESC, rowid DESC LIMIT 1`).get();
+  assert.deepEqual(JSON.parse(audit.detail_json).changed, ['spending']);
+});
+
+test('setup accepts a spending mode and the session reports it', async t => {
+  const server = await startServer(t);
+  const { api } = await setupOrganization(server, { org: { spending: 'confirm' } });
+  const session = await api.request('GET', '/api/session');
+  assert.equal(session.body.org.spending, 'confirm');
+  const other = await startServer(t);
+  const plain = await setupOrganization(other);
+  assert.equal((await plain.api.request('GET', '/api/session')).body.org.spending, 'self');
 });
