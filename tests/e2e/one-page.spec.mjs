@@ -532,6 +532,248 @@ test('a phone keeps none of the member\'s unanswered request keys once the serve
   }
 });
 
+/* ---------------------------------------------------------------- signing out needs the server */
+
+/* The session cookie is httpOnly: only the server can end a session, so a sign-out counts only
+ * once the server has confirmed it, and until then the page stays signed in and says so. */
+
+/* Every error the page throws, and every promise it leaves rejected with nothing to catch it,
+ * from the moment this is called. */
+function pageErrors(page) {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  return errors;
+}
+
+/* Who the server says is signed in on this browser, asked with the browser's own cookie and
+ * past any route a test set up for the page. Null when no one is. Asking is not free: with no
+ * session in the browser, the answer starts a signed-out one and its cookie lands in the
+ * browser, so a page that signs in after this is given that session, not one of its own. */
+async function signedInHere(page, origin) {
+  const answer = await page.request.get(`${origin}/api/session`);
+  return (await answer.json()).user;
+}
+
+const SIGN_OUT_FAILED = 'Sign-out didn’t go through, so you’re still signed in. Try again in a moment.';
+
+test('a member whose sign-out never reaches Crumb stays signed in, is told so, and signs out on the next try', async ({ browser }) => {
+  const fx = await provision(browser, { mode: 'credit', spending: 'self' });
+  try {
+    const errors = pageErrors(fx.memberPage);
+    const { page, kept } = await leaveSpendUnanswered(fx);
+    const seen = () => page.evaluate(() => Object.keys(window.localStorage).filter(name => name.startsWith('crumb.seen.')));
+    expect(await seen()).toEqual([`crumb.seen.${fx.memberId}`]);
+
+    await page.route('**/api/logout', route => route.abort('connectionreset'));
+    await nameMenu(page).click();
+    await page.getByRole('button', { name: 'Sign out', exact: true }).click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Sign out', exact: true }).click();
+    await expect(page.locator('#toasts')).toContainText(SIGN_OUT_FAILED);
+    // Nothing changed: the member's page, the keyboard back on the closed name menu, and the
+    // browser still holding what it held, because the server still holds the session.
+    await expect(page.getByTestId('available-balance')).toBeVisible();
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expect(nameMenu(page)).toBeFocused();
+    await expect(nameMenu(page)).toHaveAttribute('aria-expanded', 'false');
+    expect(await seen()).toEqual([`crumb.seen.${fx.memberId}`]);
+    expect(await kept()).toEqual(['spend']);
+    expect((await signedInHere(page, fx.origin))?.id).toBe(fx.memberId);
+
+    // The connection is back: trying again signs out, and only now does the browser forget.
+    await page.unroute('**/api/logout');
+    await signOut(page, { member: true });
+    expect(await seen()).toEqual([]);
+    expect(await kept()).toEqual([]);
+    expect(await signedInHere(page, fx.origin)).toBeNull();
+    expect(errors).toEqual([]);
+  } finally {
+    await fx.close();
+  }
+});
+
+test('an owner whose sign-out Crumb cannot take right now stays signed in, is told so, and signs out on the next try', async ({ browser }) => {
+  const fx = await provision(browser, { mode: 'points' });
+  try {
+    const page = fx.ownerPage;
+    const errors = pageErrors(page);
+    await page.route('**/api/logout', route => route.fulfill({
+      status: 503,
+      contentType: 'application/json',
+      body: JSON.stringify({ error: { code: 'RETRY_LATER', message: 'Crumb is busy right now.' } }),
+    }));
+    // Owners and admins are not asked first: the sign-out goes out at once.
+    await nameMenu(page).click();
+    await page.getByRole('button', { name: 'Sign out', exact: true }).click();
+    await expect(page.locator('#toasts')).toContainText(SIGN_OUT_FAILED);
+    await expect(nameMenu(page)).toBeFocused();
+    await expect(nameMenu(page)).toHaveAttribute('aria-expanded', 'false');
+    await expect(page).toHaveURL(/#\/team$/);
+    await expect(page.getByRole('heading', { name: 'Sign in to Northside Coffee Co.' })).toHaveCount(0);
+    expect((await signedInHere(page, fx.origin))?.username).toBe('olive');
+
+    await page.unroute('**/api/logout');
+    await signOut(page);
+    expect(await signedInHere(page, fx.origin)).toBeNull();
+    expect(errors).toEqual([]);
+  } finally {
+    await fx.close();
+  }
+});
+
+test('a sign-out Crumb confirmed shows the sign-in page even when no answer comes to who is here now', async ({ browser }) => {
+  const fx = await provision(browser, { mode: 'points' });
+  try {
+    const page = fx.ownerPage;
+    const errors = pageErrors(page);
+    // From the moment the sign-out goes out, asking the server who is here now gets no answer:
+    // the sign-in page is drawn from what the page already knew.
+    let leaving = false;
+    await page.route('**/api/logout', route => {
+      leaving = true;
+      return route.continue();
+    });
+    await page.route('**/api/session', route => (leaving ? route.abort('connectionreset') : route.continue()));
+    await nameMenu(page).click();
+    await page.getByRole('button', { name: 'Sign out', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Sign in to Northside Coffee Co.' })).toBeVisible();
+    await expect(nameMenu(page)).toHaveCount(0);
+    expect(await signedInHere(page, fx.origin)).toBeNull();
+
+    // Once Crumb answers again, the page, holding no token, asks for a session before the form's
+    // first try goes out, so one try gets in. (The question just above left a signed-out session
+    // in the browser: that is the one the page is given.)
+    await page.unroute('**/api/session');
+    const tries = [];
+    page.on('request', request => {
+      if (new URL(request.url()).pathname === '/api/login') tries.push(request.headers()['x-csrf-token'] ?? null);
+    });
+    await page.getByLabel('Username').fill('olive');
+    await page.getByLabel('Password', { exact: true }).fill(PASSWORD);
+    await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+    await expect(nameMenu(page)).toBeVisible();
+    expect(tries).toHaveLength(1);
+    expect(tries[0]).toBeTruthy();
+    expect(errors).toEqual([]);
+  } finally {
+    await fx.close();
+  }
+});
+
+test('a sign-out from a tab whose session the same member replaced in another tab still ends the browser\'s session', async ({ browser }) => {
+  const fx = await provision(browser, { mode: 'points' });
+  try {
+    const page = fx.memberPage;
+    const errors = pageErrors(page);
+    // A new link of hers opened in a second tab of the same browser: the browser now holds a
+    // new session of hers, and the first tab's CSRF token belongs to the one it replaced.
+    const { body } = await fx.api.request('POST', `/api/admin/members/${fx.memberId}/signin-link`, undefined, key());
+    const second = await page.context().newPage();
+    await signInWithLink(second, body.signinUrl);
+    const answers = [];
+    page.on('response', response => {
+      if (new URL(response.url()).pathname === '/api/logout') answers.push(response.status());
+    });
+    await signOut(page, { member: true });
+    // Turned down for the stale token, then sent once more with the token of the session the
+    // browser holds now.
+    expect(answers).toEqual([403, 204]);
+    expect(await signedInHere(page, fx.origin)).toBeNull();
+    expect(errors).toEqual([]);
+  } finally {
+    await fx.close();
+  }
+});
+
+test('a sign-out from a tab whose session someone else replaced leaves that person signed in', async ({ browser }) => {
+  const fx = await provision(browser, { mode: 'points' });
+  try {
+    const page = fx.memberPage;
+    const errors = pageErrors(page);
+    // Bo, another team member, opens his own link in a second tab of the same browser. His
+    // sign-in ended Mina's session here; the first tab still shows her page, with her token.
+    const bo = await fx.api.request('POST', '/api/admin/invitations', { username: 'bo.lindqvist', displayName: 'Bo Lindqvist', role: 'member' });
+    const second = await page.context().newPage();
+    await signInWithLink(second, bo.body.signinUrl);
+    const answers = [];
+    page.on('response', response => {
+      if (new URL(response.url()).pathname === '/api/logout') answers.push(response.status());
+    });
+    await nameMenu(page).click();
+    await page.getByRole('button', { name: 'Sign out', exact: true }).click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Sign out', exact: true }).click();
+    // Her session is over, so her sign-out counts; it is turned down for her token and not sent
+    // again, because Bo's session is not hers to end. The tab shows what the server says now.
+    await expect(nameMenu(page)).toHaveAccessibleName('Menu for Bo Lindqvist');
+    expect(answers).toEqual([403]);
+    expect((await signedInHere(page, fx.origin))?.id).toBe(bo.body.user.id);
+    const seen = await page.evaluate(() => Object.keys(window.localStorage).filter(name => name.startsWith('crumb.seen.')));
+    expect(seen).not.toContain(`crumb.seen.${fx.memberId}`);
+    await second.reload();
+    await expect(nameMenu(second)).toHaveAccessibleName('Menu for Bo Lindqvist');
+    expect(errors).toEqual([]);
+  } finally {
+    await fx.close();
+  }
+});
+
+test('a sign-out Crumb never answers is let go within the time limit, runs one at a time, and its late answer ends no one\'s session', async ({ browser }) => {
+  const fx = await provision(browser, { mode: 'points' });
+  try {
+    const page = fx.ownerPage;
+    const errors = pageErrors(page);
+    // The first sign-out's request is held: no answer comes while the page waits. Later ones pass.
+    const held = [];
+    await page.route('**/api/logout', route => {
+      held.push(route);
+    }, { times: 1 });
+    const logouts = [];
+    page.on('request', request => {
+      if (new URL(request.url()).pathname === '/api/logout') logouts.push(request);
+    });
+    const letGo = page.waitForEvent('requestfailed', {
+      predicate: request => new URL(request.url()).pathname === '/api/logout',
+      timeout: 15_000,
+    });
+    await nameMenu(page).click();
+    await page.getByRole('button', { name: 'Sign out', exact: true }).click();
+    // While it waits, the name looks busy and Sign out cannot be started a second time.
+    await expect(page.locator('.topbar .account')).toHaveClass(/signing-out/);
+    await nameMenu(page).click();
+    await expect(page.getByRole('button', { name: 'Sign out', exact: true })).toBeDisabled();
+    await page.keyboard.press('Escape');
+    await expect(nameMenu(page)).toBeFocused();
+    // The person moves on to the page while waiting.
+    await page.locator('#main').focus();
+
+    // Within the time limit (ten seconds) the page lets the request go and says the sign-out did
+    // not go through. Nothing else changed: still signed in, and the keyboard stays where the
+    // person took it.
+    await letGo;
+    await expect(page.locator('#toasts')).toContainText(SIGN_OUT_FAILED);
+    await expect(page.locator('.topbar .account')).not.toHaveClass(/signing-out/);
+    await expect(page.locator('#main')).toBeFocused();
+    await expect(page.getByRole('heading', { name: 'Sign in to Northside Coffee Co.' })).toHaveCount(0);
+    expect(logouts).toHaveLength(1);
+
+    // Trying again goes through, and someone signs in at the form.
+    await signOut(page);
+    await page.getByLabel('Username').fill('olive');
+    await page.getByLabel('Password', { exact: true }).fill(PASSWORD);
+    await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+    await expect(nameMenu(page)).toBeVisible();
+
+    // The first request is released only now. The page let it go, so no answer to it is read and
+    // nothing more is sent: whoever signed in since stays signed in.
+    await held[0].continue().catch(() => {});
+    expect(logouts).toHaveLength(2);
+    await expect(nameMenu(page)).toBeVisible();
+    expect((await signedInHere(page, fx.origin))?.username).toBe('olive');
+    expect(errors).toEqual([]);
+  } finally {
+    await fx.close();
+  }
+});
+
 test('a person opens to their actions, and stays open with the keyboard on them after a change', async ({ browser }) => {
   const fx = await provision(browser, { mode: 'points' });
   try {

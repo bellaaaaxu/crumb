@@ -22,6 +22,7 @@ export default {
   'nav.mine': 'Mine',
   'signOut.title': 'Sign out of this device?',
   'signOut.memberNote': 'You sign in with a personal link, not a password. Once you sign out, you need a new link from your admin to sign in again.',
+  'signOut.failed': 'Sign-out didn’t go through, so you’re still signed in. Try again in a moment.',
 
   'title.me': 'My Crumb',
   'title.team': 'Team',

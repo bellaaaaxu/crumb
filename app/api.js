@@ -9,6 +9,15 @@ export function setCsrf(token) {
   csrfToken = token;
 }
 
+/* Where a token comes from when the page holds none. That happens in one case only: a
+ * sign-out Crumb confirmed whose next question, who is here now, got no answer, so the
+ * sign-in page was drawn without a token. Asking just before the next change goes out spares
+ * the next person a first try turned down for a token they never had. */
+let renewToken = null;
+export function renewTokenWith(renew) {
+  renewToken = renew;
+}
+
 export class ApiError extends Error {
   constructor(status, code, message, field) {
     super(message || code);
@@ -22,11 +31,26 @@ export class ApiError extends Error {
  * `key` is the Idempotency-Key for a change. Callers create one per action
  * and reuse it for every retry of that action, so a request that reached the
  * server before the connection dropped is never recorded twice.
+ *
+ * `csrf` sends one request with another token than the page's own, without
+ * making it the page's: signing out uses it to try once more with a token the
+ * server has just given, and keeps the page as it was if that try fails too.
+ *
+ * `signal` ends the wait from the page's side: the request then fails as one
+ * with no answer, and an answer arriving later is never read.
  */
-export async function request(path, { method = 'GET', body, key, contentType } = {}) {
+export async function request(path, { method = 'GET', body, key, contentType, csrf, signal } = {}) {
+  if (method !== 'GET' && csrf === undefined && !csrfToken && renewToken) {
+    try {
+      await renewToken();
+    } catch {
+      // Still none: the change goes without one and is turned down for it, as it would have been.
+    }
+  }
+  const token = csrf ?? csrfToken;
   const headers = {};
-  const init = { method, headers, credentials: 'same-origin', cache: 'no-store' };
-  if (method !== 'GET' && csrfToken) headers['X-CSRF-Token'] = csrfToken;
+  const init = { method, headers, credentials: 'same-origin', cache: 'no-store', signal };
+  if (method !== 'GET' && token) headers['X-CSRF-Token'] = token;
   if (key) headers['Idempotency-Key'] = key;
   if (body instanceof Blob) {
     headers['Content-Type'] = contentType || body.type;

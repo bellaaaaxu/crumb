@@ -219,10 +219,12 @@ lock everyone out for 15 minutes. Run Crumb as an unprivileged user that owns `D
   app with its own storage, the tip tells people to turn off "Open as Web App"; an iPhone
   home-screen app that starts signed out explains how to add the icon again.
 - An owner's or admin's session lasts at most 12 hours; a team member's device stays signed
-  in for up to 180 days. Sessions are cookies Crumb's pages cannot read. Using a
-  password-reset link, a role change, owner recovery and deactivation end that person's
-  sessions. There is no self-service password change in this version: an owner makes a
-  reset link.
+  in for up to 180 days. Sessions are cookies Crumb's pages cannot read, so signing out ends a
+  session only once Crumb confirms it: when the page cannot reach Crumb within ten seconds, it
+  says so and stays signed in, and nothing in the browser is cleared until a sign-out goes
+  through. Using a password-reset link, a role change, owner recovery and deactivation end
+  that person's sessions. There is no self-service password change in this version: an owner
+  makes a reset link.
 - Every permission is checked by the server. Members can only see their own balance,
   collection, history and requests; there are no leaderboards or cross-member comparisons.
 - The server logs startup, errors by type, and nothing else: no passwords, links, cookies or

@@ -22,6 +22,7 @@ export default {
   'nav.mine': '我的',
   'signOut.title': '要在这台设备上退出登录吗？',
   'signOut.memberNote': '你是用专属链接登录的，没有密码。退出后，需要管理员再发一个新链接才能重新登录。',
+  'signOut.failed': '退出没成功，你还在登录状态。过一会儿再试一次吧。',
 
   'title.me': '我的 Crumb',
   'title.team': '团队',

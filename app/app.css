@@ -90,6 +90,8 @@ a { color: var(--wood); text-underline-offset: 3px; }
 }
 .who span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .who::after { content: ''; width: 6px; height: 6px; border-right: 2px solid var(--ink-soft); border-bottom: 2px solid var(--ink-soft); transform: rotate(45deg) translateY(-2px); flex: none; }
+/* A sign-out is waiting for Crumb (main.js): the name looks busy until it is settled. */
+.account.signing-out .who { opacity: 0.6; cursor: progress; }
 .menu {
   position: absolute; right: 0; top: calc(100% + 8px); z-index: 20;
   min-width: 200px; padding: 8px;

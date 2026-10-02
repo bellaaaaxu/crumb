@@ -1,7 +1,7 @@
 /* Crumb — the self-hosted app. Boots from GET /api/session: the server, not
  * the page, says who is signed in and what their role is. */
 
-import { ApiError, forgetPendingFor, keepPendingOnlyFor, request, setActor, setCsrf } from './api.js';
+import { ApiError, forgetPendingFor, keepPendingOnlyFor, renewTokenWith, request, setActor, setCsrf } from './api.js';
 import { button, closeAllDialogs, el, inWeChat, openDialog, safeUrl, toast, uid } from './dom.js';
 import { LANGUAGES, getLocale, has, preferredLocale, rememberLocale, setLocale, t } from './i18n.js';
 import { crackMascot, forgetSeen, keepSeenOnlyFor, ovenIntro } from './motion.js';
@@ -16,7 +16,9 @@ const PROJECT_FEEDBACK = 'https://github.com/bellaaaaxu/crumb/issues/new/choose'
 const PROJECT_README = 'https://github.com/bellaaaaxu/crumb#readme';
 
 const root = document.getElementById('app');
-const state = { session: null, link: null, notice: null, loginName: '', generation: 0, entering: false };
+/* `epoch` changes whenever who is signed in on this page changes, and with every sign-in made
+ * here: something still waiting from before, such as a sign-out, must not act on what it hears. */
+const state = { session: null, link: null, notice: null, loginName: '', generation: 0, entering: false, epoch: 0 };
 
 /* Invitation, reset and sign-in links carry their token in the fragment (#invite=…).
  * Take it once and wipe it from the address bar and the history entry. Inside WeChat a
@@ -35,7 +37,12 @@ function takeLinkFromFragment() {
 }
 
 async function loadSession() {
-  const session = await request('/api/session');
+  return adoptSession(await request('/api/session'));
+}
+
+/* Makes the page the given session's: its token, whose request keys and last-seen balance stay. */
+function adoptSession(session) {
+  if (session.user?.id !== state.session?.user?.id) state.epoch += 1;
   setCsrf(session.csrfToken);
   // Unanswered request keys are kept per person, so someone else signing in here never reuses them.
   setActor(session.user?.id);
@@ -106,22 +113,127 @@ function languagePicker() {
   ]);
 }
 
+/* How long a sign-out waits for Crumb before the page says it did not go through. Without a
+ * limit, a request that never gets an answer leaves the person with no word at all, and an
+ * answer arriving after someone else has signed in here could be acted on for them. */
+const SIGN_OUT_TIME_LIMIT_MS = 10_000;
+
+/* One sign-out at a time: a second one started while the first still waits would let the
+ * first one's late answer be acted on after the second had ended and someone had signed in. */
+let signingOut = false;
+
+/* Says whether the server has confirmed that the leaving person's session on this browser is
+ * over: `ended` true when it has, with `now`, the server's answer to who is here now, when that
+ * was asked on the way; `ended` false when that could not be established. The session cookie
+ * is httpOnly, so nothing the page clears ends a session: a sign-out that never reached the
+ * server leaves the session running, and on a shared device the next person would carry on as
+ * the one who left. */
+async function endServerSession(leaving, { signal, current }) {
+  // The page's own token first. Undefined keeps it; a retry sends the one the server just gave.
+  let csrf;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      await request('/api/logout', { method: 'POST', csrf, signal });
+      return { ended: true };
+    } catch (failure) {
+      // No answer (none within the time limit, too), an answer cut short, a busy or failing
+      // server: the session may well be running still, and only trying again can tell.
+      if (!(failure instanceof ApiError) || failure.code !== 'CSRF_FAILED') return { ended: false };
+    }
+    // Turned down for its token: the session it belonged to is gone (expired, ended elsewhere,
+    // or replaced by a sign-in in another tab). Ask who the browser holds now.
+    let now;
+    try {
+      now = await request('/api/session', { signal });
+    } catch {
+      return { ended: false };
+    }
+    // No one, or someone else: a sign-in on this browser ends the session it had, so the
+    // leaver's is over either way. Someone else's session is not the leaver's to end.
+    if (!now.user || now.user.id !== leaving) return { ended: true, now };
+    // The leaver again, signed in once more in another tab: the sign-out goes once more, with
+    // that session's token, unless this page has moved on meanwhile.
+    if (!current()) return { ended: false };
+    csrf = now.csrfToken;
+  }
+  return { ended: false };
+}
+
 async function signOut() {
   const leaving = state.session.user?.id;
+  const { epoch } = state;
+  const current = () => state.epoch === epoch;
+  // One limit for the whole sign-out: past it, every request still waiting is let go, so the
+  // page settles in time and nothing that answers later is acted on.
+  const limit = new AbortController();
+  const timer = window.setTimeout(() => limit.abort(), SIGN_OUT_TIME_LIMIT_MS);
   try {
-    await request('/api/logout', { method: 'POST' });
-  } catch {
-    // the session is dropped locally either way
+    const outcome = await endServerSession(leaving, { signal: limit.signal, current });
+    // Someone signed in or out on this page while this waited (a sign-in link opened here, or
+    // a view finding the session gone): the page shows that already, and this has nothing to add.
+    if (!current()) return;
+    if (!outcome.ended) {
+      // Still signed in, so everything stays as it was, the browser's memory included: clearing
+      // it would only hide that the session is still running. Say so. The menu was closed when
+      // this began. The keyboard goes back to the name, where signing out starts again, only
+      // when it is nowhere else: someone who moved on while this waited keeps their place.
+      const active = document.activeElement;
+      if (!active || active === document.body) document.querySelector('.topbar .who')?.focus();
+      toast(t('signOut.failed'), { tone: 'error' });
+      return;
+    }
+    // Before asking the server who is here now, so both go even when that question gets no answer.
+    if (leaving) {
+      forgetSeen(leaving);
+      forgetPendingFor(leaving);
+    }
+    state.notice = null;
+    window.history.replaceState(null, '', window.location.pathname);
+    // Who is here now, with the token the sign-in form sends: the answer given on the way, or a
+    // fresh signed-out session asked for within what is left of the time limit.
+    const next = outcome.now ?? await request('/api/session', { signal: limit.signal }).catch(() => null);
+    if (!current()) return;
+    if (next) {
+      adoptSession(next);
+    } else {
+      // No answer: the next person must still never see the leaver's page. The sign-in page is
+      // drawn from what a signed-out page is given (the organization's name, language and
+      // logo), with no token; the first change it sends asks for one (see boot).
+      const { org } = state.session;
+      adoptSession({
+        ...state.session,
+        user: null,
+        csrfToken: null,
+        org: org && { name: org.name, locale: org.locale, hasLogo: org.hasLogo },
+      });
+    }
+    render();
+  } finally {
+    window.clearTimeout(timer);
   }
-  // Before asking the server who is here now, so both go even when that question gets no answer.
-  if (leaving) {
-    forgetSeen(leaving);
-    forgetPendingFor(leaving);
-  }
-  state.notice = null;
-  window.history.replaceState(null, '', window.location.pathname);
-  await loadSession();
-  render();
+}
+
+/* While a sign-out waits, the name looks busy and Sign out is greyed out in its menu. The
+ * header is rebuilt on every render, so this marks the one on the page now (header() marks
+ * a new one). */
+function showSigningOut() {
+  document.querySelector('.topbar .account')?.classList.toggle('signing-out', signingOut);
+  const leave = document.querySelector('.topbar [data-sign-out]');
+  if (leave) leave.disabled = signingOut;
+}
+
+/* signOut() settles every failure it can foresee itself; the catch is the last guard, so a
+ * click never leaves a promise rejected with nothing to catch it. */
+function startSignOut() {
+  if (signingOut) return;
+  signingOut = true;
+  showSigningOut();
+  signOut()
+    .catch(() => toast(t('error.generic'), { tone: 'error' }))
+    .finally(() => {
+      signingOut = false;
+      showSigningOut();
+    });
 }
 
 /* A team member has no password: once signed out, only a new link from an admin gets them
@@ -134,7 +246,7 @@ function confirmSignOut() {
     on: {
       click: () => {
         opened.close();
-        signOut();
+        startSignOut();
       },
     },
   });
@@ -183,6 +295,8 @@ function context(generation) {
       else toast(message, { tone: 'error' });
     },
     async onSignedIn() {
+      // A sign-in made here is a new turn even when it is the same person again (see state.epoch).
+      state.epoch += 1;
       state.link = null;
       state.notice = null;
       state.loginName = '';
@@ -273,12 +387,14 @@ function header(section) {
     languagePicker(),
     button(t('nav.signOut'), {
       kind: 'quiet',
+      // Greyed out while a sign-out still waits (see showSigningOut).
+      attrs: { 'data-sign-out': true, disabled: signingOut },
       on: {
         click: () => {
           // Closed first, so the confirmation hands focus back to the name, which stays visible.
           closeMenu();
           if (user.role === 'member') confirmSignOut();
-          else signOut();
+          else startSignOut();
         },
       },
     }),
@@ -302,7 +418,7 @@ function header(section) {
   return el('header', { attrs: { class: 'topbar' } }, [
     brand,
     isManager(user) ? el('nav', { attrs: { class: 'main-nav', 'aria-label': t('nav.label') } }, navLinks()) : null,
-    el('div', { attrs: { class: 'account' } }, [who, menu]),
+    el('div', { attrs: { class: signingOut ? 'account signing-out' : 'account' } }, [who, menu]),
   ]);
 }
 
@@ -395,6 +511,9 @@ function noServer() {
 async function boot() {
   setLocale(preferredLocale());
   state.link = takeLinkFromFragment();
+  // A page drawn without a token (a confirmed sign-out whose next question got no answer) asks
+  // for a session before its first change goes out, instead of having that change turned down.
+  renewTokenWith(loadSession);
   try {
     await loadSession();
   } catch (failure) {
