@@ -152,6 +152,9 @@ export function closeAllDialogs() {
 export function toast(message, { tone = 'info' } = {}) {
   const region = document.getElementById('toasts');
   if (!region) return;
+  // On a phone the stack comes in just under the header (app.css), however tall large text makes it.
+  const bar = document.querySelector('.topbar');
+  region.style.setProperty('--header-height', bar ? `${bar.offsetHeight}px` : '');
   const item = el('p', { text: message, attrs: { class: `toast toast-${tone}` } });
   region.append(item);
   window.setTimeout(() => item.remove(), 7000);

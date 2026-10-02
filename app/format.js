@@ -40,3 +40,12 @@ export function unitsToInput(units, mode) {
   const cents = units % 100;
   return `${(units - cents) / 100}.${String(cents).padStart(2, '0')}`;
 }
+
+/* Whether a benefit the member cannot afford yet is close enough for "Almost there": short
+ * by more than nothing and by at most half its price. A bigger gap gets no line, since
+ * "a little more" would not be true. The half is compared as gap * 2 <= price, so an odd
+ * price is never rounded either way; both sides stay well inside a safe integer. */
+export function isAlmostThere(availableUnits, costUnits) {
+  const gap = costUnits - availableUnits;
+  return gap > 0 && gap * 2 <= costUnits;
+}

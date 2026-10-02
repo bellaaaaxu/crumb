@@ -8,9 +8,10 @@ import { amount, invalid, oneOf, readObject, text } from './validate.mjs';
 
 export const CURRENCIES = ['CAD', 'USD', 'CNY'];
 export const LOCALES = ['en', 'zh-CN'];
+export const SPENDING = ['self', 'confirm'];
 const OWNER = ['owner'];
 
-const ORG_COLUMNS = `name, mode, currency, unit_label, threshold_units, locale, welcome,
+const ORG_COLUMNS = `name, mode, currency, unit_label, threshold_units, locale, welcome, spending,
   admin_contact, feedback_url, (logo_png IS NOT NULL) AS has_logo,
   EXISTS (SELECT 1 FROM ledger) AS has_ledger, EXISTS (SELECT 1 FROM rewards) AS has_rewards`;
 
@@ -28,6 +29,7 @@ export function orgView(row, { signedIn }) {
     thresholdUnits: row.threshold_units,
     locale: row.locale,
     welcome: row.welcome,
+    spending: row.spending,
     adminContact: row.admin_contact,
     feedbackUrl: row.feedback_url,
     hasLogo: row.has_logo === 1,
@@ -50,6 +52,7 @@ const NEW_ORG = {
   threshold: amount(),
   locale: oneOf(LOCALES),
   welcome: text({ max: 500, optional: true, multiline: true }),
+  spending: oneOf(SPENDING, { optional: true }),
 };
 
 /* Reward rules chosen at first setup: credit needs a currency, points must not have one. */
@@ -65,6 +68,7 @@ export function readNewOrg(input) {
     thresholdUnits: parseUnits(org.threshold, org.mode),
     locale: org.locale,
     welcome: org.welcome ?? '',
+    spending: org.spending ?? 'self',
   };
 }
 
@@ -116,18 +120,21 @@ const ORG_PATCH = {
   mode: oneOf(['credit', 'points'], { optional: true }),
   currency: oneOf(CURRENCIES, { optional: true }),
   threshold: amount({ optional: true }),
+  spending: oneOf(SPENDING, { optional: true }),
 };
 
 const COLUMN = {
   name: 'name', welcome: 'welcome', locale: 'locale', unitLabel: 'unit_label', adminContact: 'admin_contact',
   feedbackUrl: 'feedback_url', mode: 'mode', currency: 'currency', thresholdUnits: 'threshold_units',
+  spending: 'spending',
 };
 
 /**
- * Owner-only settings. Names, welcome text, language and links can always
- * change. The reward rules — credit or points, currency, unlock threshold —
- * are fixed once the ledger has an entry, and the unit is also fixed once a
- * benefit has a price in it, so nothing already recorded changes meaning.
+ * Owner-only settings. Names, welcome text, language, links and the spending
+ * mode can always change. The reward rules — credit or points, currency,
+ * unlock threshold — are fixed once the ledger has an entry, and the unit is
+ * also fixed once a benefit has a price in it, so nothing already recorded
+ * changes meaning.
  */
 export function updateOrg(db, actor, patch, clock = () => Date.now()) {
   requireRole(actor, OWNER);
@@ -161,13 +168,14 @@ export function updateOrg(db, actor, patch, clock = () => Date.now()) {
       mode,
       currency,
       thresholdUnits,
+      spending: fields.spending ?? row.spending,
     };
     const changed = Object.keys(next).filter(key => next[key] !== row[COLUMN[key]]);
     if (changed.length) {
       const at = new Date(clock()).toISOString();
       db.prepare(`UPDATE organization SET name = @name, welcome = @welcome, locale = @locale, unit_label = @unitLabel,
                     admin_contact = @adminContact, feedback_url = @feedbackUrl, mode = @mode, currency = @currency,
-                    threshold_units = @thresholdUnits, updated_at = @at WHERE id = 1`).run({ ...next, at });
+                    threshold_units = @thresholdUnits, spending = @spending, updated_at = @at WHERE id = 1`).run({ ...next, at });
       writeAudit(db, { actorId: current.id, action: 'org.update', detail: { changed } }, at);
     }
     return orgView(readOrgRow(db), { signedIn: true });

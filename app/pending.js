@@ -7,9 +7,13 @@
  * localStorage, so that it survives a reload of the page too.
  *
  * Kept per signed-in person: a random key, a SHA-256 fingerprint of the change
- * (never the change itself — no names, amounts or messages), what kind of
- * change it was, and when. Entries go once answered, and after seven days in
- * any case. If the browser will not store them, this page still keeps them. */
+ * (not the change itself), what kind of change it was, and when. A fingerprint
+ * does not hide a small change: someone using this browser could try every
+ * amount until one matches "spend:<units>". So entries go once answered, and as
+ * soon as their person signs out or the page finds no one, or someone else,
+ * signed in here (main.js). One older than seven days is no longer used, and goes
+ * with the next write of the list, which the page makes each time it learns who
+ * is signed in. If the browser will not store them, this page still keeps them. */
 
 const STORE = 'crumb.pending';
 const LIFETIME_MS = 7 * 24 * 60 * 60 * 1000;
@@ -63,6 +67,22 @@ export function pendingKeys({ storage, clock = () => Date.now(), makeKey = () =>
     memory = kept;
   }
 
+  /* Takes entries out for good, from the browser as well as from this page. When nothing is
+   * left, or the browser will not take the shorter list (full storage), its copy goes whole —
+   * removing needs no room — so nothing of the people removed stays behind in it, not even an
+   * expired or unreadable entry this page no longer reads. */
+  function drop(leaves) {
+    const kept = read().filter(entry => !leaves(entry));
+    write(kept);
+    if (kept.length === 0 || memory) {
+      try {
+        storage.removeItem(STORE);
+      } catch {
+        // blocked: the browser was given nothing to remove
+      }
+    }
+  }
+
   return {
     /* The key for this change: the one still waiting for an answer, or a new one. */
     async keyFor(actor, action) {
@@ -82,6 +102,15 @@ export function pendingKeys({ storage, clock = () => Date.now(), makeKey = () =>
     /* When changes of this kind were sent and never answered, oldest first. */
     unconfirmed(actor, kind) {
       return read().filter(entry => entry.actor === actor && entry.kind === kind).map(entry => entry.at).sort((a, b) => a - b);
+    },
+    /* This person signed out: on a device people share, the next one finds none of their keys. */
+    forget(actor) {
+      drop(entry => entry.actor === actor);
+    },
+    /* Whenever the page learns who is signed in: only that person's keys stay, and none when
+     * no one is (null or undefined), however the others left. */
+    keepOnlyFor(actor) {
+      drop(entry => actor === null || actor === undefined || entry.actor !== actor);
     },
   };
 }

@@ -11,9 +11,9 @@ import { REDEMPTION_COLUMNS, redemptionView } from '../redemptions.mjs';
 import { isUuid } from '../validate.mjs';
 
 const ISO_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
-const STATUSES = ['pending', 'completed', 'cancelled', 'rejected'];
-const MEMBER_STATUSES = ['active', 'invited', 'deactivated'];
-const KINDS = ['grant', 'revoke', 'redeem', 'refund'];
+export const STATUSES = ['pending', 'completed', 'cancelled', 'rejected'];
+export const MEMBER_STATUSES = ['active', 'invited', 'deactivated'];
+export const KINDS = ['grant', 'revoke', 'redeem', 'refund', 'spend', 'void'];
 
 /* Query strings are read as strictly as bodies: unknown or repeated names are refused. */
 export function readQuery(query, allowed) {
@@ -66,12 +66,22 @@ function pageOf(rows, limit, toItem) {
 const after = alias => `(@afterAt IS NULL OR ${alias}.created_at < @afterAt OR (${alias}.created_at = @afterAt AND ${alias}.id < @afterId))`;
 const newestFirst = alias => `ORDER BY ${alias}.created_at DESC, ${alias}.id DESC LIMIT @take`;
 
-const REVOKED = `(l.kind = 'grant' AND EXISTS (SELECT 1 FROM ledger r WHERE r.kind = 'revoke' AND r.source_id = l.id))`;
+/* A grant that was revoked, or a self-recorded entry that was voided: a
+ * manager putting a mistake right. The pages badge these rows as such. */
+const CORRECTED = `((l.kind = 'grant' AND EXISTS (SELECT 1 FROM ledger r WHERE r.kind = 'revoke' AND r.source_id = l.id))
+  OR (l.kind = 'spend' AND EXISTS (SELECT 1 FROM ledger v WHERE v.kind = 'void' AND v.source_id = l.id)))`;
+
+/* A redemption given back is not a mistake put right, so it has its own flag
+ * rather than sharing `corrected` (and its badge). The redeem and refund rows
+ * share the request as their source. */
+const REFUNDED = `(l.kind = 'redeem' AND EXISTS (SELECT 1 FROM ledger f WHERE f.kind = 'refund' AND f.source_id = l.source_id))`;
 
 const historyItem = row => ({
   ...entryView(row),
   actorName: row.actor_name,
-  revoked: row.revoked === 1,
+  corrected: row.corrected === 1,
+  revoked: row.corrected === 1 && row.kind === 'grant',
+  refunded: row.refunded === 1,
   rewardName: row.reward_name ?? null,
 });
 
@@ -104,7 +114,7 @@ export function readModelRoutes({ db, clock }) {
   router.get('/me/ledger', (req, res) => {
     const actor = requireActor(req.actor);
     const page = readPage(readQuery(req.query, ['limit', 'cursor']));
-    const rows = db.prepare(`SELECT l.*, a.display_name AS actor_name, ${REVOKED} AS revoked, rd.reward_name
+    const rows = db.prepare(`SELECT l.*, a.display_name AS actor_name, ${CORRECTED} AS corrected, ${REFUNDED} AS refunded, rd.reward_name
       FROM ledger l
       LEFT JOIN users a ON a.id = l.actor_id
       LEFT JOIN redemptions rd ON rd.id = l.source_id AND l.kind IN ('redeem', 'refund')
@@ -112,11 +122,16 @@ export function readModelRoutes({ db, clock }) {
     res.json(pageOf(rows, page.limit, historyItem));
   });
 
+  /* `status=pending` reaches every request still waiting, however many finished ones came
+   * after it: once a team records its own spending, the member page lists only those. */
   router.get('/me/redemptions', (req, res) => {
     const actor = requireActor(req.actor);
-    const page = readPage(readQuery(req.query, ['limit', 'cursor']));
+    const query = readQuery(req.query, ['limit', 'cursor', 'status']);
+    const page = readPage(query);
+    const status = readChoice(query.status, STATUSES, 'status');
     const rows = db.prepare(`SELECT ${REDEMPTION_COLUMNS} FROM redemptions r
-      WHERE r.user_id = @userId AND ${after('r')} ${newestFirst('r')}`).all({ ...page, userId: actor.id });
+      WHERE r.user_id = @userId AND (@status IS NULL OR r.status = @status)
+        AND ${after('r')} ${newestFirst('r')}`).all({ ...page, userId: actor.id, status });
     res.json(pageOf(rows, page.limit, redemptionView));
   });
 
@@ -155,23 +170,31 @@ export function readModelRoutes({ db, clock }) {
     })));
   });
 
+  /* The Team log shows a batch as one line. A page can end inside a batch, so each of its
+   * rows says how big the whole batch is, and `batchId` lists that one batch in full. */
   router.get('/admin/ledger', (req, res) => {
     requireRole(req.actor, MANAGERS);
-    const query = readQuery(req.query, ['limit', 'cursor', 'userId', 'kind']);
+    const query = readQuery(req.query, ['limit', 'cursor', 'userId', 'kind', 'batchId']);
     const page = readPage(query);
-    if (query.userId !== undefined && !isUuid(query.userId))
-      throw new AppError(422, 'INVALID_INPUT', 'userId is not a valid id.', { field: 'userId' });
+    for (const name of ['userId', 'batchId'])
+      if (query[name] !== undefined && !isUuid(query[name]))
+        throw new AppError(422, 'INVALID_INPUT', `${name} is not a valid id.`, { field: name });
     const kind = readChoice(query.kind, KINDS, 'kind');
+    // The equality on batch_id lets the count use the partial ledger_by_batch index.
     const rows = db.prepare(`SELECT l.*, m.display_name AS member_name, m.username AS member_username,
-        a.display_name AS actor_name, ${REVOKED} AS revoked, rd.reward_name
+        a.display_name AS actor_name, ${CORRECTED} AS corrected, ${REFUNDED} AS refunded, rd.reward_name,
+        CASE WHEN l.batch_id IS NULL THEN NULL
+             ELSE (SELECT COUNT(*) FROM ledger b WHERE b.batch_id = l.batch_id) END AS batch_size
       FROM ledger l
       JOIN users m ON m.id = l.user_id
       LEFT JOIN users a ON a.id = l.actor_id
       LEFT JOIN redemptions rd ON rd.id = l.source_id AND l.kind IN ('redeem', 'refund')
       WHERE (@userId IS NULL OR l.user_id = @userId) AND (@kind IS NULL OR l.kind = @kind)
-        AND ${after('l')} ${newestFirst('l')}`).all({ ...page, userId: query.userId ?? null, kind });
+        AND (@batchId IS NULL OR l.batch_id = @batchId)
+        AND ${after('l')} ${newestFirst('l')}`).all({ ...page, userId: query.userId ?? null, kind, batchId: query.batchId ?? null });
     res.json(pageOf(rows, page.limit, row => ({
       ...historyItem(row),
+      batchSize: row.batch_size,
       member: { id: row.user_id, displayName: row.member_name, username: row.member_username },
       actor: { id: row.actor_id, displayName: row.actor_name },
     })));

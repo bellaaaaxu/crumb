@@ -1,7 +1,9 @@
 # Operating Crumb
 
-How to keep a Crumb instance safe once it is running: backups, restores, upgrades,
-rollbacks, a locked-out owner, and disk space. The commands assume the Docker Compose setup
+How to keep a Crumb instance safe once it is running: backups, restores, upgrades (including
+from 0.1 to 0.2), rollbacks, a locked-out owner, and disk space; and switching how
+people spend, putting a mistaken entry right, and how a treat to several people is recorded.
+The commands assume the Docker Compose setup
 from [DEPLOYMENT.md](DEPLOYMENT.md) and are run in the project folder. With HTTPS,
 `init-secrets --origin` put `COMPOSE_FILE=compose.yaml:compose.https.yaml` in `.env`, so
 every `docker compose` command below includes the proxy. (If your `.env` predates that,
@@ -80,9 +82,10 @@ The restore refuses to overwrite anything (including leftover `-wal` files at th
 rejects damaged files, files that fail a full integrity and reference check, and backups made
 by a newer Crumb, and clears **sessions and every one-time link** (sign-in, invitation and
 password-reset links) in the restored copy. Owners and admins sign in again with their
-passwords; **every team member needs a new sign-in link** from an admin (Team → Members →
-New sign-in link), so plan a moment to send them round. People, passwords, the ledger,
-requests, collections, the activity log, settings and the logo are kept.
+passwords; **every team member needs a new sign-in link** from an admin (on the Team page,
+open the person's row, then New sign-in link), so plan a moment to send them round. People,
+passwords, the ledger, requests, collections, the activity log, settings and the logo are
+kept.
 
 The restored copy keeps the database version the backup had; Crumb updates it when it
 starts. It also refuses a file with a `-wal` or `-journal` file beside it: that is a copy
@@ -131,6 +134,32 @@ restore into a new volume, switch, sign in, roll back — on every pull request
    ```
 4. Crumb updates its database on start. Sign in and check.
 
+### Upgrading from 0.1 to 0.2
+
+Crumb 0.1 (commit `643e237`) keeps its database at schema version 1, and 0.2 at schema
+version 2. The footer of the signed-in pages says which version is running (Crumb 0.1.0 or
+Crumb 0.2.0), and the backup command prints the schema: `schema 1` before the update and
+`schema 2` after it. The first start of 0.2 runs migration 002 on a schema 1 database once,
+before the port opens:
+
+- The organization gets its spending mode: **confirmed** if the team already has at least one
+  benefit (it was used that way), **self-recorded** otherwise. An owner can change it at any
+  time afterwards (see [Switching how people spend](#switching-how-people-spend)).
+- The ledger table is rebuilt to take two new kinds of entry (`spend` and `void`) and a batch
+  id: the same rows under the same ids, with its indexes and append-only triggers made again.
+  Benefits get an optional icon.
+- All of it runs in one transaction. Before it commits, every reference between tables is
+  checked. If the database holds a reference to a row that does not exist, the update stops,
+  **nothing is changed**, and Crumb does not start: `docker compose logs crumb` shows "Crumb
+  cannot start: Updating the database to schema 2 was stopped and nothing was changed" and
+  names the first rows. Crumb 0.1 never writes such a reference, so this points at a
+  damaged or hand-edited file. The database is untouched, so the previous image still opens
+  it: put it back with steps 1, 2 and 4 of [Rolling back](#rolling-back) (no restore
+  needed), and look into the file or restore a good backup before trying again.
+
+Back up first, as for any upgrade. Once the update has run, 0.1 refuses the database (its
+schema is newer), so going back means restoring the backup made before it, as below.
+
 ### Rolling back
 
 Code and data roll back together. Once a newer Crumb has updated the database, an older
@@ -174,6 +203,53 @@ is deliberately no web page for it.
   away when Crumb stops cleanly); backups are the thing that accumulates.
 - Expired sessions and finished sign-in windows are cleaned up automatically every ten
   minutes.
+
+## Switching how people spend
+
+A team spends in one of two ways, chosen at setup:
+
+- **Self-recorded** (the default): people tap *I grabbed something*, key in what they took,
+  and it comes off their balance at once.
+- **Confirmed**: people ask for a benefit from the team's list; the amount is set aside, and
+  it comes off once an admin confirms the benefit was handed over.
+
+An owner switches at any time under **Settings → How people spend**; the lock on the reward
+rules does not apply to it. Each person's page shows the new way the next time it loads (a
+page still showing the old way says to refresh). Requests still waiting when a team switches
+to self-recorded are finished as usual: they stay under the member's "Your requests" and the
+admins' "Waiting on you" until they are confirmed, declined or cancelled. A team switching to
+confirmed starts with the benefits already on its list, none if it never had any: add them on
+the Team page.
+
+## Putting a mistaken entry right
+
+The ledger is append-only: nothing in it is edited or deleted. A mistake is put right with a
+new entry, from the log on the Team page, and always with a reason:
+
+- **A self-recorded entry** (a slip of the finger, the same lunch keyed in twice): **Fix**.
+  The amount goes back to the person, and the log keeps both rows: the entry, marked "Put
+  right", and the correction ("A slip, put right"; "Fixed" in the member's recent log). Each
+  entry can be put right once. Team members cannot undo their own entries; they ask an admin.
+- **A treat**: **Take back**. The original stays, marked "Taken back". Pastries already on the
+  shelf stay.
+- **A confirmed benefit**: **Refund**, once. The request stays, marked "Refunded".
+
+The CSV export and the activity log keep both rows, with who made each one.
+
+## Treats to several people
+
+A treat to several people is recorded all or nothing, in one transaction, but it is not one
+entry: each person gets their own `grant` row in the ledger and their own pastries, and the
+rows share one batch id.
+
+- The **Team log** shows the batch as one line: the amount each, how many people, the date
+  and the message, whatever page of the log its rows fall on. Opened, it lists each person
+  with their own **Take back**, so one person's treat can be taken back without touching the
+  others.
+- The **activity log** (Settings → Who did what for owners; for admins, read-only at the bottom
+  of the Team page) has one row per person, such as "Treated Sam Okafor to $20.00", the same as
+  a treat to one person. Each row's detail carries the shared `batchId` (`GET /api/admin/audit`).
+- The **CSV export** has one `grant` line per person; the batch id is not one of its columns.
 
 ## Moving to another server
 

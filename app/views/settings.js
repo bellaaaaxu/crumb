@@ -1,12 +1,14 @@
-/* Organization settings, for owners. Names, language and links can change at
- * any time; the reward rules lock once rewards are recorded (the server
- * enforces this — the disabled fields only explain it). */
+/* Organization settings, for owners. Names, language, links and how people spend can
+ * change at any time; the reward rules lock once rewards are recorded (the server
+ * enforces this — the disabled fields only explain it). The activity log sits at the
+ * bottom. */
 
 import { request } from '../api.js';
 import { button, el, field, formError, radios, toast } from '../dom.js';
 import { LANGUAGES, t } from '../i18n.js';
 import { amountToUnits, unitsToInput } from '../format.js';
-import { card, loading } from './member.js';
+import { loading, section } from './shared.js';
+import { activitySection } from './activity.js';
 
 const CURRENCIES = ['CAD', 'USD', 'CNY'];
 const LOGO_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
@@ -35,6 +37,17 @@ function settingsForm(ctx, org) {
     label: t('setup.threshold'), name: 'threshold', value: unitsToInput(org.thresholdUnits, org.mode),
     hint: t(org.mode === 'credit' ? 'setup.thresholdCredit' : 'setup.thresholdPoints'),
   });
+  // Not one of the locked reward rules: an owner can switch at any time, and requests still
+  // waiting are finished either way.
+  const spending = radios({
+    legend: t('settings.spendingTitle'), name: 'spending', value: org.spending,
+    options: [
+      { value: 'self', label: t('spending.self'), detail: t('spending.selfDetail') },
+      { value: 'confirm', label: t('spending.confirm'), detail: t('spending.confirmDetail') },
+    ],
+  });
+  // The heading above the choice says the same words: the legend stays for screen readers only.
+  spending.fieldset.querySelector('legend').classList.add('sr-only');
   const adminContact = field({ label: t('settings.contact'), name: 'adminContact', value: org.adminContact, hint: t('settings.contactHint'), attrs: { maxlength: 300, inputmode: 'url' } });
   const feedbackUrl = field({ label: t('settings.feedback'), name: 'feedbackUrl', value: org.feedbackUrl, hint: t('settings.feedbackHint'), attrs: { maxlength: 300, inputmode: 'url' } });
 
@@ -84,6 +97,7 @@ function settingsForm(ctx, org) {
         const body = {
           name: name.control.value, welcome: welcome.control.value, locale: locale.control.value, unitLabel: unitLabel.control.value,
           adminContact: adminContact.control.value.trim(), feedbackUrl: feedbackUrl.control.value.trim(),
+          spending: spending.value,
         };
         if (!org.locks.mode) {
           body.mode = chosenMode;
@@ -102,20 +116,23 @@ function settingsForm(ctx, org) {
       },
     },
   }, [
-    el('h2', { text: t('settings.orgTitle'), attrs: { class: 'card-title' } }),
+    el('h2', { text: t('settings.orgTitle'), attrs: { class: 'tile-title' } }),
     name.wrapper, welcome.wrapper, locale.wrapper,
-    el('h2', { text: t('settings.rewardsTitle'), attrs: { class: 'card-title' } }),
+    el('h2', { text: t('settings.rewardsTitle'), attrs: { class: 'tile-title' } }),
     unitLabel.wrapper, mode.fieldset, currency.wrapper, threshold.wrapper,
     // Benefits alone fix the unit; a recorded reward also fixes the threshold.
     org.locks.threshold || org.locks.mode
       ? el('p', { text: t(org.locks.threshold ? 'settings.locked' : 'settings.lockedByBenefits'), attrs: { class: 'notice' } })
       : null,
-    el('h2', { text: t('settings.linksTitle'), attrs: { class: 'card-title' } }),
+    el('h2', { text: t('settings.spendingTitle'), attrs: { class: 'tile-title' } }),
+    spending.fieldset,
+    el('p', { text: t('settings.spendingNote'), attrs: { class: 'muted small' } }),
+    el('h2', { text: t('settings.linksTitle'), attrs: { class: 'tile-title' } }),
     adminContact.wrapper, feedbackUrl.wrapper,
     error.node,
     save,
   ]);
-  return el('section', { attrs: { class: 'card settings-card', 'aria-label': t('nav.settings') } }, [form]);
+  return el('section', { attrs: { class: 'tile settings-card', 'aria-label': t('nav.settings') } }, [form]);
 }
 
 function logoCard(ctx, org) {
@@ -152,7 +169,7 @@ function logoCard(ctx, org) {
       },
     },
   }) : null;
-  return card(t('settings.logoTitle'), [
+  return section(t('settings.logoTitle'), [
     org.hasLogo
       ? el('img', { attrs: { src: `/api/org/logo?v=${Date.now()}`, alt: t('settings.logoCurrent'), class: 'logo-preview' } })
       : el('p', { text: t('settings.noLogo'), attrs: { class: 'muted' } }),
@@ -163,7 +180,7 @@ function logoCard(ctx, org) {
 }
 
 function dataCard() {
-  return card(t('settings.dataTitle'), [
+  return section(t('settings.dataTitle'), [
     el('p', {}, [el('a', { text: t('history.download'), attrs: { href: '/api/admin/ledger.csv', download: 'crumb-ledger.csv', class: 'btn btn-secondary' } })]),
     el('p', { text: t('settings.backupNote'), attrs: { class: 'muted small' } }),
     el('p', {}, [el('a', { text: t('settings.backupGuide'), attrs: { href: OPERATIONS_GUIDE, target: '_blank', rel: 'noopener noreferrer' } })]),
@@ -181,8 +198,13 @@ export async function renderSettings(main, ctx) {
   }
   if (!ctx.isCurrent()) return;
   const { org } = session;
-  main.replaceChildren(
-    el('h1', { text: t('nav.settings'), attrs: { class: 'page-title' } }),
-    el('div', { attrs: { class: 'settings-grid' } }, [settingsForm(ctx, org), el('div', { attrs: { class: 'stack' } }, [logoCard(ctx, org), dataCard()])]),
-  );
+  const grid = el('div', { attrs: { class: 'team-grid' } }, [settingsForm(ctx, org), el('div', { attrs: { class: 'stack' } }, [logoCard(ctx, org), dataCard()])]);
+  main.replaceChildren(el('h1', { text: t('nav.settings'), attrs: { class: 'page-title' } }), grid);
+  // The settings are usable before the log has loaded; it joins the grid, across both columns.
+  try {
+    const activity = await activitySection(ctx);
+    if (ctx.isCurrent()) grid.append(activity);
+  } catch (failure) {
+    if (ctx.isCurrent()) ctx.fail(failure);
+  }
 }

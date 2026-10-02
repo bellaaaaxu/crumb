@@ -5,7 +5,8 @@ import { writeAudit } from './audit.mjs';
 import { MANAGERS, freshActor, requireRole } from './permissions.mjs';
 import { assertSameMode, assertUnits } from './units.mjs';
 import { withIdempotency } from './idempotency.mjs';
-import { bool, id, oneOf, readObject, text } from './validate.mjs';
+import { theme } from './collections.mjs';
+import { bool, id, invalid, oneOf, readObject, text } from './validate.mjs';
 
 export const rewardView = row => ({
   id: row.id,
@@ -13,6 +14,10 @@ export const rewardView = row => ({
   description: row.description,
   costUnits: row.cost_units,
   active: row.active === 1,
+  // Returned as stored, not checked against the theme again (an edit without
+  // iconKey keeps it too): if a later theme drops the key, the page should
+  // show the benefit with no icon rather than refuse it.
+  iconKey: row.icon_key ?? null,
   createdAt: row.created_at,
   updatedAt: row.updated_at,
 });
@@ -25,6 +30,14 @@ const units = ({ optional = false } = {}) => (value, field) => {
     error.field = field;
     throw error;
   }
+};
+
+/* Absent = unchanged; null or '' = no icon; otherwise a key of the theme. */
+const iconKey = () => (value, field) => {
+  if (value === undefined) return undefined;
+  if (value === null || value === '') return null;
+  if (typeof value !== 'string' || !theme.keys.includes(value)) throw invalid(field, 'Choose an icon from the theme, or none.');
+  return value;
 };
 
 /* Benefits people can ask for. There is no stock count in this version. */
@@ -50,21 +63,22 @@ export function saveReward(db, actor, input, clock = () => Date.now(), { key } =
     costUnits: units({ optional: editing }),
     mode: oneOf(['credit', 'points'], { optional: true }),
     active: bool({ optional: editing }),
+    iconKey: iconKey(),
   });
   const create = current => {
     assertSameMode(db, fields.mode);
     const at = new Date(clock()).toISOString();
     const row = { id: randomUUID(), name: fields.name, description: fields.description ?? '', cost_units: fields.costUnits,
-      active: fields.active ? 1 : 0, created_at: at, updated_at: at };
-    db.prepare(`INSERT INTO rewards (id, name, description, cost_units, active, created_at, updated_at)
-                VALUES (@id, @name, @description, @cost_units, @active, @created_at, @updated_at)`).run(row);
+      active: fields.active ? 1 : 0, icon_key: fields.iconKey ?? null, created_at: at, updated_at: at };
+    db.prepare(`INSERT INTO rewards (id, name, description, cost_units, active, icon_key, created_at, updated_at)
+                VALUES (@id, @name, @description, @cost_units, @active, @icon_key, @created_at, @updated_at)`).run(row);
     writeAudit(db, { actorId: current.id, action: 'reward.create', targetId: row.id,
-      detail: { name: row.name, costUnits: row.cost_units, active: fields.active } }, at);
+      detail: { name: row.name, costUnits: row.cost_units, active: fields.active, iconKey: row.icon_key } }, at);
     return rewardView(row);
   };
   if (!editing && key !== undefined) {
     const { name, description = '', costUnits, mode, active } = fields;
-    return withIdempotency(db, actor, 'reward.create', key, { name, description, costUnits, mode, active },
+    return withIdempotency(db, actor, 'reward.create', key, { name, description, costUnits, mode, active, iconKey: fields.iconKey ?? null },
       current => ({ status: 201, body: create(current) }), { clock, authorize: () => freshActor(db, actor, MANAGERS) }).body;
   }
   return writeTransaction(db, () => {
@@ -80,11 +94,12 @@ export function saveReward(db, actor, input, clock = () => Date.now(), { key } =
       description: fields.description ?? existing.description,
       cost_units: fields.costUnits ?? existing.cost_units,
       active: fields.active === undefined ? existing.active : fields.active ? 1 : 0,
+      icon_key: fields.iconKey === undefined ? existing.icon_key : fields.iconKey,
       updated_at: at,
     };
     db.prepare(`UPDATE rewards SET name = @name, description = @description, cost_units = @cost_units,
-                active = @active, updated_at = @updated_at WHERE id = @id`).run(next);
-    const changed = ['name', 'description', 'cost_units', 'active'].filter(key => next[key] !== existing[key]);
+                active = @active, icon_key = @icon_key, updated_at = @updated_at WHERE id = @id`).run(next);
+    const changed = ['name', 'description', 'cost_units', 'active', 'icon_key'].filter(key => next[key] !== existing[key]);
     writeAudit(db, { actorId: current.id, action: 'reward.update', targetId: existing.id, detail: { changed } }, at);
     return rewardView(next);
   });

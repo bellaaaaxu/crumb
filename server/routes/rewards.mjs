@@ -1,8 +1,10 @@
 import express from 'express';
 import { AppError } from '../errors.mjs';
-import { grant, revokeGrant } from '../ledger.mjs';
+import { theme } from '../collections.mjs';
+import { grant, grantBatch, revokeGrant } from '../ledger.mjs';
 import { listRewards, saveReward } from '../rewards.mjs';
 import { refundRedemption, requestRedemption, resolveRedemption } from '../redemptions.mjs';
+import { recordSpend, voidSpend } from '../spending.mjs';
 import { MANAGERS, requireActor, requireRole } from '../permissions.mjs';
 import { assertIdempotencyKey, wasReplayed } from '../idempotency.mjs';
 import { parseUnits } from '../units.mjs';
@@ -38,17 +40,20 @@ export function rewardRoutes({ db, clock }) {
     res.json({ items: listRewards(db) });
   });
 
+  /* With the theme's keys and names, so the icon picker offers exactly the keys the server
+   * accepts, named in the manager's language (the sprite table has only Traditional Chinese). */
   router.get('/admin/rewards', (req, res) => {
     requireRole(req.actor, MANAGERS);
     readQuery(req.query, []);
-    res.json({ items: listRewards(db, { includeInactive: true }) });
+    res.json({ items: listRewards(db, { includeInactive: true }), theme: { keys: theme.keys, names: theme.names } });
   });
 
   function rewardInput(req, { editing }) {
     const body = readObject(req.body, {
       name: any(), description: any(), amount: amount({ optional: editing }), mode: mode({ optional: true }), active: any(),
+      iconKey: any(),
     });
-    const input = { name: body.name, description: body.description, active: body.active, mode: body.mode };
+    const input = { name: body.name, description: body.description, active: body.active, mode: body.mode, iconKey: body.iconKey };
     if (body.amount !== undefined) {
       if (body.mode === undefined) throw invalid('mode', 'mode is required with an amount.');
       input.costUnits = parseUnits(body.amount, body.mode);
@@ -79,10 +84,34 @@ export function rewardRoutes({ db, clock }) {
       { userId: body.userId, units, mode: body.mode, reason: body.reason, key: idempotencyKey(req) }, clock));
   });
 
+  router.post('/admin/grants/batch', (req, res) => {
+    requireRole(req.actor, MANAGERS);
+    const body = readObject(req.body, { userIds: any(), amount: amount(), mode: mode(), reason: any() });
+    const units = parseUnits(body.amount, body.mode);
+    reply(res, 201, grantBatch(db, req.actor,
+      { userIds: body.userIds, units, mode: body.mode, reason: body.reason, key: idempotencyKey(req) }, clock));
+  });
+
   router.post('/admin/grants/:id/revoke', (req, res) => {
     requireRole(req.actor, MANAGERS);
     const body = readObject(req.body, { reason: any() });
     reply(res, 200, revokeGrant(db, req.actor, { grantId: req.params.id, reason: body.reason, key: idempotencyKey(req) }, clock));
+  });
+
+  /* A member's own entry, in a team that spends on trust. */
+  router.post('/me/spend', (req, res) => {
+    requireActor(req.actor);
+    const body = readObject(req.body, { amount: amount(), mode: mode() });
+    const units = parseUnits(body.amount, body.mode);
+    reply(res, 201, recordSpend(db, req.actor, { units, mode: body.mode, key: idempotencyKey(req) }, clock));
+  });
+
+  /* Members cannot undo their own entries: only a manager puts one right, and
+   * each entry only once, so a mistake cannot be corrected twice over. */
+  router.post('/admin/spends/:id/void', (req, res) => {
+    requireRole(req.actor, MANAGERS);
+    const body = readObject(req.body, { reason: any() });
+    reply(res, 200, voidSpend(db, req.actor, { spendId: req.params.id, reason: body.reason, key: idempotencyKey(req) }, clock));
   });
 
   router.post('/redemptions', (req, res) => {

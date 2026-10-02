@@ -6,7 +6,7 @@ import { collectionOf, unlockEarned } from './collections.mjs';
 import { withIdempotency } from './idempotency.mjs';
 import { MANAGERS, freshActor, requireRole } from './permissions.mjs';
 import { MAX_UNITS, assertSameMode, assertUnits } from './units.mjs';
-import { isUuid, text } from './validate.mjs';
+import { invalid, isUuid, text } from './validate.mjs';
 
 export { balanceOf };
 
@@ -20,6 +20,7 @@ export const entryView = row => ({
   reason: row.reason,
   actorId: row.actor_id,
   sourceId: row.source_id,
+  batchId: row.batch_id ?? null,
   createdAt: row.created_at,
 });
 
@@ -35,9 +36,9 @@ function activeRecipient(db, userId) {
 
 /* The only writer of ledger rows. Callers are inside a write transaction. */
 export function appendEntry(db, entry) {
-  const row = { id: randomUUID(), source_id: null, reason: '', ...entry };
-  db.prepare(`INSERT INTO ledger (id, user_id, delta_units, kind, actor_id, reason, source_id, request_key, created_at)
-              VALUES (@id, @user_id, @delta_units, @kind, @actor_id, @reason, @source_id, @request_key, @created_at)`).run(row);
+  const row = { id: randomUUID(), source_id: null, reason: '', batch_id: null, ...entry };
+  db.prepare(`INSERT INTO ledger (id, user_id, delta_units, kind, actor_id, reason, source_id, request_key, batch_id, created_at)
+              VALUES (@id, @user_id, @delta_units, @kind, @actor_id, @reason, @source_id, @request_key, @batch_id, @created_at)`).run(row);
   return row;
 }
 
@@ -66,6 +67,45 @@ export function grant(db, actor, { userId, units, reason, key, mode }, clock = (
       status: 201,
       body: { entry: entryView(row), balance: balanceOf(db, userId), collection: collectionOf(db, userId), unlocked },
     };
+  }, { clock, authorize: () => freshActor(db, actor, MANAGERS) }).body;
+}
+
+export const MAX_BATCH = 500;
+
+/**
+ * One amount to several people at once: a row, any unlocks and an audit record for each of
+ * them, in one transaction that either records everyone or no one, at most once per key.
+ * The list is read as a set, so the same people in another order are the same batch.
+ */
+export function grantBatch(db, actor, { userIds, units, reason, key, mode }, clock = () => Date.now()) {
+  requireRole(actor, MANAGERS);
+  assertUnits(units);
+  const cleanReason = readReason(reason, 'reason') ?? '';
+  if (!Array.isArray(userIds) || userIds.length === 0) throw invalid('userIds', 'Choose at least one person.');
+  if (userIds.length > MAX_BATCH) throw invalid('userIds', `At most ${MAX_BATCH} people at once.`);
+  if (userIds.some(id => typeof id !== 'string')) throw invalid('userIds', 'userIds must be a list of ids.');
+  const people = [...new Set(userIds)].sort();
+  if (people.length !== userIds.length) throw invalid('userIds', 'Each person can be listed once.');
+  return withIdempotency(db, actor, 'grant.batch', key, { userIds: people, units, reason: cleanReason, mode }, current => {
+    assertSameMode(db, mode);
+    const at = iso(clock);
+    const batchId = randomUUID();
+    const entries = [];
+    let unlocked = 0;
+    for (const userId of people) {
+      activeRecipient(db, userId);
+      const before = balanceOf(db, userId);
+      if (before.postedUnits + units > MAX_UNITS || before.lifetimeUnits + units > MAX_UNITS)
+        throw new AppError(422, 'LIMIT_EXCEEDED', 'This would take a balance past the largest supported amount.');
+      const row = appendEntry(db, {
+        user_id: userId, delta_units: units, kind: 'grant', actor_id: current.id, reason: cleanReason,
+        request_key: key, batch_id: batchId, created_at: at,
+      });
+      unlocked += unlockEarned(db, userId, row.id, at).length;
+      writeAudit(db, { actorId: current.id, action: 'grant.create', targetId: row.id, detail: { userId, units, batchId } }, at);
+      entries.push(entryView(row));
+    }
+    return { status: 201, body: { batchId, count: entries.length, units, unlocked, entries } };
   }, { clock, authorize: () => freshActor(db, actor, MANAGERS) }).body;
 }
 

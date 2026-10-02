@@ -34,7 +34,7 @@ test('every image a README shows exists and has a description', async () => {
   for (const file of ['README.md', 'README.zh-CN.md']) {
     const markdown = await readFile(file, 'utf8');
     const images = [...markdown.matchAll(/<img ([^>]+)>/g)].map(match => match[1]);
-    assert.ok(images.length >= 3, `${file} shows the member view, recognition and redemptions`);
+    assert.ok(images.length >= 3, `${file} shows the member page, the keypad and the Team page`);
     for (const attributes of images) {
       const src = /src="([^"]+)"/.exec(attributes)?.[1];
       assert.match(attributes, /alt="[^"]{12,}"/, `${file}: ${src} needs a real alt text`);
@@ -53,6 +53,30 @@ test('every other document links only to files that exist', async () => {
       await access(resolve(dirname(file), decodeURIComponent(target.split('#')[0])));
     }
   }
+});
+
+// The footer and the session report package.json's version; a release that changes it in one
+// place only would leave the lock file naming a version that was never released.
+test('package-lock.json names the version package.json gives', async () => {
+  const { version } = JSON.parse(await readFile('package.json', 'utf8'));
+  const lock = JSON.parse(await readFile('package-lock.json', 'utf8'));
+  assert.equal(lock.version, version);
+  assert.equal(lock.packages[''].version, version);
+});
+
+// Both READMEs say which release they describe, in the contents heading and under "Status";
+// a release that forgets them would sell the new version with the old one's name.
+test('both READMEs name the release package.json gives', async () => {
+  const { version } = JSON.parse(await readFile('package.json', 'utf8'));
+  const release = version.split('.').slice(0, 2).join('.');
+  // Windows checkouts may have CRLF line endings.
+  const read = async file => (await readFile(file, 'utf8')).replace(/\r\n/g, '\n');
+  const english = await read('README.md');
+  assert.ok(english.includes(`\n## What is in version ${release}\n`), 'README.md: the contents heading');
+  assert.ok(english.includes(`**early — version ${release}**`), 'README.md: the status line');
+  const chinese = await read('README.zh-CN.md');
+  assert.ok(chinese.includes(`\n## ${release} 版包含什么\n`), 'README.zh-CN.md: the contents heading');
+  assert.ok(chinese.includes(`**早期（${release} 版）**`), 'README.zh-CN.md: the status line');
 });
 
 test('the public demo and its share card say the same thing as the README', async () => {

@@ -1,10 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Worker } from 'node:worker_threads';
-import { grant } from '../server/ledger.mjs';
+import { balanceOf, grant } from '../server/ledger.mjs';
 import { saveReward } from '../server/rewards.mjs';
 import { requestRedemption } from '../server/redemptions.mjs';
 import { updateMember } from '../server/members.mjs';
+import { updateOrg } from '../server/org.mjs';
+import { recordSpend } from '../server/spending.mjs';
 import { fixture } from './helpers.mjs';
 
 const WORKER = new URL('./fixtures/redemption-worker.mjs', import.meta.url);
@@ -35,7 +37,7 @@ async function race(path, tasks) {
 }
 
 function prepared(t) {
-  const setup = fixture(t);
+  const setup = fixture(t, { spending: 'confirm' });
   grant(setup.db, setup.owner, { userId: setup.member.id, units: 5000, reason: 'Thanks', key: 'concurrency-grant-01' });
   const reward = saveReward(setup.db, setup.owner, { name: 'Coffee', description: '', costUnits: 3000, active: true });
   return { ...setup, reward };
@@ -91,5 +93,61 @@ test('deactivation racing a request never leaves a pending request behind', asyn
     assert.equal(results[1].ok, true);
     assert.equal(db.prepare('SELECT active FROM users WHERE id = ?').get(member.id).active, 0);
     assert.equal(pendingOf(db, member.id).length, 0, `round ${round}: ${JSON.stringify(results)}`);
+  }
+});
+
+/* A team that spends on trust (the default), with 5000 to spend. */
+function fundedSelf(t) {
+  const setup = fixture(t);
+  grant(setup.db, setup.owner, { userId: setup.member.id, units: 5000, reason: 'Thanks', key: 'concurrency-grant-01' });
+  return setup;
+}
+
+const postedOf = (db, userId) => db.prepare('SELECT COALESCE(SUM(delta_units), 0) AS n FROM ledger WHERE user_id = ?').get(userId).n;
+
+test('two devices recording entries against the same balance at once: one wins, nothing is overdrawn', async t => {
+  for (let round = 0; round < 5; round += 1) {
+    const { db, path, member } = fundedSelf(t);
+    const results = await race(path, [
+      { kind: 'spend', userId: member.id, units: 3000, key: `device-one-spend-${round}-xx` },
+      { kind: 'spend', userId: member.id, units: 3000, key: `device-two-spend-${round}-xx` },
+    ]);
+    const note = `round ${round}: ${JSON.stringify(results)}`;
+    assert.deepEqual(results.map(r => r.ok).sort(), [false, true], note);
+    assert.equal(results.find(r => !r.ok).code, 'INSUFFICIENT_BALANCE', note);
+    assert.equal(postedOf(db, member.id), 2000, note);
+  }
+});
+
+test('an entry racing the confirmation of a request left waiting from confirmed mode never overdraws', async t => {
+  for (let round = 0; round < 5; round += 1) {
+    const { db, path, owner, member, reward } = prepared(t);
+    const { redemption } = requestRedemption(db, member, { rewardId: reward.id, key: `waiting-request-${round}-xx` });
+    updateOrg(db, owner, { spending: 'self' });
+    // 3000 of the 5000 is held for the request whichever way the race goes, so 2000 is all an entry can take.
+    const results = await race(path, [
+      { kind: 'spend', userId: member.id, units: 3000, key: `racing-spend-${round}-xxxx` },
+      { kind: 'complete', actorId: owner.id, redemptionId: redemption.id, key: `racing-confirm-${round}-xx` },
+    ]);
+    const note = `round ${round}: ${JSON.stringify(results)}`;
+    assert.deepEqual(results[0], { ok: false, code: 'INSUFFICIENT_BALANCE' }, note);
+    assert.equal(results[1].ok, true, note);
+    assert.deepEqual(balanceOf(db, member.id), { postedUnits: 2000, reservedUnits: 0, availableUnits: 2000, lifetimeUnits: 5000 }, note);
+  }
+});
+
+test('two corrections of the same entry at once, with different keys: one is recorded', async t => {
+  for (let round = 0; round < 5; round += 1) {
+    const { db, path, owner, member } = fundedSelf(t);
+    const spend = recordSpend(db, member, { units: 3000, mode: 'credit', key: `entry-to-correct-${round}-xx` });
+    const results = await race(path, [
+      { kind: 'void', actorId: owner.id, spendId: spend.entry.id, reason: 'Keyed in twice', key: `first-correction-${round}-xx` },
+      { kind: 'void', actorId: owner.id, spendId: spend.entry.id, reason: 'Keyed in twice', key: `second-correction-${round}-xx` },
+    ]);
+    const note = `round ${round}: ${JSON.stringify(results)}`;
+    assert.deepEqual(results.map(r => r.ok).sort(), [false, true], note);
+    assert.equal(results.find(r => !r.ok).code, 'ALREADY_CORRECTED', note);
+    assert.equal(db.prepare(`SELECT count(*) AS n FROM ledger WHERE kind = 'void'`).get().n, 1, note);
+    assert.equal(postedOf(db, member.id), 5000, note);
   }
 });

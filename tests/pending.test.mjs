@@ -10,6 +10,7 @@ function memoryStorage() {
     items,
     getItem: name => (items.has(name) ? items.get(name) : null),
     setItem: (name, value) => items.set(name, String(value)),
+    removeItem: name => items.delete(name),
   };
 }
 
@@ -87,4 +88,77 @@ test('if the browser refuses to store anything, the page still remembers its own
   assert.equal(await blocked.keyFor(OLIVE, GRANT), other);
   await blocked.settle(OLIVE, GRANT);
   assert.notEqual(await blocked.keyFor(OLIVE, GRANT), other);
+});
+
+/* ---------------------------------------------------------------- a device people share */
+
+test('signing out forgets that person\'s keys in the browser too, and no one else\'s', async () => {
+  const storage = memoryStorage();
+  const pending = pendingKeys({ storage, makeKey });
+  const olive = await pending.keyFor(OLIVE, GRANT);
+  const mina = await pending.keyFor(MINA, 'spend:1250');
+  pending.forget(OLIVE);
+  assert.equal(storage.items.get('crumb.pending').includes(OLIVE), false);
+  assert.deepEqual(pending.unconfirmed(OLIVE, 'grant'), []);
+  const afterReload = pendingKeys({ storage, makeKey });
+  assert.deepEqual(afterReload.unconfirmed(OLIVE, 'grant'), []);
+  assert.notEqual(await afterReload.keyFor(OLIVE, GRANT), olive, 'the same change after that is a new change');
+  assert.equal(await afterReload.keyFor(MINA, 'spend:1250'), mina);
+});
+
+test('loading a session keeps only the signed-in person\'s keys, and none when no one is signed in', async () => {
+  let now = Date.parse('2026-09-28T10:00:00Z');
+  const storage = memoryStorage();
+  const pending = pendingKeys({ storage, makeKey, clock: () => now });
+  await pending.keyFor(OLIVE, GRANT);
+  now += 6 * 24 * 60 * 60 * 1000;
+  await pending.keyFor(OLIVE, 'redeem:coffee:40');
+  await pending.keyFor(MINA, 'spend:1250');
+  // Olive's first entry has expired: no longer read, but still in the browser until the list is written.
+  now += 2 * 24 * 60 * 60 * 1000;
+  assert.equal(JSON.parse(storage.items.get('crumb.pending')).filter(entry => entry.actor === OLIVE).length, 2);
+  pending.keepOnlyFor(MINA);
+  assert.equal(storage.items.get('crumb.pending').includes(OLIVE), false, 'nothing of Olive stays, not even an expired entry');
+  assert.equal(pending.unconfirmed(MINA, 'spend').length, 1);
+  pending.keepOnlyFor(null);
+  assert.equal(storage.items.has('crumb.pending'), false, 'no one signed in: the list goes whole');
+  await pending.keyFor(OLIVE, GRANT);
+  pending.keepOnlyFor(undefined);
+  assert.equal(storage.items.has('crumb.pending'), false);
+  storage.setItem('crumb.pending', 'not json');
+  pending.keepOnlyFor(MINA);
+  assert.equal(storage.items.has('crumb.pending'), false, 'unreadable leftovers go too');
+});
+
+test('a full browser that will not take the shorter list loses the whole list, while the page keeps the rest', async () => {
+  const storage = memoryStorage();
+  const earlier = pendingKeys({ storage, makeKey });
+  await earlier.keyFor(OLIVE, GRANT);
+  const mina = await earlier.keyFor(MINA, 'spend:1250');
+  storage.setItem = () => { throw new Error('QuotaExceededError'); };
+  const pending = pendingKeys({ storage, makeKey });
+  pending.forget(OLIVE);
+  assert.equal(storage.items.has('crumb.pending'), false, 'removing needs no room');
+  assert.deepEqual(pending.unconfirmed(OLIVE, 'grant'), []);
+  assert.equal(await pending.keyFor(MINA, 'spend:1250'), mina);
+  pending.keepOnlyFor(null);
+  assert.deepEqual(pending.unconfirmed(MINA, 'spend'), []);
+});
+
+test('with the browser\'s storage blocked, forgetting works on what the page kept', async () => {
+  const refuse = () => { throw new Error('SecurityError'); };
+  for (const storage of [null, { getItem: refuse, setItem: refuse, removeItem: refuse }]) {
+    const pending = pendingKeys({ storage, makeKey });
+    const olive = await pending.keyFor(OLIVE, GRANT);
+    await pending.keyFor(MINA, GRANT);
+    pending.forget(OLIVE);
+    assert.deepEqual(pending.unconfirmed(OLIVE, 'grant'), []);
+    assert.equal(pending.unconfirmed(MINA, 'grant').length, 1);
+    assert.notEqual(await pending.keyFor(OLIVE, GRANT), olive);
+    pending.keepOnlyFor(MINA);
+    assert.deepEqual(pending.unconfirmed(OLIVE, 'grant'), []);
+    assert.equal(pending.unconfirmed(MINA, 'grant').length, 1);
+    pending.keepOnlyFor(null);
+    assert.deepEqual(pending.unconfirmed(MINA, 'grant'), []);
+  }
 });

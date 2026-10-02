@@ -36,7 +36,7 @@ test('restore preserves business data and invalidates credentials', async t => {
 });
 
 test('everything a business needs survives: people, ledger, requests, collections, logo', async t => {
-  const { db, owner, member, member2, dir } = fixture(t);
+  const { db, owner, member, member2, dir } = fixture(t, { spending: 'confirm' });
   grant(db, owner, { userId: member.id, units: 7500, reason: 'Great month', key: 'full-backup-grant-1' });
   const reward = saveReward(db, owner, { name: 'Coffee', description: '', costUnits: 1250, active: true });
   const done = requestRedemption(db, member, { rewardId: reward.id, key: 'full-backup-request1' });

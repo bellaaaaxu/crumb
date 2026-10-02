@@ -7,7 +7,7 @@ import { button, el, field, formError, inWeChat, openedAsIPhoneHomeScreenApp, ra
 import { LANGUAGES, getLocale, t } from '../i18n.js';
 import { amountToUnits } from '../format.js';
 import { pixelWord, spriteCanvas } from '../pixels.js';
-import { loading } from './member.js';
+import { loading } from './shared.js';
 
 const USERNAME = /^[a-z0-9._-]{3,64}$/;
 const CURRENCIES = ['CAD', 'USD', 'CNY'];
@@ -233,6 +233,14 @@ function setup(root, ctx) {
       { value: 'points', label: t('mode.points'), detail: t('mode.pointsDetail') },
     ],
   });
+  // Self-recorded by default: the owner can switch to confirmed requests in Settings at any time.
+  const spending = radios({
+    legend: t('setup.spending'), name: 'spending', value: 'self',
+    options: [
+      { value: 'self', label: t('spending.self'), detail: t('spending.selfDetail') },
+      { value: 'confirm', label: t('spending.confirm'), detail: t('spending.confirmDetail') },
+    ],
+  });
   const currency = field({
     label: t('setup.currency'), name: 'currency', value: locale === 'zh-CN' ? 'CNY' : 'CAD',
     options: CURRENCIES.map(value => ({ value, label: t(`currency.${value}`) })),
@@ -295,6 +303,7 @@ function setup(root, ctx) {
         const org = {
           name: orgName.control.value, mode: chosenMode, unitLabel: unitLabel.control.value,
           threshold: threshold.control.value.trim(), locale: language.control.value, welcome: welcome.control.value,
+          spending: spending.value,
         };
         if (chosenMode === 'credit') org.currency = currency.control.value;
         try {
@@ -320,7 +329,7 @@ function setup(root, ctx) {
     el('fieldset', { attrs: { class: 'group' } }, [el('legend', { text: t('setup.codeGroup') }), code.wrapper]),
     el('fieldset', { attrs: { class: 'group' } }, [
       el('legend', { text: t('setup.orgGroup') }),
-      orgName.wrapper, language.wrapper, mode.fieldset, currency.wrapper, unitLabel.wrapper, threshold.wrapper, welcome.wrapper,
+      orgName.wrapper, language.wrapper, mode.fieldset, currency.wrapper, unitLabel.wrapper, threshold.wrapper, spending.fieldset, welcome.wrapper,
     ]),
     el('fieldset', { attrs: { class: 'group' } }, [
       el('legend', { text: t('setup.ownerGroup') }),
