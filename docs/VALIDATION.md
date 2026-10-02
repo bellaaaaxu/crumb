@@ -18,8 +18,8 @@ development" below.
 
 - **Checked on one Windows computer:** every unit, API, concurrency and browser test (in
   Chromium) and the operations drill with real server processes, from a fresh clone of the
-  branch, including the one-page round, its review fixes and the four decisions taken after
-  the review.
+  branch, including the one-page round, its review fixes, the four decisions taken after the
+  review and the sign-out fix.
 - **Checked in CI** (GitHub Actions, Linux), for 0.1 only: the same tests with
   none skipped, and the container drill — the Docker image was built and taken through setup,
   restart, backup, restore into a new volume, owner recovery and rollback. **CI has not run on
@@ -41,8 +41,8 @@ development" below.
 
 | | Local | CI |
 | --- | --- | --- |
-| Commit | The development branch `feature/one-page`, from a fresh clone, after the review fixes and the four decisions taken after the review (see "Results from a fresh clone (local)"). The commit cloned was `1421aa2` ("Crumb 0.2.0"), the squashed release commit. Earlier runs during development, before the branch history was squashed into the 0.2.0 commit, are listed under "Earlier runs during development". | `67a174b`, [run 36412250215](https://github.com/bellaaaaxu/crumb/actions/runs/36412250215) (0.1; not run on `feature/one-page`) |
-| Date | 2026-10-01 (the fresh clone); 2026-09-30 and 2026-10-01 (the earlier runs during development) | 2026-09-28 |
+| Commit | The development branch `feature/one-page`, from a fresh clone, after the review fixes, the four decisions taken after the review and the sign-out fix (see "Results from a fresh clone (local)"). The commit cloned was `2ddc69b` ("fix: sign-out counts only once the server confirms it"), the sign-out fix on top of the squashed release commit `1421aa2` ("Crumb 0.2.0"). The previous record, a fresh clone of `1421aa2`, is kept below. Earlier runs during development, before the branch history was squashed into the 0.2.0 commit, are listed under "Earlier runs during development". | `67a174b`, [run 36412250215](https://github.com/bellaaaaxu/crumb/actions/runs/36412250215) (0.1; not run on `feature/one-page`) |
+| Date | 2026-10-01 (the fresh clone of `2ddc69b`, and the previous one of `1421aa2`); 2026-09-30 and 2026-10-01 (the earlier runs during development) | 2026-09-28 |
 | Machine | Windows 11 Pro 10.0.26200 | GitHub Actions `ubuntu-24.04` (image 20260920.314.1), x64 |
 | Node.js | 24.14.0, npm 11.9.0 | 24.14.0 for the tests; 24.21.0 inside the image |
 | SQLite, images | 3.53.4 (better-sqlite3 13.0.3); sharp 0.35.5 with libvips 8.18.7 | the same packages |
@@ -51,14 +51,15 @@ development" below.
 
 ## Results from a fresh clone (local)
 
-A new clone of the development branch `feature/one-page`, after the review fixes and the four
-decisions taken after the review, into an empty temporary folder, with no files carried over
-(deleted afterwards), on 2026-10-01. Its code is the code of this release; only this report
-and the release checklist have changed since. The commit cloned was `1421aa2` ("Crumb
-0.2.0"), the squashed release commit. A fresh clone of the development branch made earlier
-the same day, before its history was squashed and on the same code, gave the same counts as
-the table below. The earlier runs listed under "Earlier runs during development" were all
-made on the development branch before it was squashed; the squash itself changed no code.
+A new clone of the development branch `feature/one-page`, after the review fixes, the four
+decisions taken after the review and the sign-out fix, into an empty temporary folder, with no
+files carried over (deleted afterwards), on 2026-10-01, on the computer and with the versions
+under "Environment". Its code is the code of this release; only this report and the release
+checklist have changed since. The commit cloned was `2ddc69b` ("fix: sign-out counts only
+once the server confirms it"), the sign-out fix on top of the squashed release commit
+`1421aa2` ("Crumb 0.2.0"). The earlier runs listed under "Earlier runs during development"
+were all made on the development branch before it was squashed; the squash itself changed no
+code.
 
 | Step | Command | Result |
 | --- | --- | --- |
@@ -67,12 +68,12 @@ made on the development branch before it was squashed; the squash itself changed
 | Collectible manifest | `node scripts/theme-manifest.mjs --check` | current (39 collectibles) |
 | Operations drill with real server processes | `node scripts/ci/process-drill.mjs` | 20 of 20 checks passed |
 | Browser | `npx playwright install chromium` | installed |
-| Browser tests | `npm run test:e2e -- --project=chromium` | 75 of 75 passed (Chromium only) |
+| Browser tests | `npm run test:e2e -- --project=chromium` | 81 of 81 passed (Chromium only) |
 | Whitespace in the change | `git diff --check 643e237..HEAD` (since 0.1) | clean |
 | Anything with Docker | | **not run here** (no Docker), and not in CI either for this round — see below |
 
-The four decisions taken after the review, each with its own section below, are all in this
-run:
+The four decisions taken after the review and the sign-out fix, each with its own section
+below, are all in this run:
 
 | Decision | Checked by |
 | --- | --- |
@@ -80,6 +81,17 @@ run:
 | Admins read "Who did what" at the bottom of the Team page; owners in Settings | `tests/api.test.mjs`; the browser tests for admins and owners |
 | "Almost there" only when the member is short by more than nothing and at most half the price | `tests/units.test.mjs` (`isAlmostThere`); a browser test at $0.00, $1.00 and $3.00 against $1.00, $4.50 and $12.50 benefits |
 | Released as version 0.2.0 | `tests/docs.test.mjs`, `tests/auth.test.mjs`; the footer in the retaken screenshots, by eye |
+| Sign-out counts only once the server confirms it | the six sign-out browser tests in `tests/e2e/one-page.spec.mjs` (see "Sign-out confirmed by the server") |
+
+### Previous record: the fresh clone of `1421aa2`
+
+Before the sign-out fix, a fresh clone of `1421aa2` ("Crumb 0.2.0"), the squashed release
+commit, was made the same way on 2026-10-01, on the same computer with the same versions. It
+covered the release before the sign-out fix: `npm ci` passed (84 packages); `npm test` 229
+tests, 227 passed and 2 skipped (the same two); the collectible manifest current; the
+operations drill 20 of 20; browser tests 75 of 75 (Chromium only); `git diff --check
+643e237..HEAD` clean. A fresh clone of the development branch made earlier that day, before
+its history was squashed and on the same code, gave the same counts.
 
 ### Earlier runs during development
 
@@ -159,8 +171,34 @@ Run again just before the fresh clone, the script drew the same footer on the me
 keypad screenshots, which are the ones this release carries; their pastries differ from the
 earlier take only because each run gives the sample team new account ids and a member's shelf
 fills in an order that follows their id, and the Team page again came out the same. These
-sections were then run together from the fresh clone, with the counts at the top of "Results
-from a fresh clone (local)" and the manifest check and the operations drill included.
+sections were then run together from the fresh clone of `1421aa2` (see "Previous record"),
+with the manifest check and the operations drill included, and again in the fresh clone of
+`2ddc69b`, with the counts at the top of "Results from a fresh clone (local)".
+
+### Sign-out confirmed by the server
+
+A sign-out now counts only once the server confirms that the browser's session is over (see
+§16 of [the one-page design](superpowers/specs/2026-09-29-crumb-one-page-design.md) and
+DEPLOYMENT.md). Until then nothing in the browser is cleared and the page stays signed in and
+says the sign-out did not go through; one sign-out runs at a time, and one with no answer
+within ten seconds counts as not done. Six browser tests in `tests/e2e/one-page.spec.mjs`
+check it, in Chromium only:
+
+- a member whose sign-out never reaches Crumb stays signed in, is told so, and signs out on
+  the next try;
+- an owner whose sign-out Crumb cannot take at that moment (a server error) stays signed in,
+  is told so, and signs out on the next try;
+- a sign-out Crumb confirmed shows the sign-in page even when no answer comes to who is
+  signed in now;
+- a sign-out from a tab whose session the same member replaced in another tab still ends the
+  browser's session;
+- a sign-out from a tab whose session someone else replaced leaves that person signed in;
+- a sign-out Crumb never answers is let go within the time limit, runs one at a time, and
+  its late answer ends no one's session.
+
+`npm test` has no new tests for it (229, as before). Run in the development folder before
+`2ddc69b` was committed (`npm test` 227 passed and 2 skipped of 229, browser tests 81 of 81),
+then from the fresh clone of `2ddc69b` above; not in CI and not on a real phone.
 
 ## Results in CI
 

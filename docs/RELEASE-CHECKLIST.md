@@ -6,10 +6,12 @@ acceptance criterion in its section 11, with the evidence behind it, and, under 
 round", one row for each part of
 [the one-page design](superpowers/specs/2026-09-29-crumb-one-page-design.md). How and where
 the checks ran is in [VALIDATION.md](VALIDATION.md); the one-page round, with its review
-fixes and the four decisions taken after the review, was checked on a fresh clone of the
-development branch on 2026-10-01, whose code is the code of this release (earlier, during
-development, on two fresh clones and in the development folder), not in CI. The commit
-cloned was `1421aa2` ("Crumb 0.2.0"), the squashed release commit; the earlier runs were
+fixes, the four decisions taken after the review and the sign-out fix, was checked on a fresh
+clone of the development branch on 2026-10-01, whose code is the code of this release
+(earlier, during development, on two fresh clones and in the development folder, and before
+the sign-out fix on a fresh clone of `1421aa2`), not in CI. The commit cloned was `2ddc69b`
+("fix: sign-out counts only once the server confirms it"), the sign-out fix on top of the
+squashed release commit `1421aa2` ("Crumb 0.2.0"); the earlier runs during development were
 made on the development branch before it was squashed, and the squash changed no code.
 
 The one-page round is released as Crumb 0.2.0 and moves the database to schema 2. "0.1" on
@@ -55,12 +57,18 @@ been run at all — nothing is marked passed on the strength of reading the code
 ## The one-page round
 
 Checked on a fresh clone of the development branch on 2026-10-01, which includes the review
-fixes, the tests they added and the four decisions taken after the review, on one Windows
-computer, in Chromium only (`npm test` 227 passed and 2 skipped of 229, collectible manifest
-current, process drill 20 of 20, browser tests 75 of 75). Since that run only this checklist
-and VALIDATION.md have changed, so its code is the code of this release. The commit cloned
-was `1421aa2` ("Crumb 0.2.0"), the squashed release commit; a fresh clone of the development
-branch made earlier the same day, before the squash and on the same code, gave the same counts.
+fixes, the tests they added, the four decisions taken after the review and the sign-out fix,
+on one Windows computer, in Chromium only (`npm test` 227 passed and 2 skipped of 229,
+collectible manifest current, process drill 20 of 20, browser tests 81 of 81). Since that run
+only this checklist and VALIDATION.md have changed, so its code is the code of this release.
+The commit cloned was `2ddc69b` ("fix: sign-out counts only once the server confirms it"),
+the sign-out fix on top of the squashed release commit `1421aa2` ("Crumb 0.2.0").
+
+The previous record, kept in VALIDATION.md, is a fresh clone of `1421aa2` made earlier on
+2026-10-01, which covered the release before the sign-out fix (`npm test` 227 passed and 2
+skipped of 229, collectible manifest current, process drill 20 of 20, browser tests 75 of 75);
+a fresh clone of the development branch made earlier the same day, before the squash and on
+the same code, gave the same counts.
 
 During development, before the branch history was squashed into the 0.2.0 commit: before the
 decisions, a fresh clone with the review fixes, on 2026-09-30, gave `npm test` 219 passed and
@@ -81,6 +89,7 @@ round (the branch has not been pushed), so nothing here ran on Linux or in the c
 | Batch treats | Passed (Chromium only) | `tests/batch.test.mjs` (one row, one unlock and one audit row with the batch id per person; all or nothing; the unit, the amount and the largest balance checked; single treats unchanged), `tests/api.test.mjs` (over HTTP; every Team log row carries its batch's size; `?batchId=` lists one batch); E2E: three people from the dialog fold into one log line, and a batch of 25 whose rows run past the first page of the Team log stays one line that opens to all 25, each with their own "Take back"; taking one back opens the batch again with the keyboard on it. |
 | Switching the spending mode | Passed (Chromium only) | `tests/org.test.mjs` (defaults to self-recorded; chosen at setup; owners only, at any time), `tests/redemptions.test.mjs` (requests only in confirmed mode; waiting requests resolvable after a switch); E2E: the owner switches in Settings and both pages change; a request left waiting by a switch to self-recorded still shows and is confirmed. |
 | Request keys cleared at sign-out and when the signed-in person changes | Passed (Chromium only) | `tests/pending.test.mjs` (a person's keys forgotten at sign-out, everyone else's when someone signs in, all of them when no one is, also with storage full or blocked); E2E in `tests/e2e/one-page.spec.mjs`: none of the member's keys left after they sign out, also when no answer comes to who is signed in next, and none after the server ends their session once the page reloads. Checked in the development folder when the removal was added and again with a browser test for each place keys are removed, and in the latest fresh clone. On a real phone: **not verified**. |
+| Sign-out counts only once the server confirms it | Passed (Chromium only) | Six browser tests in `tests/e2e/one-page.spec.mjs`: a sign-out that never reaches Crumb, and one Crumb answers with a server error, leave the person signed in and told so, and the next try signs out; a confirmed sign-out shows the sign-in page even when no answer comes to who is signed in now; a sign-out from a tab whose session the same member replaced in another tab still ends the browser's session, and one whose session someone else replaced leaves that person signed in; a sign-out Crumb never answers is let go within ten seconds, runs one at a time, and its late answer ends no one's session. Checked in the development folder before `2ddc69b` was committed and in the latest fresh clone. On a real phone: **not verified**. |
 | Who did what for admins | Passed (Chromium only) | `tests/api.test.mjs` (an admin reads the activity log, a team member is refused), checked in the development folder when it was added and in the latest fresh clone. E2E: an admin's Team page ends with "Who did what", holding the owner's treat and nothing to press, and an admin's old `#/team/activity` address lands there; the owner's Team page neither shows nor fetches it, and their Settings still shows it. On a real phone: **not verified**. |
 | Migration 002 on a version 1 database | Partly | `tests/db.test.mjs` builds a real schema 1 database file from `001-initial.sql` and opens it with the current code: rows, sums and rowids kept, every index and trigger there, the new kinds and sign rules hold, confirmed mode when benefits exist, an update that would leave a dangling reference refused with nothing changed. A real deployment of 0.1 upgraded by the 0.2 image, with or without Docker: **not verified**. |
 | The header menu on a phone | Passed (Chromium only) | E2E at 390 px: a one-line header with no navigation showing; the name menu holds Mine, Team, Settings, Language and Sign out for an owner; at 1200 px the pills show; a team member has no navigation. `tests/e2e/accessibility.spec.mjs`: the menu fits at 390 px for a member and an owner, and tabbing out of it closes it. On a real phone: **not verified**. |
