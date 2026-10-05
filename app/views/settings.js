@@ -5,7 +5,7 @@
 
 import { request } from '../api.js';
 import { button, el, field, formError, radios, toast } from '../dom.js';
-import { LANGUAGES, t } from '../i18n.js';
+import { LANGUAGES, t, themed } from '../i18n.js';
 import { amountToUnits, unitsToInput } from '../format.js';
 import { loading, section } from './shared.js';
 import { activitySection } from './activity.js';
@@ -33,9 +33,10 @@ function settingsForm(ctx, org) {
     label: t('setup.currency'), name: 'currency', value: org.currency ?? 'CAD',
     options: CURRENCIES.map(value => ({ value, label: t(`currency.${value}`) })),
   });
+  // The hint names what the collection is made of, so it follows the team's theme.
   const threshold = field({
     label: t('setup.threshold'), name: 'threshold', value: unitsToInput(org.thresholdUnits, org.mode),
-    hint: t(org.mode === 'credit' ? 'setup.thresholdCredit' : 'setup.thresholdPoints'),
+    hint: org.mode === 'credit' ? themed('setup.thresholdCredit', org.theme) : themed('setup.thresholdPoints', org.theme),
   });
   // Not one of the locked reward rules: an owner can switch at any time, and requests still
   // waiting are finished either way.
@@ -63,7 +64,7 @@ function settingsForm(ctx, org) {
     const credit = mode.value === 'credit';
     currency.wrapper.hidden = !credit;
     threshold.control.setAttribute('inputmode', credit ? 'decimal' : 'numeric');
-    threshold.wrapper.querySelector('.field-hint').textContent = t(credit ? 'setup.thresholdCredit' : 'setup.thresholdPoints');
+    threshold.wrapper.querySelector('.field-hint').textContent = credit ? themed('setup.thresholdCredit', org.theme) : themed('setup.thresholdPoints', org.theme);
     if (!thresholdEdited && !org.locks.threshold)
       threshold.control.value = mode.value === org.mode ? unitsToInput(org.thresholdUnits, org.mode) : (credit ? '50.00' : '100');
   };

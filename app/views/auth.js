@@ -4,7 +4,7 @@
 
 import { request, setCsrf, wasRefused } from '../api.js';
 import { button, el, field, formError, inWeChat, openedAsIPhoneHomeScreenApp, radios, toast, uid } from '../dom.js';
-import { LANGUAGES, getLocale, t } from '../i18n.js';
+import { LANGUAGES, getLocale, t, themed } from '../i18n.js';
 import { amountToUnits } from '../format.js';
 import { pixelWord, spriteCanvas } from '../pixels.js';
 import { loading } from './shared.js';
@@ -246,7 +246,7 @@ function setup(root, ctx) {
     options: CURRENCIES.map(value => ({ value, label: t(`currency.${value}`) })),
   });
   const unitLabel = field({ label: t('setup.unitLabel'), name: 'unitLabel', hint: t('setup.unitLabelHint'), value: t('setup.creditLabel'), attrs: { maxlength: 24 } });
-  const threshold = field({ label: t('setup.threshold'), name: 'threshold', hint: t('setup.thresholdCredit'), value: '50.00', attrs: { inputmode: 'decimal' } });
+  const threshold = field({ label: t('setup.threshold'), name: 'threshold', hint: themed('setup.thresholdCredit', 'default'), value: '50.00', attrs: { inputmode: 'decimal' } });
   const welcome = field({ label: t('settings.welcome'), name: 'welcome', multiline: true, hint: t('settings.welcomeHint'), attrs: { maxlength: 500 } });
   const displayName = field({ label: t('setup.yourName'), name: 'displayName', attrs: { autocomplete: 'name', maxlength: 80 } });
   const username = field({
@@ -269,7 +269,7 @@ function setup(root, ctx) {
     if (!labelEdited) unitLabel.control.value = t(credit ? 'setup.creditLabel' : 'setup.pointsLabel');
     if (!thresholdEdited) threshold.control.value = credit ? '50.00' : '100';
     threshold.control.setAttribute('inputmode', credit ? 'decimal' : 'numeric');
-    threshold.wrapper.querySelector('.field-hint').textContent = t(credit ? 'setup.thresholdCredit' : 'setup.thresholdPoints');
+    threshold.wrapper.querySelector('.field-hint').textContent = credit ? themed('setup.thresholdCredit', 'default') : themed('setup.thresholdPoints', 'default');
   };
   for (const input of mode.inputs) input.addEventListener('change', applyMode);
 

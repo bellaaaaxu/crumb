@@ -5,7 +5,7 @@
 
 import { keyFor, request, requestAll, settleKey, unconfirmedSince, wasRefused } from '../api.js';
 import { button, copyText, el, field, formError, radios, toast, uid } from '../dom.js';
-import { formatDate, formatDateTime, getLocale, t } from '../i18n.js';
+import { formatDate, formatDateTime, getLocale, t, themed } from '../i18n.js';
 import { amountToUnits, formatUnits, unitsToInput } from '../format.js';
 import { spriteCanvas } from '../pixels.js';
 import { actionDialog, badge, historyTitle, loading, oneTap, pager, section, signedAmount, unconfirmedNotice } from './shared.js';
@@ -95,15 +95,17 @@ async function openGrant(ctx, done) {
         : request('/api/admin/grants/batch', { method: 'POST', key, body: { ...body, userIds: ids } });
     },
     done(result) {
+      // The line about what came out of the oven names the collection, so it follows the team's theme.
+      const themeId = org.theme;
       if (result.entries) {
         const params = { count: result.count, amount: money(result.units) };
         if (result.replayed) toast(t('grant.alreadySentMany'));
-        else toast(result.unlocked ? `${t('grant.sentMany', params)} ${t('grant.unlocked', { count: result.unlocked })}` : t('grant.sentMany', params));
+        else toast(result.unlocked ? `${t('grant.sentMany', params)} ${themed('grant.unlocked', themeId, { count: result.unlocked })}` : t('grant.sentMany', params));
       } else {
         const person = members.find(item => item.id === result.entry.userId);
         const params = { amount: money(result.entry.deltaUnits), name: person?.displayName ?? '' };
         if (result.replayed) toast(t('grant.alreadySent', params));
-        else toast(result.unlocked.length ? `${t('grant.sent', params)} ${t('grant.unlocked', { count: result.unlocked.length })}` : t('grant.sent', params));
+        else toast(result.unlocked.length ? `${t('grant.sent', params)} ${themed('grant.unlocked', themeId, { count: result.unlocked.length })}` : t('grant.sent', params));
       }
       done();
     },
@@ -266,9 +268,11 @@ function linkPanel(label, url, note, { qr = null, name = '', fileName = 'crumb.p
 }
 
 function changeRole(ctx, person, refresh) {
+  // The member's line names the collection, so it follows the team's theme; the other roles
+  // have no theme version and keep their base line.
   const choice = radios({
     legend: t('members.role'), name: 'role', value: person.role,
-    options: ['member', 'admin', 'owner'].map(value => ({ value, label: t(`role.${value}`), detail: t(`members.roleDetail.${value}`) })),
+    options: ['member', 'admin', 'owner'].map(value => ({ value, label: t(`role.${value}`), detail: themed(`members.roleDetail.${value}`, ctx.session.org.theme) })),
   });
   const same = formError();
   actionDialog(ctx, {
@@ -661,7 +665,7 @@ function reasonDialog(ctx, { title, intro, submitLabel, action, path, done }) {
 function takeBackButton(ctx, item, money, titleId, then) {
   return button(t('revoke.open'), { kind: 'quiet', attrs: { 'aria-describedby': titleId }, on: { click: () => reasonDialog(ctx, {
     title: t('revoke.title'),
-    intro: [t('revoke.what', { amount: money(item.deltaUnits), name: item.member.displayName, date: formatDate(item.createdAt) }), el('p', { text: t('revoke.explain'), attrs: { class: 'muted small' } })],
+    intro: [t('revoke.what', { amount: money(item.deltaUnits), name: item.member.displayName, date: formatDate(item.createdAt) }), el('p', { text: themed('revoke.explain', ctx.session.org.theme), attrs: { class: 'muted small' } })],
     submitLabel: t('revoke.submit'), action: `revoke:${item.id}`, path: `/api/admin/grants/${item.id}/revoke`,
     done() { toast(t('revoke.done', { name: item.member.displayName })); then(); },
   }) } });
