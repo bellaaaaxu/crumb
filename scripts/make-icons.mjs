@@ -12,22 +12,22 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import vm from 'node:vm';
 import sharp from 'sharp';
+import { evaluateSprites } from './theme-manifest.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const PASTRY_SHOP = 'default';
 const GRID = 12;
+const FAVICON_MARGIN = 1;
 const BACKGROUND = '#F2E7CE';
 export const ICON_SIZES = [180, 192, 512];
 
 const hex = value => [1, 3, 5].map(at => parseInt(value.slice(at, at + 2), 16));
 const shown = path => relative(root, path).split(sep).join('/');
 
-/** The sprite table, evaluated in an empty context: sprites.js touches no browser API at load time. */
+/** The sprite table, evaluated the same way the theme lists are built from it. */
 export function loadPixel() {
-  const source = readFileSync(join(root, 'assets', 'sprites.js'), 'utf8');
-  return vm.runInNewContext(`${source}\n;Pixel`, Object.create(null), { timeout: 1000 });
+  return evaluateSprites(readFileSync(join(root, 'assets', 'sprites.js'), 'utf8'));
 }
 
 /** A size x size RGB picture: the sprite on the cream background, 72% of the icon wide in whole
@@ -53,18 +53,24 @@ export function iconPixels(Pixel, spriteKey, size) {
   return pixels;
 }
 
-/** The tab icon: the sprite as a 12x12 SVG, one square per painted cell, centred the same way,
- * on the background of the hand-drawn Pastry shop favicon. */
+/** The tab icon: the sprite as an SVG, one square per painted cell, centred the same way, on the
+ * background of the hand-drawn Pastry shop favicon. Like that one it keeps a margin of one cell
+ * all round, so a mascot that fills its whole 12x12 grid does not touch the edges of the tab:
+ * the box is 14x14 and the 12x12 grid sits at (1, 1). */
 export function faviconSvg(Pixel, spriteKey) {
   const sprite = Pixel.SPRITES[spriteKey];
   const { dx, dy } = Pixel.offset(sprite);
+  const box = GRID + 2 * FAVICON_MARGIN;
   const cells = [];
   sprite.rows.forEach((row, r) => [...row].forEach((key, c) => {
     const colour = sprite.palette[key];
-    if (colour) cells.push(`<rect x="${c + dx}" y="${r + dy}" width="1" height="1" fill="${colour}"/>`);
+    if (!colour) return;
+    const x = FAVICON_MARGIN + c + dx;
+    const y = FAVICON_MARGIN + r + dy;
+    cells.push(`<rect x="${x}" y="${y}" width="1" height="1" fill="${colour}"/>`);
   }));
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${GRID} ${GRID}" shape-rendering="crispEdges">`
-    + `<rect width="${GRID}" height="${GRID}" fill="${BACKGROUND}"/>${cells.join('')}</svg>\n`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${box} ${box}" shape-rendering="crispEdges">`
+    + `<rect width="${box}" height="${box}" fill="${BACKGROUND}"/>${cells.join('')}</svg>\n`;
 }
 
 /* Pastry shop's files stay where 0.2 put them; every other theme gets a folder of its own. */

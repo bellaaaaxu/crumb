@@ -950,7 +950,9 @@
 
   /* The tab icon. The Pastry shop keeps the page's own icon; another shop's is its
    * mascot, one square per pixel on the page's background colour, as a data: URI
-   * so it works opened from disk too. */
+   * so it works opened from disk too. Like the page's own icon (and the app's, from
+   * scripts/make-icons.mjs) it keeps a margin one cell wide, so a mascot that fills
+   * its 12x12 grid does not touch the edges of the tab: 14x14, the grid at (1, 1). */
   var PAGE_TAB_ICON = $('tab-icon').getAttribute('href');
 
   function tabIcon(id) {
@@ -958,13 +960,13 @@
     var sprite = Pixel.SPRITES[Pixel.THEMES[id].mascot];
     var shift = Pixel.offset(sprite);
     var background = token('--bg');
-    var svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" shape-rendering="crispEdges">';
-    if (background) svg += '<rect width="12" height="12" fill="' + background + '"/>';
+    var svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 14 14" shape-rendering="crispEdges">';
+    if (background) svg += '<rect width="14" height="14" fill="' + background + '"/>';
     sprite.rows.forEach(function (row, y) {
       for (var x = 0; x < row.length; x += 1) {
         var colour = sprite.palette[row.charAt(x)];
         if (colour) {
-          svg += '<rect x="' + (x + shift.dx) + '" y="' + (y + shift.dy) +
+          svg += '<rect x="' + (1 + x + shift.dx) + '" y="' + (1 + y + shift.dy) +
             '" width="1" height="1" fill="' + colour + '"/>';
         }
       }

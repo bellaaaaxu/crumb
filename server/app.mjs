@@ -114,7 +114,9 @@ export function createApp({ db, config, clock = () => Date.now(), log = console.
    * (index.html and the web manifest name them). Pastry shop's are the files in their 0.2
    * places, and before setup there is no team, so those are served. Every other theme's are
    * in app/icons/<id>/ (scripts/make-icons.mjs), which the static files below also serve as is.
-   * These routes come before the static files so they win over app/favicon.svg and app/icons/. */
+   * These routes come before the static files so they win over app/favicon.svg and app/icons/.
+   * The sizes are ICON_SIZES in scripts/make-icons.mjs, written out again on purpose: that
+   * script is not in the Docker image, so the server cannot import it. */
   const themeIcon = (pastryShopFile, themeFile) => (req, res, next) => {
     const themeId = orgThemeId(db);
     const file = themeId === DEFAULT_THEME ? pastryShopFile : `icons/${themeId}/${themeFile}`;

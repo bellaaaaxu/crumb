@@ -166,7 +166,12 @@ test('in the Bakery the shelf, mascot, tab icon, crumbs, words, cards, cabinet a
   await expect.poll(() => showsMascot(page, '#app-icon', 'bakery', 7)).toBe(true);
   const icon = await page.locator('#tab-icon').getAttribute('href');
   expect(icon).toMatch(/^data:image\/svg\+xml,/);
-  expect(decodeURIComponent(icon.slice('data:image/svg+xml,'.length))).toContain(`fill="${outline}"`);
+  const iconSvg = decodeURIComponent(icon.slice('data:image/svg+xml,'.length));
+  expect(iconSvg).toContain(`fill="${outline}"`);
+  // Bitten Toast fills its whole 12x12 grid, so the icon is 14x14 with the outer ring of cells
+  // left to the background, like the page's own icon.
+  expect(iconSvg).toContain('viewBox="0 0 14 14"');
+  expect(iconSvg).not.toMatch(/ [xy]="(0|13)"/);
 
   await expect(page.locator('#stat-collectibles')).toHaveText('24');
   await expect(page.locator('#cabinet-count')).toHaveText('24');

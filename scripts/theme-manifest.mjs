@@ -50,8 +50,9 @@ function checkSprite(key, sprite) {
   if (painted === 0) fail(`${key} has no painted cells`);
 }
 
-/* Evaluates the sprite table in an empty context. */
-function load(source) {
+/** The sprite table (Pixel), evaluated in an empty context: sprites.js touches no browser API
+ * at load time. scripts/make-icons.mjs reads it through here too. */
+export function evaluateSprites(source) {
   const Pixel = vm.runInNewContext(`${source}\n;Pixel`, Object.create(null), { timeout: 1000 });
   if (!Pixel || typeof Pixel.THEMES !== 'object' || Pixel.THEMES === null) fail('THEMES is missing');
   return Pixel;
@@ -98,12 +99,12 @@ function manifestOf(Pixel, themeId) {
 
 /** The list file of one theme. Throws on any rule that theme breaks. */
 export function buildManifest(source, themeId) {
-  return manifestOf(load(source), themeId);
+  return manifestOf(evaluateSprites(source), themeId);
 }
 
 /** Every theme's list file, keyed by theme id, once every drawing belongs to a theme. */
 export function buildAll(source) {
-  const Pixel = load(source);
+  const Pixel = evaluateSprites(source);
   const manifests = {};
   for (const themeId of Object.keys(Pixel.THEMES)) manifests[themeId] = manifestOf(Pixel, themeId);
   const listed = new Set(Object.values(manifests).flatMap(manifest => manifest.keys));

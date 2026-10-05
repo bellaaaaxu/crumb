@@ -25,6 +25,21 @@ async function assertDrawnFrom(path, mascot, size, label) {
   assert.ok(data.equals(iconPixels(Pixel, mascot, size)), `${label} is not the current ${mascot} drawing. ${RERUN}`);
 }
 
+/* A square tab icon whose first rect is the background over the whole box, and whose every
+ * other rect leaves the outermost ring of cells to it. */
+function assertMargin(svg, label) {
+  const [x0, y0, width, height] = /viewBox="([^"]+)"/.exec(svg)[1].split(' ').map(Number);
+  assert.deepEqual([x0, y0, width], [0, 0, height], `${label} has a square box`);
+  const rects = [...svg.matchAll(/<rect ([^>]*)\/>/g)].map(([, attributes]) => Object.fromEntries(
+    [...attributes.matchAll(/([a-z]+)="([^"]*)"/g)].map(([, name, value]) => [name, value])));
+  assert.deepEqual([rects[0].x ?? '0', rects[0].y ?? '0', rects[0].width, rects[0].height], ['0', '0', String(width), String(width)],
+    `${label} starts with the background over the whole box`);
+  for (const rect of rects.slice(1)) {
+    const [x, y, w, h] = [rect.x, rect.y, rect.width, rect.height].map(Number);
+    assert.ok(x >= 1 && y >= 1 && x + w <= width - 1 && y + h <= width - 1, `${label}: ${JSON.stringify(rect)} is in the margin`);
+  }
+}
+
 /* The file a fixed address should send for a theme: Pastry shop's are in their 0.2 places. */
 function fileFor(themeId, address) {
   const name = address.split('/').pop();
@@ -52,12 +67,21 @@ test('every theme but Pastry shop has its four icon files, drawn from its curren
       assert.ok(existsSync(join(dir, file)), `app/icons/${themeId}/${file} is missing. ${RERUN}`);
     assert.equal(svgText(join(dir, 'favicon.svg')), faviconSvg(Pixel, mascot),
       `app/icons/${themeId}/favicon.svg is not the current ${mascot} drawing. ${RERUN}`);
+    assertMargin(faviconSvg(Pixel, mascot), `app/icons/${themeId}/favicon.svg`);
     for (const size of ICON_SIZES)
       await assertDrawnFrom(join(dir, `icon-${size}.png`), mascot, size, `app/icons/${themeId}/icon-${size}.png`);
   }
   const folders = readdirSync(join(APP, 'icons'), { withFileTypes: true })
     .filter(entry => entry.isDirectory()).map(entry => entry.name).sort();
-  assert.deepEqual(folders, [...OTHER_THEMES].sort(), 'app/icons/ has one folder per theme other than Pastry shop');
+  assert.deepEqual(folders, [...OTHER_THEMES].sort(),
+    'app/icons/ has one folder per theme other than Pastry shop: add a theme\'s with npm run themes, and delete the folder of a theme no longer in THEMES');
+});
+
+test('a generated tab icon keeps a margin of background one cell wide, like the hand-drawn one', () => {
+  // Bitten Toast fills every edge of its grid, so it is the case that needs the margin.
+  assert.ok(Pixel.SPRITES.toastbite.rows.some(row => row[0] !== '.' && row.at(-1) !== '.'), 'toastbite reaches both side edges');
+  for (const themeId of Object.keys(Pixel.THEMES)) assertMargin(faviconSvg(Pixel, Pixel.THEMES[themeId].mascot), themeId);
+  assertMargin(svgText(join(APP, 'favicon.svg')), 'app/favicon.svg');
 });
 
 test('Pastry shop keeps its 0.2 icons: PNGs drawn from its mascot and the hand-drawn favicon.svg', async () => {
