@@ -5,6 +5,7 @@ import helmet from 'helmet';
 import { AppError } from './errors.mjs';
 import { isBusy } from './db.mjs';
 import { csrfMiddleware, sessionMiddleware } from './auth.mjs';
+import { DEFAULT_THEME, orgThemeId } from './themes.mjs';
 import { authRoutes } from './routes/auth.mjs';
 import { memberRoutes } from './routes/members.mjs';
 import { orgRoutes } from './routes/org.mjs';
@@ -109,6 +110,19 @@ export function createApp({ db, config, clock = () => Date.now(), log = console.
   const fileOptions = { cacheControl: false, lastModified: false, dotfiles: 'ignore' };
   app.get('/assets/sprites.js', (req, res, next) =>
     res.sendFile('sprites.js', { ...fileOptions, root: ASSETS_DIR }, error => error && next(error)));
+  /* The tab and home-screen icons follow the team's collection theme at fixed addresses
+   * (index.html and the web manifest name them). Pastry shop's are the files in their 0.2
+   * places, and before setup there is no team, so those are served. Every other theme's are
+   * in app/icons/<id>/ (scripts/make-icons.mjs), which the static files below also serve as is.
+   * These routes come before the static files so they win over app/favicon.svg and app/icons/. */
+  const themeIcon = (pastryShopFile, themeFile) => (req, res, next) => {
+    const themeId = orgThemeId(db);
+    const file = themeId === DEFAULT_THEME ? pastryShopFile : `icons/${themeId}/${themeFile}`;
+    res.sendFile(file, { ...fileOptions, root: APP_DIR }, error => error && next(error));
+  };
+  app.get('/favicon.svg', themeIcon('favicon.svg', 'favicon.svg'));
+  for (const size of [180, 192, 512])
+    app.get(`/icons/icon-${size}.png`, themeIcon(`icons/icon-${size}.png`, `icon-${size}.png`));
   app.use(express.static(APP_DIR, { ...fileOptions, index: 'index.html', redirect: false }));
   app.use((req, res) => res.status(404).type('text/plain').send('Not found.'));
   app.use(errorHandler(log));

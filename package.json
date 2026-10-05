@@ -13,7 +13,8 @@
     "test:e2e": "playwright test",
     "backup": "node scripts/backup.mjs",
     "restore": "node scripts/restore.mjs",
-    "demo": "node scripts/demo.mjs"
+    "demo": "node scripts/demo.mjs",
+    "themes": "node scripts/theme-manifest.mjs && node scripts/make-icons.mjs"
   },
   "dependencies": {
     "better-sqlite3": "13.0.3",
