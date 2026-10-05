@@ -13,12 +13,19 @@ const USERNAME = /^[a-z0-9._-]{3,64}$/;
 const CURRENCIES = ['CAD', 'USD', 'CNY'];
 const passwordLength = value => [...value].length;
 
+/* A theme's mascot for the brand at the top of the card; Setup swaps it by its class. */
+function brandMascot(themeId) {
+  const node = spriteCanvas(mascotKey(themeId), 4);
+  node.classList.add('auth-mascot');
+  return node;
+}
+
 function frame(ctx, title, children) {
   const org = ctx.session.org;
   return el('main', { attrs: { id: 'main', class: 'auth', tabindex: '-1' } }, [
     el('div', { attrs: { class: 'auth-card' } }, [
       // The team's mascot. Before setup there is no team yet, and Pastry shop's is drawn.
-      el('div', { attrs: { class: 'auth-brand' } }, [spriteCanvas(mascotKey(org?.theme), 4), pixelWord('CRUMB', 5, '#4a2f1b')]),
+      el('div', { attrs: { class: 'auth-brand' } }, [brandMascot(org?.theme), pixelWord('CRUMB', 5, '#4a2f1b')]),
       org?.hasLogo ? el('img', { attrs: { src: '/api/org/logo', alt: t('auth.logoAlt', { name: org.name }), class: 'auth-logo' } }) : null,
       el('h1', { text: title }),
       ...children,
@@ -281,8 +288,7 @@ function setup(root, ctx) {
   for (const input of mode.inputs) input.addEventListener('change', applyMode);
   const applyTheme = () => {
     showHint();
-    // frame() draws the mascot as the first thing in the brand at the top of the card.
-    root.querySelector('.auth-brand')?.firstElementChild?.replaceWith(spriteCanvas(mascotKey(theme.value), 4));
+    root.querySelector('.auth-brand .auth-mascot')?.replaceWith(brandMascot(theme.value));
   };
   for (const input of theme.inputs) input.addEventListener('change', applyTheme);
 

@@ -36,8 +36,10 @@ function settingsForm(ctx, org) {
   // Fixed with the unlock step at the first treat. A chosen card takes effect on Save; until
   // then only the unlock-step hint follows it, and the header keeps the saved theme's mascot.
   const theme = themeCards(org.theme, { disabled: org.locks.theme });
-  // Each key is themed()'s first argument: tests/i18n.test.mjs counts them there.
-  const thresholdHint = () => (mode.value === 'credit' ? themed('setup.thresholdCredit', theme.value) : themed('setup.thresholdPoints', theme.value));
+  // Each key is themed()'s first argument: tests/i18n.test.mjs counts them there. Without the
+  // pixel table there are no cards and no chosen one, and the hint follows the saved theme.
+  const hintTheme = () => theme.value ?? org.theme;
+  const thresholdHint = () => (mode.value === 'credit' ? themed('setup.thresholdCredit', hintTheme()) : themed('setup.thresholdPoints', hintTheme()));
   const threshold = field({
     label: t('setup.threshold'), name: 'threshold', value: unitsToInput(org.thresholdUnits, org.mode),
     hint: thresholdHint(),

@@ -272,7 +272,7 @@ function changeRole(ctx, person, refresh) {
   // have no theme version and keep their base line.
   const choice = radios({
     legend: t('members.role'), name: 'role', value: person.role,
-    options: ['member', 'admin', 'owner'].map(value => ({ value, label: t(`role.${value}`), detail: themed(`members.roleDetail.${value}`, ctx.session.org.theme) })),
+    options: ['member', 'admin', 'owner'].map(value => ({ value, label: t(`role.${value}`), detail: themed(`members.roleDetail.${value}`, ctx.org.theme) })),
   });
   const same = formError();
   actionDialog(ctx, {
@@ -665,7 +665,7 @@ function reasonDialog(ctx, { title, intro, submitLabel, action, path, done }) {
 function takeBackButton(ctx, item, money, titleId, then) {
   return button(t('revoke.open'), { kind: 'quiet', attrs: { 'aria-describedby': titleId }, on: { click: () => reasonDialog(ctx, {
     title: t('revoke.title'),
-    intro: [t('revoke.what', { amount: money(item.deltaUnits), name: item.member.displayName, date: formatDate(item.createdAt) }), el('p', { text: themed('revoke.explain', ctx.session.org.theme), attrs: { class: 'muted small' } })],
+    intro: [t('revoke.what', { amount: money(item.deltaUnits), name: item.member.displayName, date: formatDate(item.createdAt) }), el('p', { text: themed('revoke.explain', ctx.org.theme), attrs: { class: 'muted small' } })],
     submitLabel: t('revoke.submit'), action: `revoke:${item.id}`, path: `/api/admin/grants/${item.id}/revoke`,
     done() { toast(t('revoke.done', { name: item.member.displayName })); then(); },
   }) } });

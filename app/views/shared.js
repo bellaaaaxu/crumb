@@ -161,7 +161,8 @@ export async function oneTap(ctx, action, { method = 'POST', path, body }, onDon
  * use it; the caller decides what a change does. Without the pixel table (sprites.js did not
  * load) there is no theme to show: no fieldset, and no value, so no theme is sent.
  */
-export function themeCards(selectedId, { name = 'theme', disabled = false } = {}) {
+export function themeCards(selectedId, { disabled = false } = {}) {
+  const name = 'theme';
   const locale = getLocale();
   const inputs = [];
   const cards = themeIds().map(id => {

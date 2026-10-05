@@ -43,8 +43,9 @@ function spawn(x, y, count, color, size, opts) {
 }
 
 /* Crumbs falling from a point on screen, for the mascot, in the colour given: the outline
- * colour of the mascot's drawing, so they look as if they came off it. */
-export function crumbs(x, y, color, count = 9) {
+ * colour of the mascot's drawing, so they look as if they came off it. A missing colour is
+ * outlineColour()'s fallback, so they never come out with no colour, and so unseen. */
+export function crumbs(x, y, color = outlineColour(), count = 9) {
   spawn(x, y, count, color, 5, { from: Math.PI * 0.15, arc: Math.PI * 0.7, distance: 46, gravity: 70, duration: 650 });
 }
 
