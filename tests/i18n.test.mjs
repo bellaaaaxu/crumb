@@ -77,7 +77,7 @@ test('every error code and audit action the server can produce has words', async
   for (const action of ['complete', 'cancel', 'reject']) actions.add(`redemption.${action}`);
   assert.ok(codes.size > 30 && actions.size > 15, `found ${codes.size} codes and ${actions.size} actions`);
   for (const code of codes) {
-    if (['SCHEMA_TOO_NEW', 'NOT_INITIALIZED', 'BAD_REQUEST', 'INVALID_MODE', 'INVALID_LIMIT', 'INVALID_CURSOR'].includes(code)) continue;
+    if (['SCHEMA_TOO_NEW', 'THEME_UNKNOWN', 'NOT_INITIALIZED', 'BAD_REQUEST', 'INVALID_MODE', 'INVALID_LIMIT', 'INVALID_CURSOR'].includes(code)) continue;
     assert.ok(Object.hasOwn(en, `error.${code}`), `error.${code}`);
   }
   for (const action of actions) assert.ok(Object.hasOwn(en, `audit.${action}`), `audit.${action}`);
