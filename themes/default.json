@@ -2,6 +2,7 @@
   "themeId": "default",
   "version": 1,
   "source": "assets/sprites.js",
+  "mascot": "laopo",
   "keys": [
     "laopo",
     "tart",
