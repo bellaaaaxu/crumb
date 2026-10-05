@@ -6,7 +6,7 @@ import { request, setCsrf, wasRefused } from '../api.js';
 import { button, el, field, formError, inWeChat, openedAsIPhoneHomeScreenApp, radios, toast, uid } from '../dom.js';
 import { LANGUAGES, getLocale, t, themed } from '../i18n.js';
 import { amountToUnits } from '../format.js';
-import { pixelWord, spriteCanvas } from '../pixels.js';
+import { mascotKey, pixelWord, spriteCanvas } from '../pixels.js';
 import { loading } from './shared.js';
 
 const USERNAME = /^[a-z0-9._-]{3,64}$/;
@@ -17,7 +17,8 @@ function frame(ctx, title, children) {
   const org = ctx.session.org;
   return el('main', { attrs: { id: 'main', class: 'auth', tabindex: '-1' } }, [
     el('div', { attrs: { class: 'auth-card' } }, [
-      el('div', { attrs: { class: 'auth-brand' } }, [spriteCanvas('laopo', 4), pixelWord('CRUMB', 5, '#4a2f1b')]),
+      // The team's mascot. Before setup there is no team yet, and Pastry shop's is drawn.
+      el('div', { attrs: { class: 'auth-brand' } }, [spriteCanvas(mascotKey(org?.theme), 4), pixelWord('CRUMB', 5, '#4a2f1b')]),
       org?.hasLogo ? el('img', { attrs: { src: '/api/org/logo', alt: t('auth.logoAlt', { name: org.name }), class: 'auth-logo' } }) : null,
       el('h1', { text: title }),
       ...children,

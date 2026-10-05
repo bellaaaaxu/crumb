@@ -5,7 +5,7 @@ import { ApiError, forgetPendingFor, keepPendingOnlyFor, renewTokenWith, request
 import { button, closeAllDialogs, el, inWeChat, openDialog, safeUrl, toast, uid } from './dom.js';
 import { LANGUAGES, getLocale, has, preferredLocale, rememberLocale, setLocale, t } from './i18n.js';
 import { crackMascot, forgetSeen, keepSeenOnlyFor, ovenIntro } from './motion.js';
-import { spriteCanvas } from './pixels.js';
+import { iconHref, mascotKey, spriteCanvas, touchIconHref } from './pixels.js';
 import { renderAuth } from './views/auth.js';
 import { renderMember } from './views/member.js';
 import { renderAdmin } from './views/admin.js';
@@ -52,7 +52,22 @@ function adoptSession(session) {
   keepSeenOnlyFor(session.user?.id);
   keepPendingOnlyFor(session.user?.id);
   state.session = session;
+  // Every session the page learns comes through here: on loading, after signing in or setting
+  // up, after Settings saves (ctx.refresh) and on signing out. So the tab icon follows from here.
+  applyThemeIcons(session.org?.theme);
   return session;
+}
+
+/* The tab and home-screen icons of a collection theme. The server answers favicon.svg and
+ * icons/icon-180.png in the team's theme too, but a page keeps the icon it already fetched for
+ * an address: pointing the links at the theme's own files changes an open page's tab icon
+ * without a reload. Pastry shop's are the addresses index.html names, so for it nothing moves. */
+function applyThemeIcons(themeId) {
+  for (const [rel, href] of [['icon', iconHref(themeId)], ['apple-touch-icon', touchIconHref(themeId)]]) {
+    const link = document.head.querySelector(`link[rel="${rel}"]`);
+    // Only a different address is written: the same one again would only make the browser ask again.
+    if (link && link.getAttribute('href') !== href) link.setAttribute('href', href);
+  }
 }
 
 const isManager = user => user?.role === 'owner' || user?.role === 'admin';
@@ -197,14 +212,14 @@ async function signOut() {
       adoptSession(next);
     } else {
       // No answer: the next person must still never see the leaver's page. The sign-in page is
-      // drawn from what a signed-out page is given (the organization's name, language and
-      // logo), with no token; the first change it sends asks for one (see boot).
+      // drawn from what a signed-out page is given (the organization's name, language, logo and
+      // collection theme), with no token; the first change it sends asks for one (see boot).
       const { org } = state.session;
       adoptSession({
         ...state.session,
         user: null,
         csrfToken: null,
-        org: org && { name: org.name, locale: org.locale, hasLogo: org.hasLogo },
+        org: org && { name: org.name, locale: org.locale, hasLogo: org.hasLogo, theme: org.theme },
       });
     }
     render();
@@ -279,6 +294,10 @@ function context(generation) {
     render,
     errorText,
     languagePicker,
+    /* Points the tab and home-screen icons at a theme's own files. Every session the page loads
+     * does this already; a view calls it when an answer of its own names the team's theme, as
+     * Settings' save does, so the icon follows even if the refresh after it fails. */
+    applyThemeIcons,
     async refresh() {
       await loadSession();
       render();
@@ -373,10 +392,13 @@ function header(section) {
   const navLinks = () => links.map(([key, label]) => el('a', {
     text: label, attrs: { href: `#/${key}`, 'aria-current': key === section ? 'page' : false },
   }));
+  // The saved theme's mascot (Pastry shop's when the id is missing or unknown); its crumbs take
+  // its outline colour. A team with a logo shows the logo instead, as before.
+  const drawing = mascotKey(org.theme);
   const mascot = el('button', {
     attrs: { type: 'button', class: 'mascot', 'aria-label': 'Crumb' },
-    on: { click: event => crackMascot(event.currentTarget) },
-  }, [spriteCanvas('laopo', 3)]);
+    on: { click: event => crackMascot(event.currentTarget, drawing) },
+  }, [spriteCanvas(drawing, 3)]);
   const brand = el('div', { attrs: { class: 'brand' } }, [
     org.hasLogo ? el('img', { attrs: { src: '/api/org/logo', alt: '', class: 'brand-logo', width: 32, height: 32 } }) : mascot,
     el('span', { text: org.name, attrs: { class: 'brand-name' } }),
@@ -527,7 +549,7 @@ async function boot() {
   // A sign-in link or the sign-in page goes straight to its form.
   if (state.session.user && !state.link) {
     state.entering = true;
-    await ovenIntro({ title: t('intro.title'), skip: t('intro.skip') });
+    await ovenIntro({ title: t('intro.title'), skip: t('intro.skip'), mascot: mascotKey(state.session.org?.theme) });
   }
   render();
   window.addEventListener('hashchange', () => {
