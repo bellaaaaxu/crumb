@@ -5,7 +5,7 @@ import { normalizeLogo, updateOrg } from '../server/org.mjs';
 import { grant } from '../server/ledger.mjs';
 import { updateMember } from '../server/members.mjs';
 import { saveReward } from '../server/rewards.mjs';
-import { client, fixture, joinTeam, setupOrganization, startServer } from './helpers.mjs';
+import { PASSWORD, client, fixture, joinTeam, orgInput, setupOrganization, startServer } from './helpers.mjs';
 
 const code = expected => error => {
   assert.equal(error.code, expected);
@@ -32,7 +32,7 @@ test('reward rules can change until the first ledger entry, then they are fixed'
   });
   assert.deepEqual([shown.name, shown.unitLabel, shown.locale, shown.adminContact, shown.feedbackUrl],
     ['Corner Café', 'Café credit', 'zh-CN', 'mailto:manager@example.com', 'https://forms.example.com/crumb']);
-  assert.deepEqual(shown.locks, { mode: true, threshold: true });
+  assert.deepEqual(shown.locks, { mode: true, threshold: true, theme: true });
 });
 
 test('a priced catalog fixes the reward type and currency but not the threshold', t => {
@@ -42,7 +42,7 @@ test('a priced catalog fixes the reward type and currency but not the threshold'
   assert.throws(() => updateOrg(db, owner, { currency: 'CNY' }), code('RULES_LOCKED'));
   const org = updateOrg(db, owner, { threshold: '40.00' });
   assert.equal(org.thresholdUnits, 4000);
-  assert.deepEqual(org.locks, { mode: true, threshold: false });
+  assert.deepEqual(org.locks, { mode: true, threshold: false, theme: false });
 });
 
 test('the reward type, currency and threshold must agree', t => {
@@ -196,4 +196,47 @@ test('setup accepts a spending mode and the session reports it', async t => {
   const other = await startServer(t);
   const plain = await setupOrganization(other);
   assert.equal((await plain.api.request('GET', '/api/session')).body.org.spending, 'self');
+});
+
+test('setup takes a collection theme, Pastry shop when none is given, and records it', async t => {
+  const setupDetail = server => JSON.parse(server.db.prepare(`SELECT detail_json FROM audit WHERE action = 'org.setup'`).get().detail_json);
+  const storedTheme = server => server.db.prepare('SELECT theme FROM organization WHERE id = 1').get().theme;
+
+  const plain = await startServer(t);
+  await setupOrganization(plain);
+  assert.equal(storedTheme(plain), 'default');
+  assert.deepEqual(setupDetail(plain), { mode: 'credit', currency: 'CAD', thresholdUnits: 5000, theme: 'default' });
+
+  const bakery = await startServer(t);
+  await setupOrganization(bakery, { mode: 'points', org: { theme: 'bakery' } });
+  assert.equal(storedTheme(bakery), 'bakery');
+  assert.deepEqual(setupDetail(bakery), { mode: 'points', currency: null, thresholdUnits: 100, theme: 'bakery' });
+
+  const unknown = await startServer(t);
+  const api = client(unknown.base);
+  await api.bootstrap();
+  const refused = await api.request('POST', '/api/setup', {
+    setupToken: unknown.setupToken, username: 'owner', password: PASSWORD, displayName: 'Olive',
+    org: orgInput('credit', { theme: 'unicorn' }),
+  });
+  assert.deepEqual([refused.status, refused.body.error.code, refused.body.error.field], [422, 'INVALID_INPUT', 'org.theme']);
+  assert.equal(unknown.db.prepare('SELECT count(*) AS n FROM organization').get().n, 0);
+});
+
+test('the session carries the team theme signed in and signed out, and the first treat sets locks.theme', async t => {
+  const server = await startServer(t);
+  const { api: owner } = await setupOrganization(server, { org: { theme: 'bakery' } });
+  const { api: member, user: mina } = await joinTeam(server, owner, { username: 'mina' });
+  const org = async api => (await api.request('GET', '/api/session')).body.org;
+
+  const signedIn = await org(owner);
+  assert.deepEqual([signedIn.theme, signedIn.locks], ['bakery', { mode: false, threshold: false, theme: false }]);
+  assert.equal((await org(member)).theme, 'bakery');
+  const visitor = await client(server.base).bootstrap();
+  assert.deepEqual(visitor.body.org, { name: 'Test Team', locale: 'en', hasLogo: false, theme: 'bakery' });
+
+  const treat = await owner.request('POST', '/api/admin/grants',
+    { userId: mina.id, amount: '5.00', mode: 'credit', reason: 'Thanks' }, { 'idempotency-key': 'org-theme-session-grant-01' });
+  assert.equal(treat.status, 201);
+  assert.deepEqual((await org(owner)).locks, { mode: true, threshold: true, theme: true });
 });

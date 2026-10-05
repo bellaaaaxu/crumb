@@ -3,6 +3,7 @@ import { AppError } from './errors.mjs';
 import { writeTransaction } from './db.mjs';
 import { writeAudit } from './audit.mjs';
 import { freshActor, requireRole } from './permissions.mjs';
+import { DEFAULT_THEME, THEME_IDS } from './themes.mjs';
 import { parseUnits } from './units.mjs';
 import { amount, invalid, oneOf, readObject, text } from './validate.mjs';
 
@@ -11,16 +12,16 @@ export const LOCALES = ['en', 'zh-CN'];
 export const SPENDING = ['self', 'confirm'];
 const OWNER = ['owner'];
 
-const ORG_COLUMNS = `name, mode, currency, unit_label, threshold_units, locale, welcome, spending,
+const ORG_COLUMNS = `name, mode, currency, unit_label, threshold_units, locale, welcome, spending, theme,
   admin_contact, feedback_url, (logo_png IS NOT NULL) AS has_logo,
   EXISTS (SELECT 1 FROM ledger) AS has_ledger, EXISTS (SELECT 1 FROM rewards) AS has_rewards`;
 
 export const readOrgRow = db => db.prepare(`SELECT ${ORG_COLUMNS} FROM organization WHERE id = 1`).get();
 
-/* Signed-out visitors see only what the sign-in page needs. */
+/* Signed-out visitors see only what the sign-in page needs: the theme is there for its mascot. */
 export function orgView(row, { signedIn }) {
   if (!row) return null;
-  if (!signedIn) return { name: row.name, locale: row.locale, hasLogo: row.has_logo === 1 };
+  if (!signedIn) return { name: row.name, locale: row.locale, hasLogo: row.has_logo === 1, theme: row.theme };
   return {
     name: row.name,
     mode: row.mode,
@@ -30,11 +31,17 @@ export function orgView(row, { signedIn }) {
     locale: row.locale,
     welcome: row.welcome,
     spending: row.spending,
+    theme: row.theme,
     adminContact: row.admin_contact,
     feedbackUrl: row.feedback_url,
     hasLogo: row.has_logo === 1,
-    // Once anything is recorded the rules are fixed; once benefits are priced, so is the unit.
-    locks: { mode: row.has_ledger === 1 || row.has_rewards === 1, threshold: row.has_ledger === 1 },
+    // Once anything is recorded the rules are fixed, the collection theme together with the
+    // unlock step; once benefits are priced, so is the unit.
+    locks: {
+      mode: row.has_ledger === 1 || row.has_rewards === 1,
+      threshold: row.has_ledger === 1,
+      theme: row.has_ledger === 1,
+    },
   };
 }
 
@@ -53,9 +60,12 @@ const NEW_ORG = {
   locale: oneOf(LOCALES),
   welcome: text({ max: 500, optional: true, multiline: true }),
   spending: oneOf(SPENDING, { optional: true }),
+  // Only the themes this version ships; the database column checks shape only.
+  theme: oneOf(THEME_IDS, { optional: true }),
 };
 
-/* Reward rules chosen at first setup: credit needs a currency, points must not have one. */
+/* Reward rules chosen at first setup: credit needs a currency, points must not have one.
+ * The collection theme is Pastry shop (`default`) unless another is chosen. */
 export function readNewOrg(input) {
   const org = readObject(input, NEW_ORG, 'org.');
   if (org.mode === 'credit' && !org.currency) throw invalid('org.currency', 'Choose a currency for credit.');
@@ -69,6 +79,7 @@ export function readNewOrg(input) {
     locale: org.locale,
     welcome: org.welcome ?? '',
     spending: org.spending ?? 'self',
+    theme: org.theme ?? DEFAULT_THEME,
   };
 }
 

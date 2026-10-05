@@ -93,7 +93,7 @@ test('the anonymous view of the organization is minimal', async t => {
   await setupOrganization(server);
   const visitor = client(server.base);
   const session = await visitor.bootstrap();
-  assert.deepEqual(session.body.org, { name: 'Test Team', locale: 'en', hasLogo: false });
+  assert.deepEqual(session.body.org, { name: 'Test Team', locale: 'en', hasLogo: false, theme: 'default' });
   // The version (for bug reports) and the address changes must come from (for the wrong-address notice).
   const { version } = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
   assert.equal(session.body.version, version);
