@@ -41,6 +41,11 @@ const RELEASED_KEYS = {
     'chestnut', 'porttart', 'blacksesamemochi', 'cheesehotdog', 'pumpkintuile', 'blacksesamepastry',
     'pistachiohorn', 'cnybox', 'mooncake', 'radishcake', 'tarocake', 'ricecake',
   ],
+  bakery: [
+    'toastbite', 'croissant', 'bolo', 'strawberrycake', 'baguette', 'gaimei', 'cupcake', 'loaf', 'caketriangle',
+    'bagel', 'sausage', 'donut', 'cinnamonroll', 'swissroll', 'pretzel', 'creambun', 'tiramisu', 'boloyau',
+    'madeleine', 'blackforest', 'cheesehotdog', 'mango', 'papercake', 'chestnut',
+  ],
 };
 
 /* The public demo's rotation as 0.2 shipped it. Without a theme, forSlot must pick exactly
@@ -85,6 +90,44 @@ test('the theme table: Pastry shop is the 0.2 list, and every card counts its ke
       assert.ok(entry.card[locale].includes('{count}'), `${themeId}: card.${locale} has {count}`);
       assert.doesNotMatch(entry.card[locale], /\p{Nd}/u, `${themeId}: card.${locale} types no number`);
     }
+  }
+});
+
+test('Bakery is the 24 of the design, Bitten Toast first, sharing 12 drawings with Pastry shop', () => {
+  const Pixel = loadPixel(spritesSource());
+  const bakery = Pixel.THEMES.bakery;
+  assert.equal(bakery.mascot, 'toastbite');
+  assert.deepEqual([...bakery.rotation], [
+    'toastbite', 'croissant', 'bolo', 'strawberrycake', 'baguette', 'gaimei', 'cupcake', 'loaf', 'caketriangle',
+    'bagel', 'sausage', 'donut', 'cinnamonroll', 'swissroll', 'pretzel', 'creambun', 'tiramisu', 'boloyau',
+    'madeleine', 'blackforest', 'cheesehotdog', 'mango', 'papercake', 'chestnut',
+  ], 'the order of design section 2, which is also the demo rotation');
+  assert.deepEqual([...bakery.limited], []);
+  assert.equal(bakery.version, 1);
+  assert.deepEqual({ ...bakery.label }, { en: 'Bakery', 'zh-CN': '面包店' });
+  assert.deepEqual({ ...bakery.card }, { en: 'Bakery · {count} breads and cakes', 'zh-CN': '面包店 · {count} 款面包和蛋糕' });
+  const pastry = Pixel.themeKeys('default');
+  assert.deepEqual([...bakery.rotation].filter(key => pastry.includes(key)).sort(), [
+    'blackforest', 'bolo', 'boloyau', 'caketriangle', 'cheesehotdog', 'chestnut', 'creambun', 'gaimei', 'mango',
+    'papercake', 'sausage', 'swissroll',
+  ]);
+  const names = listFile('bakery').names;
+  const expected = {
+    toastbite: ['Bitten Toast', '咬一口吐司', '咬一口吐司'],
+    croissant: ['Croissant', '牛角包', '牛角包'],
+    baguette: ['Baguette', '法棍', '法棍'],
+    loaf: ['Loaf', '山形吐司', '山形吐司'],
+    bagel: ['Bagel', '貝果', '贝果'],
+    pretzel: ['Pretzel', '椒鹽卷餅', '椒盐卷饼'],
+    cinnamonroll: ['Cinnamon Roll', '肉桂卷', '肉桂卷'],
+    strawberrycake: ['Strawberry Cake', '草莓蛋糕', '草莓蛋糕'],
+    cupcake: ['Cupcake', '紙杯蛋糕', '纸杯蛋糕'],
+    donut: ['Donut', '甜甜圈', '甜甜圈'],
+    tiramisu: ['Tiramisu', '提拉米蘇', '提拉米苏'],
+    madeleine: ['Madeleine', '瑪德蓮', '玛德琳'],
+  };
+  for (const [key, [en, hant, hans]] of Object.entries(expected)) {
+    assert.deepEqual(names[key], { en, 'zh-Hant': hant, 'zh-CN': hans }, key);
   }
 });
 
