@@ -530,6 +530,29 @@ body.autoplay .reset { cursor: default; }
 .oven-text { font-size: 17px; font-weight: 800; color: var(--wood); }
 .oven-sub { font-size: 12px; color: var(--ink-soft); }
 
+/* The shutter that comes down over the phone when the shop changes (assets/app.js,
+   shutter()). A layer inside the phone like .oven, above everything else in it, the
+   toast included. The slats are hard colour stops, 10px of wood and a 2px seam, so
+   nothing blurs between them; every move is set from script in whole steps, so
+   nothing here transitions. */
+.shutter {
+  position: absolute; inset: 0; z-index: 10;
+  background: repeating-linear-gradient(var(--wood) 0 10px, var(--wood-deep) 10px 12px);
+  transform: translateY(-100%);
+}
+/* Hangs a little above the middle. It flips by squashing sideways around its centre
+   line and wobbles from where it hangs, so one origin serves both. */
+.shutter-sign {
+  position: absolute; top: 38%; left: 0; right: 0;
+  width: max-content; margin: 0 auto;
+  padding: 10px 12px;
+  background: var(--tile);
+  border: 3px solid var(--wood-deep);
+  border-bottom-width: 6px;
+  border-radius: 10px;
+  transform-origin: 50% 0;
+}
+
 .sheet-scrim {
   position: absolute; inset: 0; z-index: 8;
   background: rgba(74, 47, 27, 0.34);

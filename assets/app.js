@@ -576,6 +576,146 @@
     window.setTimeout(dismiss, 900);
   }
 
+  /* ---------------------------------------------------------------- the shutter
+   *
+   * Changing shop pulls a roller shutter down over the phone, flips the sign on it
+   * from one shop to the other while the shelf is restocked behind it, rolls it back
+   * up, and the new stock pops onto the shelf (spec §7.1):
+   *
+   *     0–300 ms  down in 8 steps
+   *   300–550 ms  the sign squashes to a line in 3 steps, takes the new name at the
+   *               narrowest, and opens in 3; the theme changes then, behind the door
+   *   550–650 ms  the sign wobbles twice
+   *   650–950 ms  up in 8 steps, then the layer goes
+   *
+   * It is started from chooseTheme, under "switching shop" further down, one
+   * at a time.
+   *
+   * Every step runs on a timer, never requestAnimationFrame. A background tab paints
+   * no frames at all, so a frame-driven shutter would stay down over a half-made
+   * switch until the visitor came back. Timers still run there, only late; so each
+   * tick runs every step whose time has come, in order, and a late tick catches up.
+   * The theme always changes before the shutter goes. The timers are the shutter's
+   * own, never the tour's later(): a tour that is playing restarts behind the door,
+   * and its clearLater() must not cancel the rest of the shutter. */
+
+  var SHUTTER_DOWN_MS = 300;
+  var SHUTTER_FLIP_MS = 550;
+  var SHUTTER_WOBBLE_MS = 650;
+  var SHUTTER_UP_MS = 950;
+  var SHUTTER_STEPS = 8;
+  /* The sign's width through the flip. The third is the narrowest, a line rather than
+   * nothing, and the name changes there. */
+  var SIGN_SQUASH = [0.66, 0.33, 0.06, 0.33, 0.66, 1];
+  var SIGN_NARROWEST = 2;
+  var SIGN_WOBBLE = [-4, 3, 0];   /* degrees, swinging from where it hangs */
+  var SIGN_PIXEL = 4;
+  var RESTOCK_STAGGER_MS = 25;
+
+  var shuttering = false;
+
+  /* The shop's name in the page's pixel letters, which are capitals only: "Pastry shop"
+   * is written PASTRY SHOP, "Bakery" BAKERY. */
+  function drawSign(canvas, id) {
+    Pixel.drawText(canvas, Pixel.THEMES[id].label.en.toUpperCase(), SIGN_PIXEL, token('--ink'));
+  }
+
+  /* New stock: everything on the shelf drops in again, one after another, with the
+   * same slotPop a newly collected pastry uses. */
+  function restockShelf() {
+    var filled = Array.prototype.slice.call($('slots').querySelectorAll('.slot.filled'));
+    filled.forEach(function (slot) { slot.classList.remove('pop'); });
+    void $('slots').offsetWidth;   /* so slots that already had .pop play it again */
+    filled.forEach(function (slot, i) {
+      slot.style.animationDelay = (i * RESTOCK_STAGGER_MS) + 'ms';
+      slot.classList.add('pop');
+    });
+  }
+
+  /* Runs each cue once its time has come; a late tick runs all it missed, in order.
+   * If a cue throws, `stop` still runs, so the shutter never stays down. */
+  function runCues(cues, stop) {
+    var started = Date.now();
+    var next = 0;
+    var tick = function () {
+      var now = Date.now() - started;
+      try {
+        while (next < cues.length && cues[next].at <= now) {
+          next += 1;
+          cues[next - 1].run();
+        }
+      } catch (err) {
+        stop();
+        throw err;
+      }
+      if (next < cues.length) window.setTimeout(tick, Math.ceil(cues[next].at - now));
+    };
+    tick();
+  }
+
+  function shutter(to) {
+    var door = document.createElement('div');
+    door.className = 'shutter';
+    door.setAttribute('aria-hidden', 'true');
+    var sign = document.createElement('div');
+    sign.className = 'shutter-sign';
+    var name = document.createElement('canvas');
+    drawSign(name, themeId);
+    sign.appendChild(name);
+    door.appendChild(sign);
+    $('phone').appendChild(door);
+    shuttering = true;
+
+    var swapped = false;
+    var swap = function () {
+      if (swapped) return;
+      swapped = true;
+      drawSign(name, to);
+      setTheme(to);
+    };
+    var finished = false;
+    var finish = function () {
+      if (finished) return;
+      finished = true;
+      try {
+        swap();   /* already done, unless a cue failed before the narrowest */
+      } finally {
+        door.remove();
+        shuttering = false;
+      }
+      restockShelf();
+    };
+
+    var cues = [];
+    var at = function (ms, run) { cues.push({ at: ms, run: run }); };
+    var cover = function (steps) {
+      return function () {
+        door.style.transform = 'translateY(' + (steps * 100 / SHUTTER_STEPS - 100) + '%)';
+      };
+    };
+    var i;
+    var down = SHUTTER_DOWN_MS / SHUTTER_STEPS;
+    for (i = 1; i <= SHUTTER_STEPS; i += 1) at((i - 1) * down, cover(i));
+    var flip = (SHUTTER_FLIP_MS - SHUTTER_DOWN_MS) / SIGN_SQUASH.length;
+    SIGN_SQUASH.forEach(function (scale, k) {
+      at(SHUTTER_DOWN_MS + k * flip, function () {
+        sign.style.transform = 'scaleX(' + scale + ')';
+        if (k === SIGN_NARROWEST) swap();
+      });
+    });
+    var sway = (SHUTTER_WOBBLE_MS - SHUTTER_FLIP_MS) / SIGN_WOBBLE.length;
+    SIGN_WOBBLE.forEach(function (degrees, k) {
+      at(SHUTTER_FLIP_MS + k * sway, function () {
+        sign.style.transform = 'rotate(' + degrees + 'deg)';
+      });
+    });
+    var up = (SHUTTER_UP_MS - SHUTTER_WOBBLE_MS) / SHUTTER_STEPS;
+    for (i = 1; i <= SHUTTER_STEPS; i += 1) at(SHUTTER_WOBBLE_MS + (i - 1) * up, cover(SHUTTER_STEPS - i));
+    at(SHUTTER_UP_MS, finish);
+
+    runCues(cues, finish);
+  }
+
   /* ---------------------------------------------------------------- mascot bite */
 
   /* The mascot is looked up at every frame, so a switch of shop in the middle of
@@ -1026,6 +1166,21 @@
     }
   }
 
+  /* What the shop buttons call. The shutter comes down and setTheme redraws
+   * everything behind it; with motion reduced the switch is instant. One switch at
+   * a time: a press while the shutter runs is ignored. The choice is stored the
+   * moment it is made, so a reload part-way through draws the new shop straight
+   * away. A page opened with a remembered shop never comes through here either. */
+  function chooseTheme(id) {
+    if (shuttering || !known(id) || id === themeId) return;
+    if (reduced()) {
+      setTheme(id);
+      return;
+    }
+    rememberTheme(id);
+    shutter(id);
+  }
+
   /* ---------------------------------------------------------------- scroll reveals
    *
    * Deliberately the page's own vocabulary rather than a generic fade: the
@@ -1129,7 +1284,7 @@
   });
 
   Array.prototype.forEach.call($('shop-switch').querySelectorAll('[data-shop]'), function (btn) {
-    btn.addEventListener('click', function () { setTheme(btn.dataset.shop); });
+    btn.addEventListener('click', function () { chooseTheme(btn.dataset.shop); });
   });
 
   Array.prototype.forEach.call(document.querySelectorAll('[data-grant]'), function (btn) {
