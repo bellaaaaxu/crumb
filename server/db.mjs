@@ -3,6 +3,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import Database from 'better-sqlite3';
 import { AppError } from './errors.mjs';
+import { checkDatabaseTheme } from './themes.mjs';
 
 const migrationsDir = join(dirname(fileURLToPath(import.meta.url)), 'migrations');
 
@@ -21,7 +22,8 @@ export const SCHEMA_VERSION = MIGRATIONS.at(-1).version;
 
 /**
  * Opens (or creates) the database and brings its schema up to date before
- * anything else can use it. A database written by a newer Crumb is refused
+ * anything else can use it. A database written by a newer Crumb, or whose
+ * team uses a collection theme this version does not ship, is refused
  * rather than guessed at. Migrations run with foreign keys off and every
  * reference is verified before they commit; the connection handed back
  * enforces foreign keys. A new database file is readable by its owner only
@@ -38,6 +40,8 @@ export function openDatabase(path) {
     db.pragma('busy_timeout = 5000');
     db.pragma('journal_mode = WAL');
     migrate(db);
+    // Next to the newer-schema check in migrate(): a team on a theme from a newer Crumb (THEME_UNKNOWN).
+    checkDatabaseTheme(db);
     return db;
   } catch (error) {
     db.close();

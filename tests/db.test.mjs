@@ -338,3 +338,33 @@ test('a team theme is 2 to 32 characters; which themes exist is up to the theme 
   assert.throws(() => set('a'.repeat(33)), /CHECK/);
   assert.throws(() => set(null), /NOT NULL/);
 });
+
+const UNKNOWN_THEME = 'This database uses the collection theme "cafe", which this version of Crumb does not include. ' +
+  'Run a newer Crumb, or restore a backup made by this version.';
+
+test('a database whose team uses a theme this version does not include refuses to open', t => {
+  const { db, path } = fixture(t);
+  db.prepare(`UPDATE organization SET theme = 'cafe' WHERE id = 1`).run();
+  db.close();
+  assert.throws(() => openDatabase(path), { code: 'THEME_UNKNOWN', message: UNKNOWN_THEME });
+  // Refused, not repaired: the team still has the theme it came with.
+  const raw = new Database(path);
+  try {
+    assert.equal(raw.prepare('SELECT theme FROM organization').get().theme, 'cafe');
+  } finally {
+    raw.close();
+  }
+});
+
+test('a new database with no team yet opens, and opens again', t => {
+  const path = tempDatabasePath(t);
+  for (const round of ['created', 'reopened']) {
+    const db = openDatabase(path);
+    try {
+      assert.equal(schemaVersionOf(db), SCHEMA_VERSION, round);
+      assert.equal(db.prepare('SELECT count(*) AS n FROM organization').get().n, 0, round);
+    } finally {
+      db.close();
+    }
+  }
+});
