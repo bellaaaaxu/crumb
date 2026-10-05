@@ -116,6 +116,26 @@ canvas { display: block; image-rendering: pixelated; }
 .get:active { transform: translateY(3px); border-bottom-width: 1px; }
 .get-note { font-size: 11px; color: var(--ink-soft); }
 
+/* Which shop the demo shows. It sits outside the stage, so pressing it never
+   takes the tour over. */
+.shop-switch {
+  display: flex; gap: 2px;
+  padding: 2px;
+  background: var(--tile);
+  border: 2px solid var(--line);
+  border-radius: 999px;
+}
+.shop-switch button {
+  padding: 3px 12px;
+  border-radius: 999px;
+  font-size: 12px; font-weight: 700;
+  color: var(--ink-soft);
+  white-space: nowrap;
+  transition: background 0.14s, color 0.14s;
+}
+.shop-switch button:hover { color: var(--wood); }
+.shop-switch button[aria-pressed='true'] { background: var(--wood); color: var(--tile); cursor: default; }
+
 .stats {
   display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
@@ -635,7 +655,8 @@ body.autoplay .reset { cursor: default; }
   display: flex; gap: 16px; justify-content: center; flex-wrap: wrap;
   margin-top: 12px; font-size: 12px; color: var(--ink-soft);
 }
-.legend span { display: flex; align-items: center; gap: 6px; }
+.legend > span { display: flex; align-items: center; gap: 6px; }
+.legend > span[hidden] { display: none; }
 .legend i { width: 11px; height: 11px; border: 2px solid var(--slot-border); border-radius: 4px; background: var(--slot-bg); }
 .legend i.limited { background: #e6d3ab; border-style: dashed; }
 
@@ -664,7 +685,7 @@ body.autoplay .reset { cursor: default; }
   .nudge { margin-top: 16px; }
   .listing { padding-top: 30px; }
   .listing-top { grid-template-columns: auto minmax(0, 1fr); row-gap: 18px; }
-  .listing-cta { grid-column: 1 / -1; flex-direction: row; justify-content: center; gap: 12px; }
+  .listing-cta { grid-column: 1 / -1; flex-direction: row; flex-wrap: wrap; justify-content: center; gap: 12px; }
   .app-icon { width: 92px; height: 92px; border-radius: 20px; }
 }
 

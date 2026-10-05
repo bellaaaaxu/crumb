@@ -26,7 +26,7 @@
 <meta name="twitter:image" content="https://bellaaaaxu.github.io/crumb/assets/og.png">
 <meta name="twitter:image:alt" content="The Crumb wordmark in pixel type with the tagline Make appreciation something to keep (open source, self-hosted), above a shelf of twelve pixel pastries captioned Recognition unlocks a pastry that stays.">
 
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><rect width='12' height='12' fill='%23F2E7CE'/><rect x='4' y='1' width='4' height='10' fill='%23E0A73C'/><rect x='1' y='4' width='10' height='4' fill='%23E0A73C'/><rect x='3' y='3' width='6' height='6' fill='%23F3D488'/></svg>">
+<link rel="icon" id="tab-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><rect width='12' height='12' fill='%23F2E7CE'/><rect x='4' y='1' width='4' height='10' fill='%23E0A73C'/><rect x='1' y='4' width='10' height='4' fill='%23E0A73C'/><rect x='3' y='3' width='6' height='6' fill='%23F3D488'/></svg>">
 <link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
@@ -46,13 +46,18 @@
       <div class="listing-cta">
         <button class="get" type="button" id="take-control">Take control</button>
         <span class="get-note" id="get-note">Playing on its own</span>
+        <!-- Outside .stage on purpose: choosing a shop is not taking over the tour. -->
+        <div class="shop-switch" id="shop-switch">
+          <button type="button" data-shop="default" aria-pressed="true">Pastry shop</button>
+          <button type="button" data-shop="bakery" aria-pressed="false">Bakery</button>
+        </div>
       </div>
     </div>
 
     <!-- The shape of an App Store stats row, filled with things that are actually true.
          No invented ratings or user counts: fabricated social proof is the one thing this page can't afford. -->
     <dl class="stats">
-      <div><dt>Collectibles</dt><dd>39</dd><dd class="fine">on a 12&times;12 grid</dd></div>
+      <div><dt>Collectibles</dt><dd id="stat-collectibles">39</dd><dd class="fine">on a 12&times;12 grid</dd></div>
       <div><dt>Reward units</dt><dd>2</dd><dd class="fine">credit or points</dd></div>
       <div><dt>Telemetry</dt><dd>0</dd><dd class="fine">nothing sent anywhere</dd></div>
       <div><dt>License</dt><dd>MIT</dd><dd class="fine">yours to self-host</dd></div>
@@ -107,9 +112,9 @@
       <div class="nudge">
         <b>Try it in this order</b>
         <ol id="steps">
-          <li data-step="grant">Give recognition &mdash; watch a pastry come out of the oven</li>
+          <li data-step="grant">Give recognition &mdash; <span id="step-grant">watch a pastry come out of the oven</span></li>
           <li data-step="spend">Then spend some &mdash; the balance drops, the collection stays</li>
-          <li data-step="switch">Switch to someone else &mdash; different pastries, same rule</li>
+          <li data-step="switch">Switch to someone else &mdash; <span id="step-switch">different pastries, same rule</span></li>
         </ol>
         <button class="reset" type="button" id="reset">Reset the demo</button>
       </div>
@@ -192,10 +197,11 @@
         <div class="icons" id="icons-keep"></div>
         <h3>It only ever grows</h3>
         <p>
-          The shelf counts recognition <em>received</em>, not money held. Spend your whole balance
-          and your pastries stay. A thank-you from last spring is still on the shelf.
+          The shelf counts recognition <em>received</em>, not money held.
+          <span id="card-keep">Spend your whole balance and your pastries stay.</span>
+          A thank-you from last spring is still on the shelf.
         </p>
-        <span class="rule">$50 received = 1 pastry</span>
+        <span class="rule" id="rule-keep">$50 received = 1 pastry</span>
       </div>
       <div class="card">
         <div class="icons" id="icons-hide"></div>
@@ -205,7 +211,7 @@
           recognition arrive faster, so a progress bar would only be noise. Hidden, it stays a gift
           instead of an accounting statement.
         </p>
-        <span class="rule">&ldquo;Egg Tart is in the oven&rdquo;</span>
+        <span class="rule" id="rule-hide">&ldquo;Egg Tart is in the oven&rdquo;</span>
       </div>
       <div class="card">
         <div class="icons" id="icons-vary"></div>
@@ -222,16 +228,18 @@
 
   <section class="cabinet" id="cabinet-section">
     <div class="section-head">
-      <h2>The pastry cabinet</h2>
+      <h2 id="cabinet-title">The pastry cabinet</h2>
       <p>
-        All 39 live in the source as character grids &mdash; no icon library, no pixel font, no
+        All <span id="cabinet-count">39</span> live in the source as character grids &mdash; no icon library, no pixel font, no
         image files, nothing loaded from anywhere. Hover or tap one for its name.
       </p>
     </div>
     <div class="case" id="cabinet"></div>
+    <!-- These counts, and the Collectibles one at the top, are the Pastry shop's.
+         assets/app.js counts them again from the theme the demo shows. -->
     <p class="legend">
-      <span><i></i> In this demo&rsquo;s rotation &mdash; 33</span>
-      <span><i class="limited"></i> Also collectible in the self-hosted app &mdash; 6</span>
+      <span><i></i> <span>In this demo&rsquo;s rotation &mdash; <span id="legend-rotation">33</span></span></span>
+      <span id="legend-limited-line"><i class="limited"></i> <span>Also collectible in the self-hosted app &mdash; <span id="legend-limited">6</span></span></span>
     </p>
   </section>
 

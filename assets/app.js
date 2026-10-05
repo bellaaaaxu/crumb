@@ -69,6 +69,52 @@
     '🧈 Empty is fine too. Thanks for today.',
   ];
 
+  /* ---------------------------------------------------------------- shops
+   * The demo shows either collection theme. Every sentence that names the goods
+   * comes from here (spec §7); the rest of the page is the same in both. The
+   * Pastry shop's lines are the page's original wording, word for word. */
+
+  var TEXT = {
+    default: {
+      mascot: 'Mascot: wife cake',
+      tourFirst: '<b>Sam</b> is six months in. Six pastries on the shelf, $84.25 to spend.',
+      tourLast: '<b>Alex</b>, two years in: nineteen pastries — and not one of them the same as Sam’s.',
+      spent: 'the shelf keeps every pastry 🍞',
+      stepGrant: 'watch a pastry come out of the oven',
+      stepSwitch: 'different pastries, same rule',
+      keep: 'Spend your whole balance and your pastries stay.',
+      keepRule: '$50 received = 1 pastry',
+      hideRule: '“Egg Tart is in the oven”',
+      cabinet: 'The pastry cabinet',
+    },
+    bakery: {
+      mascot: 'Mascot: bitten toast',
+      tourFirst: '<b>Sam</b> is six months in. Six bakes on the shelf, $84.25 to spend.',
+      tourLast: '<b>Alex</b>, two years in: nineteen bakes, in an order nobody else has.',
+      spent: 'the shelf keeps every bake 🍞',
+      stepGrant: 'watch a bake come out of the oven',
+      stepSwitch: 'different bakes, same rule',
+      keep: 'Spend your whole balance and your bakes stay.',
+      keepRule: '$50 received = 1 bake',
+      hideRule: '“Croissant is in the oven”',
+      cabinet: 'The bakery case',
+    },
+  };
+
+  /* The small pictures on the three cards under the demo, by card. */
+  var CARD_ICONS = {
+    default: {
+      'icons-keep': ['laopo', 'tart', 'bolo'],
+      'icons-hide': ['charsiu'],
+      'icons-vary': ['mochi', 'walnut', 'mango', 'taro'],
+    },
+    bakery: {
+      'icons-keep': ['toastbite', 'croissant', 'bolo'],
+      'icons-hide': ['cupcake'],
+      'icons-vary': ['donut', 'pretzel', 'mango', 'bagel'],
+    },
+  };
+
   /* ---------------------------------------------------------------- helpers */
 
   var $ = function (id) { return document.getElementById(id); };
@@ -129,6 +175,32 @@
 
   var current = function () { return state.people[state.active]; };
 
+  /* ---------------------------------------------------------------- shop
+   * Which theme the demo shows. Kept under a key of its own, outside the demo's
+   * state, so "Reset the demo" leaves it alone. Storage that cannot be read or
+   * written just means nothing is remembered: the Pastry shop. */
+
+  var THEME_KEY = 'crumb_demo_theme';
+  var known = function (id) { return Object.prototype.hasOwnProperty.call(TEXT, id); };
+
+  function readTheme() {
+    try {
+      var saved = window.localStorage.getItem(THEME_KEY);
+      return known(saved) ? saved : 'default';
+    } catch (err) {
+      return 'default';
+    }
+  }
+
+  function rememberTheme(id) {
+    try { window.localStorage.setItem(THEME_KEY, id); } catch (err) { /* private mode */ }
+  }
+
+  var themeId = readTheme();
+
+  var mascotKey = function () { return Pixel.THEMES[themeId].mascot; };
+  var mascotSprite = function () { return Pixel.SPRITES[mascotKey()]; };
+
   /* ---------------------------------------------------------------- particles
    * Pixel squares, straight onto the body, outside any framework's idea of state. */
 
@@ -185,8 +257,11 @@
     }
   }
 
+  /* Crumbs come off the mascot, so they take its outline colour. The fallback is
+   * the wife cake's outline, for a drawing without one. */
   function crumbs(x, y, n) {
-    spawn(x, y, n || 9, '#5C3A1D', 5, { from: Math.PI * 0.15, arc: Math.PI * 0.7, distance: 46, gravity: 70, duration: 650 });
+    var colour = mascotSprite().palette.X || '#5C3A1D';
+    spawn(x, y, n || 9, colour, 5, { from: Math.PI * 0.15, arc: Math.PI * 0.7, distance: 46, gravity: 70, duration: 650 });
   }
   function confetti(x, y) {
     var colors = ['#EFB63C', '#FFD97A', '#D97B34'];
@@ -290,7 +365,7 @@
       var slot = document.createElement('div');
       slot.className = 'slot';
       if (i < filled) {
-        var key = Pixel.forSlot(person.id, i);
+        var key = Pixel.forSlot(person.id, i, themeId);
         slot.className = 'slot filled';
         slot.appendChild(pastryCanvas(key, 3));
         if (i >= dropFrom) {
@@ -302,7 +377,7 @@
       box.appendChild(slot);
     }
 
-    var next = Pixel.forSlot(person.id, filled);
+    var next = Pixel.forSlot(person.id, filled, themeId);
     $('oven-caption').innerHTML = '';
     $('oven-caption').appendChild(pastryCanvas(next, 2));
     var label = document.createElement('span');
@@ -388,7 +463,7 @@
       btn.type = 'button';
       btn.className = 'person';
       btn.setAttribute('aria-pressed', String(p.id === state.active));
-      btn.appendChild(pastryCanvas(Pixel.forSlot(p.id, 0), 2));
+      btn.appendChild(pastryCanvas(Pixel.forSlot(p.id, 0, themeId), 2));
       var who = document.createElement('span');
       who.className = 'who';
       who.innerHTML = '<span class="nm">' + p.name + ' &middot; #' + p.id + '</span>' +
@@ -479,7 +554,7 @@
 
     var el = document.createElement('div');
     el.className = 'oven';
-    el.appendChild(pastryCanvas('laopo', 8));
+    el.appendChild(pastryCanvas(mascotKey(), 8));
     var t = document.createElement('p');
     t.className = 'oven-text';
     t.textContent = 'Today’s perks are out of the oven!';
@@ -503,14 +578,15 @@
 
   /* ---------------------------------------------------------------- mascot bite */
 
+  /* The mascot is looked up at every frame, so a switch of shop in the middle of
+   * a bite carries on with the new one and grows back as the new one. */
   function biteMascot() {
     var canvas = $('mascot-canvas');
-    var sprite = Pixel.SPRITES.laopo;
     var DEPTH = 0.55;
 
     var restore = function () {
       window.setTimeout(function () {
-        Pixel.drawSprite(canvas, sprite, 3, 0);
+        Pixel.drawSprite(canvas, mascotSprite(), 3, 0);
         canvas.classList.remove('regrow');
         void canvas.offsetWidth;
         canvas.classList.add('regrow');
@@ -518,7 +594,7 @@
     };
 
     if (reduced()) {
-      Pixel.drawSprite(canvas, sprite, 3, DEPTH);
+      Pixel.drawSprite(canvas, mascotSprite(), 3, DEPTH);
       restore();
       return;
     }
@@ -527,7 +603,7 @@
     var step = function (ts) {
       if (started === null) started = ts;
       var p = Math.min((ts - started) / 240, 1);
-      Pixel.drawSprite(canvas, sprite, 3, p * DEPTH);
+      Pixel.drawSprite(canvas, mascotSprite(), 3, p * DEPTH);
       if (p < 1) {
         requestAnimationFrame(step);
       } else {
@@ -582,7 +658,7 @@
         var c = centreOf(slot);
         window.setTimeout(function () { confetti(c.x, c.y); }, 220);
       }
-      var key = Pixel.forSlot(current().id, after - 1);
+      var key = Pixel.forSlot(current().id, after - 1, themeId);
       toast('$' + dollars + '.00 added — ' + Pixel.NAMES[key].en + ' came out of the oven!');
     } else {
       toast('$' + dollars + '.00 added to ' + current().name + '’s credit');
@@ -604,7 +680,7 @@
     $('big-number').classList.add('dip');
 
     biteMascot();
-    toast('$' + money(cents) + ' taken off — the shelf keeps every pastry 🍞');
+    toast('$' + money(cents) + ' taken off — ' + TEXT[themeId].spent);
     markStep('spend');
     return null;
   }
@@ -685,33 +761,97 @@
 
   function renderWordmark() {
     Pixel.drawText($('wordmark'), 'CRUMB', 7, '#4a2f1b');
-    Pixel.drawSprite($('app-icon'), Pixel.SPRITES.laopo, 7, 0);
     Pixel.drawSprite($('more-arrow'), CHEVRON, 3, 0);
   }
 
   function renderCardIcons() {
-    var sets = {
-      'icons-keep': ['laopo', 'tart', 'bolo'],
-      'icons-hide': ['charsiu'],
-      'icons-vary': ['mochi', 'walnut', 'mango', 'taro'],
-    };
+    var sets = CARD_ICONS[themeId];
     Object.keys(sets).forEach(function (id) {
       var box = $(id);
+      box.textContent = '';
       sets[id].forEach(function (key) { box.appendChild(pastryCanvas(key, 3)); });
     });
   }
 
+  /* The shop's whole list. What the demo's rotation leaves out can still be
+   * collected in the self-hosted app, and is drawn dashed. */
   function renderCabinet() {
     var box = $('cabinet');
-    var limited = {};
-    Pixel.LIMITED.forEach(function (k) { limited[k] = true; });
-    Pixel.CYCLE.concat(Pixel.LIMITED).forEach(function (key) {
+    var rotation = Pixel.THEMES[themeId].rotation;
+    box.textContent = '';
+    Pixel.themeKeys(themeId).forEach(function (key) {
       var slot = document.createElement('div');
-      slot.className = 'slot filled' + (limited[key] ? ' limited' : '');
+      slot.className = 'slot filled' + (rotation.indexOf(key) === -1 ? ' limited' : '');
       slot.appendChild(pastryCanvas(key, 3));
       attachName(slot, key);
       box.appendChild(slot);
     });
+  }
+
+  /* A colour from the stylesheet, for drawing outside CSS: one of the variables on
+   * :root, such as '--bg'. */
+  function token(name) {
+    return window.getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  }
+
+  /* The tab icon. The Pastry shop keeps the page's own icon; another shop's is its
+   * mascot, one square per pixel on the page's background colour, as a data: URI
+   * so it works opened from disk too. */
+  var PAGE_TAB_ICON = $('tab-icon').getAttribute('href');
+
+  function tabIcon(id) {
+    if (id === 'default') return PAGE_TAB_ICON;
+    var sprite = Pixel.SPRITES[Pixel.THEMES[id].mascot];
+    var shift = Pixel.offset(sprite);
+    var background = token('--bg');
+    var svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" shape-rendering="crispEdges">';
+    if (background) svg += '<rect width="12" height="12" fill="' + background + '"/>';
+    sprite.rows.forEach(function (row, y) {
+      for (var x = 0; x < row.length; x += 1) {
+        var colour = sprite.palette[row.charAt(x)];
+        if (colour) {
+          svg += '<rect x="' + (x + shift.dx) + '" y="' + (y + shift.dy) +
+            '" width="1" height="1" fill="' + colour + '"/>';
+        }
+      }
+    });
+    return 'data:image/svg+xml,' + encodeURIComponent(svg + '</svg>');
+  }
+
+  /* Everything outside the person on screen that depends on the shop: the
+   * switch, the mascot in the header and on the app icon, its accessible name,
+   * the tab icon, the counts, the words that name the goods, the cards and the
+   * cabinet. The counts come from the theme's list, never typed in. */
+  function renderTheme() {
+    var words = TEXT[themeId];
+    var keys = Pixel.themeKeys(themeId);
+    var rotation = Pixel.THEMES[themeId].rotation;
+    var limited = keys.length - rotation.length;
+
+    Array.prototype.forEach.call($('shop-switch').querySelectorAll('[data-shop]'), function (btn) {
+      btn.setAttribute('aria-pressed', String(btn.dataset.shop === themeId));
+    });
+
+    Pixel.drawSprite($('mascot-canvas'), mascotSprite(), 3, 0);
+    Pixel.drawSprite($('app-icon'), mascotSprite(), 7, 0);
+    $('mascot').setAttribute('aria-label', words.mascot);
+    $('tab-icon').setAttribute('href', tabIcon(themeId));
+
+    $('stat-collectibles').textContent = String(keys.length);
+    $('cabinet-count').textContent = String(keys.length);
+    $('legend-rotation').textContent = String(rotation.length);
+    $('legend-limited').textContent = String(limited);
+    $('legend-limited-line').hidden = limited === 0;
+
+    $('step-grant').textContent = words.stepGrant;
+    $('step-switch').textContent = words.stepSwitch;
+    $('card-keep').textContent = words.keep;
+    $('rule-keep').textContent = words.keepRule;
+    $('rule-hide').textContent = words.hideRule;
+    $('cabinet-title').textContent = words.cabinet;
+
+    renderCardIcons();
+    renderCabinet();
   }
 
   function resetDemo(opts) {
@@ -779,7 +919,7 @@
     clearLater();
     resetDemo({ silent: true, intro: firstRun });
 
-    say('<b>Sam</b> is six months in. Six pastries on the shelf, $84.25 to spend.', 0);
+    say(TEXT[themeId].tourFirst, 0);
 
     later(2600, function () {
       say('A team lead sends her $50 of recognition.', 1);
@@ -787,7 +927,7 @@
     });
 
     later(3300, function () {
-      var coming = Pixel.NAMES[Pixel.forSlot(current().id, collectedCount(current()))].en;
+      var coming = Pixel.NAMES[Pixel.forSlot(current().id, collectedCount(current()), themeId)].en;
       grant(50);
       say('<b>' + coming + '</b> comes out of the oven.', 1);
     });
@@ -809,7 +949,7 @@
     });
 
     later(13800, function () {
-      say('<b>Alex</b>, two years in: nineteen pastries — and not one of them the same as Sam’s.', 4);
+      say(TEXT[themeId].tourLast, 4);
       press(document.querySelectorAll('.person')[2], 600);
       switchTo('377');
     });
@@ -826,15 +966,21 @@
     runTour(true);
   }
 
-  function endTour(quiet) {
-    autoplaying = false;
+  /* Drops whatever the scene in progress left half done: its timers, an open
+   * keypad sheet, a button still shown pressed. */
+  function stopScene() {
     clearLater();
     if (sheet && sheet.isOpen()) sheet.close();
     sheet = null;
-    document.body.classList.remove('autoplay');
     Array.prototype.forEach.call(document.querySelectorAll('.pressed'), function (el) {
       el.classList.remove('pressed');
     });
+  }
+
+  function endTour(quiet) {
+    autoplaying = false;
+    stopScene();
+    document.body.classList.remove('autoplay');
     state.tookControl = true;
     save();
     $('take-control').textContent = 'Replay the tour';
@@ -842,6 +988,36 @@
     setDots(-1);
     if (!quiet) say('Yours now — give recognition, spend it, switch person.');
     else say('Give recognition on the counter and watch the phone.');
+  }
+
+  /* Back to the first scene, the way the tour loops: no oven intro. */
+  function restartTour() {
+    stopScene();
+    runTour(false);
+  }
+
+  /* ---------------------------------------------------------------- switching shop
+   *
+   * The one way the shop changes once the page is up, all in one go. The people,
+   * their balances and their history stay as they are; only what fills the
+   * shelves changes. A tour that is playing starts again from its first scene.
+   * A page opened with a remembered shop never comes through here: the wiring
+   * draws that shop from the start. */
+
+  function setTheme(id) {
+    if (!known(id) || id === themeId) return;
+    themeId = id;
+    rememberTheme(id);
+    hideName();
+    var oven = $('phone').querySelector('.oven');
+    if (oven) oven.remove();
+    renderTheme();
+    if (autoplaying) {
+      restartTour();
+    } else {
+      renderAll({ dropFrom: 0 });
+      scrollPhoneTop();
+    }
   }
 
   /* ---------------------------------------------------------------- scroll reveals
@@ -910,9 +1086,7 @@
   /* ---------------------------------------------------------------- wiring */
 
   renderWordmark();
-  renderCardIcons();
-  renderCabinet();
-  Pixel.drawSprite($('mascot-canvas'), Pixel.SPRITES.laopo, 3, 0);
+  renderTheme();
 
   renderAll({ dropFrom: 0 });
   renderSteps();
@@ -938,6 +1112,10 @@
   $('take-control').addEventListener('click', function () {
     if (autoplaying) endTour(false);
     else startTour();
+  });
+
+  Array.prototype.forEach.call($('shop-switch').querySelectorAll('[data-shop]'), function (btn) {
+    btn.addEventListener('click', function () { setTheme(btn.dataset.shop); });
   });
 
   Array.prototype.forEach.call(document.querySelectorAll('[data-grant]'), function (btn) {
