@@ -3,7 +3,7 @@ import { AppError } from './errors.mjs';
 import { writeTransaction } from './db.mjs';
 import { writeAudit } from './audit.mjs';
 import { freshActor, requireRole } from './permissions.mjs';
-import { DEFAULT_THEME, THEME_IDS } from './themes.mjs';
+import { DEFAULT_THEME, THEME_IDS, themeById } from './themes.mjs';
 import { parseUnits } from './units.mjs';
 import { amount, invalid, oneOf, readObject, text } from './validate.mjs';
 
@@ -132,20 +132,36 @@ const ORG_PATCH = {
   currency: oneOf(CURRENCIES, { optional: true }),
   threshold: amount({ optional: true }),
   spending: oneOf(SPENDING, { optional: true }),
+  theme: oneOf(THEME_IDS, { optional: true }),
 };
 
 const COLUMN = {
   name: 'name', welcome: 'welcome', locale: 'locale', unitLabel: 'unit_label', adminContact: 'admin_contact',
   feedbackUrl: 'feedback_url', mode: 'mode', currency: 'currency', thresholdUnits: 'threshold_units',
-  spending: 'spending',
+  spending: 'spending', theme: 'theme',
 };
+
+/* After a theme change a benefit keeps its icon only if the new theme draws it; shared keys
+ * stay. Active and switched-off benefits alike. Returns how many icons were removed. */
+function removeIconsOutside(db, keys, at) {
+  const drawn = new Set(keys);
+  const stale = db.prepare('SELECT id, icon_key FROM rewards WHERE icon_key IS NOT NULL').all()
+    .filter(reward => !drawn.has(reward.icon_key));
+  const clear = db.prepare('UPDATE rewards SET icon_key = NULL, updated_at = ? WHERE id = ?');
+  for (const reward of stale) clear.run(at, reward.id);
+  return stale.length;
+}
 
 /**
  * Owner-only settings. Names, welcome text, language, links and the spending
  * mode can always change. The reward rules — credit or points, currency,
- * unlock threshold — are fixed once the ledger has an entry, and the unit is
- * also fixed once a benefit has a price in it, so nothing already recorded
- * changes meaning.
+ * unlock threshold, collection theme — are fixed once the ledger has an entry,
+ * and the unit is also fixed once a benefit has a price in it, so nothing
+ * already recorded changes meaning. Before the first entry nobody has
+ * unlocked anything, so a theme change never touches a collection; it does
+ * remove, in the same transaction, every benefit icon the new theme lacks.
+ * The answer is the signed-in view plus `iconsRemoved` (0 when the theme did
+ * not change), which is not part of the organization itself.
  */
 export function updateOrg(db, actor, patch, clock = () => Date.now()) {
   requireRole(actor, OWNER);
@@ -163,9 +179,12 @@ export function updateOrg(db, actor, patch, clock = () => Date.now()) {
     let thresholdUnits = row.threshold_units;
     if (fields.threshold !== undefined) thresholdUnits = parseUnits(fields.threshold, mode);
     else if (mode !== row.mode) throw invalid('threshold', 'Set the unlock threshold again when changing between credit and points.');
+    const theme = fields.theme ?? row.theme;
 
     const unitChanged = mode !== row.mode || currency !== row.currency;
-    if ((unitChanged && (row.has_ledger || row.has_rewards)) || (thresholdUnits !== row.threshold_units && row.has_ledger))
+    // The theme is fixed exactly when the unlock step is.
+    const stepChanged = thresholdUnits !== row.threshold_units || theme !== row.theme;
+    if ((unitChanged && (row.has_ledger || row.has_rewards)) || (stepChanged && row.has_ledger))
       throw new AppError(409, 'RULES_LOCKED',
         'Reward rules are fixed once rewards are recorded (and the unit once benefits are priced), so earlier amounts keep their meaning.');
 
@@ -180,16 +199,22 @@ export function updateOrg(db, actor, patch, clock = () => Date.now()) {
       currency,
       thresholdUnits,
       spending: fields.spending ?? row.spending,
+      theme,
     };
     const changed = Object.keys(next).filter(key => next[key] !== row[COLUMN[key]]);
+    let iconsRemoved = 0;
     if (changed.length) {
       const at = new Date(clock()).toISOString();
       db.prepare(`UPDATE organization SET name = @name, welcome = @welcome, locale = @locale, unit_label = @unitLabel,
                     admin_contact = @adminContact, feedback_url = @feedbackUrl, mode = @mode, currency = @currency,
-                    threshold_units = @thresholdUnits, spending = @spending, updated_at = @at WHERE id = 1`).run({ ...next, at });
-      writeAudit(db, { actorId: current.id, action: 'org.update', detail: { changed } }, at);
+                    threshold_units = @thresholdUnits, spending = @spending, theme = @theme, updated_at = @at
+                  WHERE id = 1`).run({ ...next, at });
+      const themeChanged = theme !== row.theme;
+      if (themeChanged) iconsRemoved = removeIconsOutside(db, themeById(theme).keys, at);
+      const detail = themeChanged ? { changed, theme: { from: row.theme, to: theme }, iconsRemoved } : { changed };
+      writeAudit(db, { actorId: current.id, action: 'org.update', detail }, at);
     }
-    return orgView(readOrgRow(db), { signedIn: true });
+    return { ...orgView(readOrgRow(db), { signedIn: true }), iconsRemoved };
   });
 }
 
