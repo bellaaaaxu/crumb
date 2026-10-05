@@ -7,7 +7,7 @@ import { button, el, field, formError, inWeChat, openedAsIPhoneHomeScreenApp, ra
 import { LANGUAGES, getLocale, t, themed } from '../i18n.js';
 import { amountToUnits } from '../format.js';
 import { mascotKey, pixelWord, spriteCanvas } from '../pixels.js';
-import { loading } from './shared.js';
+import { loading, themeCards } from './shared.js';
 
 const USERNAME = /^[a-z0-9._-]{3,64}$/;
 const CURRENCIES = ['CAD', 'USD', 'CNY'];
@@ -247,7 +247,12 @@ function setup(root, ctx) {
     options: CURRENCIES.map(value => ({ value, label: t(`currency.${value}`) })),
   });
   const unitLabel = field({ label: t('setup.unitLabel'), name: 'unitLabel', hint: t('setup.unitLabelHint'), value: t('setup.creditLabel'), attrs: { maxlength: 24 } });
-  const threshold = field({ label: t('setup.threshold'), name: 'threshold', hint: themed('setup.thresholdCredit', 'default'), value: '50.00', attrs: { inputmode: 'decimal' } });
+  // Pastry shop unless another card is chosen; Settings can change it until the first treat.
+  // The unlock-step hint and the mascot at the top of the page follow the chosen card.
+  const theme = themeCards('default');
+  // Each key is themed()'s first argument: tests/i18n.test.mjs counts them there.
+  const thresholdHint = () => (mode.value === 'credit' ? themed('setup.thresholdCredit', theme.value) : themed('setup.thresholdPoints', theme.value));
+  const threshold = field({ label: t('setup.threshold'), name: 'threshold', hint: thresholdHint(), value: '50.00', attrs: { inputmode: 'decimal' } });
   const welcome = field({ label: t('settings.welcome'), name: 'welcome', multiline: true, hint: t('settings.welcomeHint'), attrs: { maxlength: 500 } });
   const displayName = field({ label: t('setup.yourName'), name: 'displayName', attrs: { autocomplete: 'name', maxlength: 80 } });
   const username = field({
@@ -264,15 +269,22 @@ function setup(root, ctx) {
   let thresholdEdited = false;
   unitLabel.control.addEventListener('input', () => { labelEdited = true; });
   threshold.control.addEventListener('input', () => { thresholdEdited = true; });
+  const showHint = () => { threshold.wrapper.querySelector('.field-hint').textContent = thresholdHint(); };
   const applyMode = () => {
     const credit = mode.value === 'credit';
     currency.wrapper.hidden = !credit;
     if (!labelEdited) unitLabel.control.value = t(credit ? 'setup.creditLabel' : 'setup.pointsLabel');
     if (!thresholdEdited) threshold.control.value = credit ? '50.00' : '100';
     threshold.control.setAttribute('inputmode', credit ? 'decimal' : 'numeric');
-    threshold.wrapper.querySelector('.field-hint').textContent = credit ? themed('setup.thresholdCredit', 'default') : themed('setup.thresholdPoints', 'default');
+    showHint();
   };
   for (const input of mode.inputs) input.addEventListener('change', applyMode);
+  const applyTheme = () => {
+    showHint();
+    // frame() draws the mascot as the first thing in the brand at the top of the card.
+    root.querySelector('.auth-brand')?.firstElementChild?.replaceWith(spriteCanvas(mascotKey(theme.value), 4));
+  };
+  for (const input of theme.inputs) input.addEventListener('change', applyTheme);
 
   const fields = [code, orgName, unitLabel, threshold, displayName, username, password, confirm];
   const form = el('form', {
@@ -307,6 +319,8 @@ function setup(root, ctx) {
           spending: spending.value,
         };
         if (chosenMode === 'credit') org.currency = currency.control.value;
+        // No card to choose (the pixel table did not load): the server's default theme.
+        if (theme.value) org.theme = theme.value;
         try {
           const result = await request('/api/setup', {
             method: 'POST',
@@ -330,7 +344,8 @@ function setup(root, ctx) {
     el('fieldset', { attrs: { class: 'group' } }, [el('legend', { text: t('setup.codeGroup') }), code.wrapper]),
     el('fieldset', { attrs: { class: 'group' } }, [
       el('legend', { text: t('setup.orgGroup') }),
-      orgName.wrapper, language.wrapper, mode.fieldset, currency.wrapper, unitLabel.wrapper, threshold.wrapper, spending.fieldset, welcome.wrapper,
+      orgName.wrapper, language.wrapper, mode.fieldset, currency.wrapper, unitLabel.wrapper, threshold.wrapper, theme.fieldset,
+      spending.fieldset, welcome.wrapper,
     ]),
     el('fieldset', { attrs: { class: 'group' } }, [
       el('legend', { text: t('setup.ownerGroup') }),

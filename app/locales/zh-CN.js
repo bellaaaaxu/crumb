@@ -384,6 +384,8 @@ export default {
   'settings.rewardsTitle': '奖励',
   'settings.locked': '已有奖励记录，奖励方式、币种、解锁台阶和收藏主题已经固定，过去的数额保持原意。',
   'settings.lockedByBenefits': '已有福利按这个单位定价，奖励方式和币种已经固定。解锁台阶和收藏主题在记下第一笔奖励之前仍可修改。',
+  'settings.theme': '收藏主题',
+  'settings.themeChanged': '主题换好了。有 {count} 个福利的配图新主题里没有，已经去掉，可以重新配。',
   'settings.spendingTitle': '大家怎么花',
   'settings.spendingNote': '想改随时改。还在等确认的申请，照旧走完。',
   'settings.linksTitle': '联系与反馈',

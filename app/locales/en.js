@@ -384,6 +384,8 @@ export default {
   'settings.rewardsTitle': 'Rewards',
   'settings.locked': 'Rewards have been recorded, so the reward type, currency, unlock step and collection theme are fixed. Earlier amounts keep their meaning.',
   'settings.lockedByBenefits': 'Benefits already have prices in this unit, so the reward type and currency are fixed. The unlock step and collection theme can change until the first reward is recorded.',
+  'settings.theme': 'Collection theme',
+  'settings.themeChanged': 'Theme changed. {count} benefit icon(s) aren’t in this theme, so they were removed. You can pick new ones.',
   'settings.spendingTitle': 'How people spend',
   'settings.spendingNote': 'Change it whenever. Requests still waiting get finished as usual.',
   'settings.linksTitle': 'Contact and feedback',

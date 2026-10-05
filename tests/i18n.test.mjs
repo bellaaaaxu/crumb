@@ -191,3 +191,11 @@ test('only the sentences that follow the theme name pastries', () => {
   for (const [key, value] of Object.entries(zhCN))
     if (/点心/.test(value)) assert.ok(THEMED_KEYS.includes(key), `zh-CN ${key} names pastries but does not follow the theme`);
 });
+
+test('the collection theme choice uses the approved words', () => {
+  assert.equal(en['settings.theme'], 'Collection theme');
+  assert.equal(zhCN['settings.theme'], '收藏主题');
+  assert.equal(en['settings.themeChanged'],
+    'Theme changed. {count} benefit icon(s) aren’t in this theme, so they were removed. You can pick new ones.');
+  assert.equal(zhCN['settings.themeChanged'], '主题换好了。有 {count} 个福利的配图新主题里没有，已经去掉，可以重新配。');
+});

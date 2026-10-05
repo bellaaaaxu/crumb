@@ -292,6 +292,13 @@ fieldset.group > legend { font-size: 0.8rem; letter-spacing: 0.12em; text-transf
 .radio label { display: flex; flex-direction: column; cursor: pointer; }
 .radio-label { font-weight: 700; }
 .radio-detail { font-size: 0.85rem; color: var(--ink-soft); }
+/* The collection theme (themeCards in views/shared.js): each card is a .radio, so it is chosen,
+   greyed out and focused like every other choice; its first three items sit over its card
+   text. Side by side where both fit, one above the other on a phone. No colours of its own. */
+.theme-cards { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(min(13rem, 100%), 1fr)); }
+.theme-card label { gap: 6px; }
+.theme-card-pics { display: flex; gap: 6px; }
+.theme-card:has(input:disabled) label { cursor: not-allowed; }
 .checkbox { display: flex; align-items: center; gap: 8px; font-weight: 700; }
 .checkbox input { width: 18px; height: 18px; accent-color: var(--wood); }
 .check-list { list-style: none; max-height: 40dvh; overflow: auto; border: 2px solid var(--line); border-radius: 12px; padding: 4px 10px; }
