@@ -1,13 +1,14 @@
 import express from 'express';
 import { AppError } from '../errors.mjs';
 import { balanceOf } from '../balance.mjs';
-import { collectionOf, nextSpriteKey, theme } from '../collections.mjs';
+import { collectionOf, nextSpriteKey } from '../collections.mjs';
 import { exportLedger } from '../csv.mjs';
 import { entryView } from '../ledger.mjs';
 import { memberView } from '../members.mjs';
 import { orgView, requireOrg } from '../org.mjs';
 import { MANAGERS, requireActor, requireRole } from '../permissions.mjs';
 import { REDEMPTION_COLUMNS, redemptionView } from '../redemptions.mjs';
+import { orgTheme } from '../themes.mjs';
 import { isUuid } from '../validate.mjs';
 
 const ISO_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
@@ -88,13 +89,15 @@ const historyItem = row => ({
 export function readModelRoutes({ db, clock }) {
   const router = express.Router();
 
-  /* Everything a member's own screen needs, read from one snapshot. */
+  /* Everything a member's own screen needs, read from one snapshot. The shelf's
+   * names, its size and what is in the oven come from the team's theme. */
   router.get('/me', (req, res) => {
     const actor = requireActor(req.actor);
     readQuery(req.query, []);
     res.json(db.transaction(() => {
+      const theme = orgTheme(db);
       const collection = collectionOf(db, actor.id).map(item => ({ ...item, names: theme.names[item.spriteKey] ?? null }));
-      const next = nextSpriteKey(db, actor.id);
+      const next = nextSpriteKey(db, actor.id, theme.keys);
       return {
         user: req.session.user,
         org: orgView(requireOrg(db), { signedIn: true }),

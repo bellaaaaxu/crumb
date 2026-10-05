@@ -9,13 +9,26 @@ import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
 import { openDatabase } from '../server/db.mjs';
 import { grant, revokeGrant, balanceOf } from '../server/ledger.mjs';
-import { collectionOf, nextSpriteKey, orderedKeys, theme } from '../server/collections.mjs';
+import { collectionOf, nextSpriteKey, orderedKeys } from '../server/collections.mjs';
+import { DEFAULT_THEME, themeById } from '../server/themes.mjs';
 import { buildAll, buildManifest } from '../scripts/theme-manifest.mjs';
 import { fixture } from './helpers.mjs';
 
 let keys = 0;
 const nextKey = () => `collect-request-${String(++keys).padStart(4, '0')}`;
 const count = (db, userId) => db.prepare('SELECT count(*) AS n FROM collection_unlocks WHERE user_id = ?').get(userId).n;
+const pastry = themeById(DEFAULT_THEME);
+const bakery = themeById('bakery');
+
+/* Setup and Settings choose the theme through the API; these tests set it on the row. */
+const onTheme = (db, themeId) => db.prepare('UPDATE organization SET theme = ? WHERE id = 1').run(themeId);
+
+/* The order the spec promises, computed here without orderedKeys. */
+const byHash = (userId, keys) => [...keys].sort((a, b) => {
+  const ha = createHash('sha256').update(`${userId}:${a}`).digest('hex');
+  const hb = createHash('sha256').update(`${userId}:${b}`).digest('hex');
+  return ha < hb ? -1 : 1;
+});
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const spritesSource = () => readFileSync(join(ROOT, 'assets', 'sprites.js'), 'utf8');
@@ -244,19 +257,15 @@ test('one large grant can unlock several at once', t => {
 
 test('the order is a fixed hash of the member and the key, never random', t => {
   const { db, owner, member, member2, path } = fixture(t, { mode: 'points', thresholdUnits: 1 });
-  const expected = [...theme.keys].sort((a, b) => {
-    const ha = createHash('sha256').update(`${member.id}:${a}`).digest('hex');
-    const hb = createHash('sha256').update(`${member.id}:${b}`).digest('hex');
-    return ha < hb ? -1 : 1;
-  });
-  assert.deepEqual(orderedKeys(member.id), expected);
-  assert.notDeepEqual(orderedKeys(member.id), orderedKeys(member2.id));
+  const expected = byHash(member.id, pastry.keys);
+  assert.deepEqual(orderedKeys(member.id, pastry.keys), expected);
+  assert.notDeepEqual(orderedKeys(member.id, pastry.keys), orderedKeys(member2.id, pastry.keys));
 
   grant(db, owner, { userId: member.id, units: 5, reason: 'Five', key: nextKey() });
   const before = collectionOf(db, member.id);
   assert.deepEqual(before.map(item => item.spriteKey), expected.slice(0, 5));
   assert.deepEqual(before.map(item => item.ordinal), [0, 1, 2, 3, 4]);
-  assert.equal(nextSpriteKey(db, member.id), expected[5]);
+  assert.equal(nextSpriteKey(db, member.id, pastry.keys), expected[5]);
   db.close();
   const reopened = openDatabase(path);
   try {
@@ -274,7 +283,7 @@ test('a finished collection says so, and recognition keeps working after it', t 
   assert.equal(last.unlocked.length, 1);
   assert.equal(last.collection.length, 39);
   assert.equal(new Set(last.collection.map(item => item.spriteKey)).size, 39);
-  assert.equal(nextSpriteKey(db, member.id), null);
+  assert.equal(nextSpriteKey(db, member.id, pastry.keys), null);
   const after = grant(db, owner, { userId: member.id, units: 10, reason: 'Still counts', key: nextKey() });
   assert.deepEqual(after.unlocked, []);
   assert.equal(after.collection.length, 39);
@@ -291,4 +300,33 @@ test('spending never takes anything off the shelf', t => {
   assert.equal(collectionOf(db, member.id).length, 2);
   grant(db, owner, { userId: member.id, units: 5000, reason: 'Thanks', key: nextKey() });
   assert.equal(collectionOf(db, member.id).length, 3);
+});
+
+test('collections take the team theme\'s keys; there is no global theme', async () => {
+  const collections = await import('../server/collections.mjs');
+  assert.equal('theme' in collections, false, 'server/collections.mjs still exports a global theme');
+  assert.throws(() => collections.orderedKeys('someone'), TypeError, 'orderedKeys needs the team theme\'s keys');
+});
+
+test('a Bakery team unlocks only Bakery keys, in hash order, up to all 24', t => {
+  const { db, owner, member } = fixture(t, { mode: 'points', thresholdUnits: 1 });
+  onTheme(db, 'bakery');
+  assert.equal(bakery.keys.length, 24);
+  const expected = byHash(member.id, bakery.keys);
+
+  // One step is 1 point, so 10 points is the first 10 of this member's Bakery order.
+  const first = grant(db, owner, { userId: member.id, units: 10, reason: 'Ten', key: nextKey() });
+  assert.deepEqual(first.collection.map(item => item.spriteKey), expected.slice(0, 10));
+  assert.equal(nextSpriteKey(db, member.id, bakery.keys), expected[10]);
+
+  // Far more than 24 steps: the shelf stops at the Bakery's 24, every one of them, in order.
+  const rest = grant(db, owner, { userId: member.id, units: 500, reason: 'All of them', key: nextKey() });
+  assert.equal(rest.unlocked.length, 14);
+  assert.deepEqual(rest.collection.map(item => item.spriteKey), expected);
+  assert.deepEqual(rest.collection.map(item => item.ordinal), Array.from({ length: 24 }, (_, index) => index));
+  assert.equal(nextSpriteKey(db, member.id, bakery.keys), null);
+  const after = grant(db, owner, { userId: member.id, units: 10, reason: 'Still counts', key: nextKey() });
+  assert.deepEqual(after.unlocked, []);
+  assert.equal(after.collection.length, 24);
+  assert.equal(balanceOf(db, member.id).postedUnits, 520);
 });

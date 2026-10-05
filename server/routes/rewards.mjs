@@ -1,6 +1,6 @@
 import express from 'express';
 import { AppError } from '../errors.mjs';
-import { theme } from '../collections.mjs';
+import { orgTheme } from '../themes.mjs';
 import { grant, grantBatch, revokeGrant } from '../ledger.mjs';
 import { listRewards, saveReward } from '../rewards.mjs';
 import { refundRedemption, requestRedemption, resolveRedemption } from '../redemptions.mjs';
@@ -40,12 +40,16 @@ export function rewardRoutes({ db, clock }) {
     res.json({ items: listRewards(db) });
   });
 
-  /* With the theme's keys and names, so the icon picker offers exactly the keys the server
-   * accepts, named in the manager's language (the sprite table has only Traditional Chinese). */
+  /* With the team theme's keys and names, so the icon picker offers exactly the keys the server
+   * accepts, named in the manager's language. One snapshot: a theme change clears the icons the
+   * new theme lacks in the same write, so the list and the theme always agree. */
   router.get('/admin/rewards', (req, res) => {
     requireRole(req.actor, MANAGERS);
     readQuery(req.query, []);
-    res.json({ items: listRewards(db, { includeInactive: true }), theme: { keys: theme.keys, names: theme.names } });
+    res.json(db.transaction(() => {
+      const { keys, names } = orgTheme(db);
+      return { items: listRewards(db, { includeInactive: true }), theme: { keys, names } };
+    })());
   });
 
   function rewardInput(req, { editing }) {
