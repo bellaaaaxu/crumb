@@ -2,6 +2,11 @@
  *
  *   node scripts/screenshots.mjs                 writes assets/screenshots/member.png, admin.png and spend.png
  *   node scripts/screenshots.mjs --all --out DIR also captures every page, for review
+ *   node scripts/screenshots.mjs --theme bakery --all --out DIR
+ *                                                the same, for the team on the Bakery collection theme.
+ *                                                The README stays on Pastry shop: without --out, another
+ *                                                theme's pictures go to crumb-screenshots-<theme> in the
+ *                                                temporary folder, never to assets/screenshots.
  *
  * It starts a throwaway Crumb on a random port with a temporary database,
  * fills it with the invented team from sample-team.mjs, and photographs it in
@@ -17,12 +22,21 @@ import { randomBytes } from 'node:crypto';
 import { chromium } from '@playwright/test';
 import { openDatabase } from '../server/db.mjs';
 import { createApp } from '../server/app.mjs';
-import { DAY, seedSampleTeam } from './sample-team.mjs';
+import { DEFAULT_THEME, THEME_IDS } from '../server/themes.mjs';
+import { DAY, THEME_OPTION_HINT, seedSampleTeam } from './sample-team.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
+const themeIndex = args.indexOf('--theme');
+const theme = themeIndex >= 0 ? args[themeIndex + 1] : DEFAULT_THEME;
+if (!THEME_IDS.includes(theme)) {
+  console.error(THEME_OPTION_HINT);
+  process.exit(2);
+}
 const outIndex = args.indexOf('--out');
-const outDir = resolve(outIndex >= 0 ? args[outIndex + 1] : join(root, 'assets', 'screenshots'));
+// The README shows Pastry shop: another theme's pictures never land in its folder by default.
+const defaultOut = theme === DEFAULT_THEME ? join(root, 'assets', 'screenshots') : join(tmpdir(), `crumb-screenshots-${theme}`);
+const outDir = resolve(outIndex >= 0 ? args[outIndex + 1] : defaultOut);
 const captureAll = args.includes('--all');
 const PASSWORD = 'sample-password-for-screenshots';
 // A large phone: the member page is made for one, and this is wide enough to read in the README.
@@ -46,7 +60,7 @@ async function main() {
 
   const browser = await chromium.launch();
   try {
-    const { owner, people } = await seedSampleTeam({ origin, setupToken, password: PASSWORD, time });
+    const { owner, people } = await seedSampleTeam({ origin, setupToken, password: PASSWORD, time, theme });
 
     mkdirSync(outDir, { recursive: true });
     // The signed-in person's name in the header opens their menu; it is there once a page is.

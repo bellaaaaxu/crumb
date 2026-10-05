@@ -1,10 +1,15 @@
 /* An invented team, "Corner Café (sample team)", set up through the same HTTP API the app
  * uses: the README screenshots are taken of it, and `npm run demo` shows it. A movable clock
- * spreads its history over a few weeks. Nothing here touches a real instance or real people. */
+ * spreads its history over a few weeks. It is on Pastry shop unless a script's --theme names
+ * another collection theme. Nothing here touches a real instance or real people. */
 
 import { randomUUID } from 'node:crypto';
+import { DEFAULT_THEME, THEME_IDS } from '../server/themes.mjs';
 
 export const DAY = 24 * 60 * 60 * 1000;
+
+/* What the demo and the screenshot script print when --theme names a theme this version does not include. */
+export const THEME_OPTION_HINT = `Use --theme with one of: ${THEME_IDS.join(', ')}.`;
 
 /* A small API client with its own cookie jar, as one browser would have. */
 export function jsonClient(origin, password, direct = origin) {
@@ -36,18 +41,19 @@ export function jsonClient(origin, password, direct = origin) {
 }
 
 /**
- * Sets up the sample team on a fresh Crumb whose clock reads `time.now`. It starts about six
- * weeks back and leaves `time.now` at the present. Returns the owner's client and the people,
- * by username, with their ids, roles and signed-in clients.
+ * Sets up the sample team on a fresh Crumb whose clock reads `time.now`, on the collection
+ * theme `theme` (Pastry shop when left out). It starts about six weeks back and leaves
+ * `time.now` at the present. Returns the owner's client and the people, by username, with
+ * their ids, roles and signed-in clients.
  */
-export async function seedSampleTeam({ origin, direct = origin, setupToken, password, time }) {
+export async function seedSampleTeam({ origin, direct = origin, setupToken, password, time, theme = DEFAULT_THEME }) {
   const owner = jsonClient(origin, password, direct);
   await owner.send('GET', '/api/session');
   await owner.send('POST', '/api/setup', {
     setupToken, username: 'olive', password, displayName: 'Olive Chen',
     org: { name: 'Corner Café (sample team)', mode: 'credit', currency: 'CAD', unitLabel: 'Café credit', threshold: '25.00', locale: 'en',
       welcome: 'Thank you for everything you do on the floor and behind the counter.',
-      spending: 'self' },
+      spending: 'self', theme },
   });
 
   const people = {};
