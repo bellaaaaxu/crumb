@@ -231,7 +231,7 @@ const LOCKED_BY_BENEFITS = 'Benefits already have prices in this unit, so the re
 const themeChanged = count => `Theme changed. ${count} benefit icon(s) aren’t in this theme, so they were removed. You can pick new ones.`;
 const RULES_LOCKED = 'These reward rules are fixed now that rewards are recorded.';
 
-/* The unlock-step hint for each reward type: Pastry shop's unchanged sentences, Bakery's from Task 8. */
+/* The unlock-step hint for each reward type: Pastry shop's unchanged sentences, Bakery's own (spec §6). */
 const HINT = {
   default: {
     credit: 'An amount like 50.00. Every time someone’s treats add up to another step this size, a new pastry comes out of the oven.',
@@ -355,7 +355,7 @@ test('set up on Bakery from the setup page: the brand and hint follow the card, 
     await expect(caption).toHaveText('All 24 on the shelf. Treats still count, of course.');
 
     // Signed out, the sign-in page shows Bitten Toast. (The oven intro of a Bakery team, and a
-    // sign-out that gets no answer, are Task 9's tests above.)
+    // sign-out that gets no answer, are tested above.)
     await signOut(member, { member: true });
     expect(await shownOn(brandMascot(member))).toBe(toast);
     expect(errors).toEqual([]);
@@ -482,7 +482,7 @@ test('after the first treat the theme cards are greyed out and Settings says why
 
 /* ---------------------------------------------------------------- the Team page's sentences */
 
-/* Spec §6's Bakery sentences on the Team page (Task 8's `grant.unlocked.bakery`,
+/* Spec §6's Bakery sentences on the Team page (`grant.unlocked.bakery`,
  * `revoke.explain.bakery` and `members.roleDetail.member.bakery`), each with the unchanged
  * words the page puts around it. */
 const BAKERY_TREAT_SENT = 'Mina Park just got 100 points. That’ll make their day. And 1 more came out of the oven.';

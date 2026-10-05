@@ -282,6 +282,10 @@ const fromSlot = (seed, rotation, count) =>
   Array.from({ length: count }, (_, index) => rotation[(index + charSum(seed)) % rotation.length]);
 const samInBakery = fromSlot('118', BAKERY_LIST.keys, 7);
 
+/* The mascot's accessible name in each shop. */
+const PASTRY_MASCOT = 'Mascot: wife cake';
+const BAKERY_MASCOT = 'Mascot: bitten toast';
+
 /* What each shop draws for Sam's fresh demo: six on the shelf and one in the oven, the cabinet
  * in list order with the app-only ones dashed, and the pictures on the three cards. */
 const DRAWINGS = {
@@ -291,15 +295,14 @@ const DRAWINGS = {
     oven: 'porttart',
     cabinet: PASTRY_LIST.keys,
     limited: ['pistachiohorn', 'cnybox', 'mooncake', 'radishcake', 'tarocake', 'ricecake'],
-    cards: { 'icons-keep': ['laopo', 'tart', 'bolo'], 'icons-hide': ['charsiu'], 'icons-vary': ['mochi', 'walnut', 'mango', 'taro'] },
+    cards: CARD_PICTURES.default,
   },
   bakery: {
     shelf: samInBakery.slice(0, 6),
     oven: samInBakery[6],
     cabinet: BAKERY_LIST.keys,
     limited: [],
-    // Spec §7.
-    cards: { 'icons-keep': ['toastbite', 'croissant', 'bolo'], 'icons-hide': ['cupcake'], 'icons-vary': ['donut', 'pretzel', 'mango', 'bagel'] },
+    cards: CARD_PICTURES.bakery,
   },
 };
 
@@ -310,8 +313,8 @@ const keysOn = locator => locator.evaluateAll(canvases => canvases.map(canvas =>
   const size = Math.round(canvas.width / Math.min(window.devicePixelRatio || 1, 3) / 12);
   const picture = canvas.toDataURL();
   const probe = document.createElement('canvas');
-  for (const [spriteKey, sprite] of Object.entries(Pixel.SPRITES)) { // eslint-disable-line no-undef
-    Pixel.drawSprite(probe, sprite, size, 0); // eslint-disable-line no-undef
+  for (const [spriteKey, sprite] of Object.entries(Pixel.SPRITES)) {
+    Pixel.drawSprite(probe, sprite, size, 0);
     if (probe.toDataURL() === picture) return spriteKey;
   }
   return null;
@@ -342,11 +345,11 @@ test('each shop draws its own shelf, cabinet and card pictures, and the Pastry s
     // Each switch is waited out (with less motion there is no shutter to wait for), so this test
     // looks only at what is drawn; the shutter tests below look at the switching.
     await shopButton(page, 'Bakery').click();
-    await expect(page.locator('#mascot')).toHaveAttribute('aria-label', 'Mascot: bitten toast');
+    await expect(page.locator('#mascot')).toHaveAttribute('aria-label', BAKERY_MASCOT);
     await expect(page.locator('#phone .shutter')).toHaveCount(0);
     await expectDrawings(page, 'bakery');
     await shopButton(page, 'Pastry shop').click();
-    await expect(page.locator('#mascot')).toHaveAttribute('aria-label', 'Mascot: wife cake');
+    await expect(page.locator('#mascot')).toHaveAttribute('aria-label', PASTRY_MASCOT);
     await expect(page.locator('#phone .shutter')).toHaveCount(0);
     await expectDrawings(page, 'default');
     expect(errors).toEqual([]);
@@ -357,12 +360,9 @@ test('each shop draws its own shelf, cabinet and card pictures, and the Pastry s
 
 /* ---------------------------------------------------------------- the shutter (spec §7.1) */
 
-const PASTRY_MASCOT = 'Mascot: wife cake';
-const BAKERY_MASCOT = 'Mascot: bitten toast';
-
-/* Runs in the page (Task 12's probe). Keeps every change to the shutter, its sign, the name
- * drawn on the sign and the mascot's accessible name, in order. `batch` counts observer
- * callbacks: changes made in the same timer tick share one, so it tells what happened together. */
+/* Runs in the page. Keeps every change to the shutter, its sign, the name drawn on the sign and
+ * the mascot's accessible name, in order. `batch` counts observer callbacks: changes made in
+ * the same timer tick share one, so it tells what happened together. */
 function installRecorder() {
   const log = { records: [], added: [], removed: [] };
   window.__shutter = log;
