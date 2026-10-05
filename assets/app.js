@@ -620,12 +620,23 @@
     Pixel.drawText(canvas, Pixel.THEMES[id].label.en.toUpperCase(), SIGN_PIXEL, token('--ink'));
   }
 
-  /* New stock: everything on the shelf drops in again, one after another, with the
-   * same slotPop a newly collected pastry uses. */
+  /* From the narrowest point until the restock, the shelf stays out of sight
+   * (.slots.restocking in style.css). The shelf setTheme draws behind the door would
+   * otherwise pop in while the door is still rising, then vanish and pop in again
+   * at the restock. A redraw in between, say from a press on the counter, stays
+   * hidden too. */
+  function holdShelf() {
+    $('slots').classList.add('restocking');
+  }
+
+  /* New stock: once the shutter has gone, everything on the shelf drops in, one
+   * after another, with the same slotPop a newly collected pastry uses. */
   function restockShelf() {
-    var filled = Array.prototype.slice.call($('slots').querySelectorAll('.slot.filled'));
+    var box = $('slots');
+    var filled = Array.prototype.slice.call(box.querySelectorAll('.slot.filled'));
     filled.forEach(function (slot) { slot.classList.remove('pop'); });
-    void $('slots').offsetWidth;   /* so slots that already had .pop play it again */
+    box.classList.remove('restocking');
+    void box.offsetWidth;   /* so slots that already had .pop play it again */
     filled.forEach(function (slot, i) {
       slot.style.animationDelay = (i * RESTOCK_STAGGER_MS) + 'ms';
       slot.classList.add('pop');
@@ -635,10 +646,10 @@
   /* Runs each cue once its time has come; a late tick runs all it missed, in order.
    * If a cue throws, `stop` still runs, so the shutter never stays down. */
   function runCues(cues, stop) {
-    var started = Date.now();
+    var started = performance.now();   /* never jumps when the system clock is set */
     var next = 0;
     var tick = function () {
-      var now = Date.now() - started;
+      var now = performance.now() - started;
       try {
         while (next < cues.length && cues[next].at <= now) {
           next += 1;
@@ -666,23 +677,20 @@
     $('phone').appendChild(door);
     shuttering = true;
 
-    var swapped = false;
+    /* At the narrowest: the new name on the sign, the new shop behind the door. */
     var swap = function () {
-      if (swapped) return;
-      swapped = true;
       drawSign(name, to);
+      holdShelf();
       setTheme(to);
     };
+    /* At 950 ms, or as soon as a cue throws (runCues), so the door never stays down
+     * and the shop buttons never stay locked. */
     var finished = false;
     var finish = function () {
       if (finished) return;
       finished = true;
-      try {
-        swap();   /* already done, unless a cue failed before the narrowest */
-      } finally {
-        door.remove();
-        shuttering = false;
-      }
+      door.remove();
+      shuttering = false;
       restockShelf();
     };
 

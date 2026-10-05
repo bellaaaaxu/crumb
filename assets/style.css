@@ -552,6 +552,10 @@ body.autoplay .reset { cursor: default; }
   border-radius: 10px;
   transform-origin: 50% 0;
 }
+/* From the sign's flip until the shutter has gone, the new stock waits out of sight,
+   the way a slot waits out its .pop delay, so it first shows when it pops in after
+   the shutter. Whatever redraws the shelf meanwhile stays hidden too. */
+.slots.restocking .slot.filled { visibility: hidden; }
 
 .sheet-scrim {
   position: absolute; inset: 0; z-index: 8;
