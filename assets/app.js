@@ -226,8 +226,10 @@
     if (!document.hidden) sweepParticles(false);
   });
 
+  /* Every burst comes off something in the phone. While the shop's shutter is down
+   * over it (shutter(), below) that is out of sight, so nothing bursts over the door. */
   function spawn(x, y, count, color, size, opts) {
-    if (reduced()) return;
+    if (reduced() || shuttering) return;
     sweepParticles(false);
     for (var i = 0; i < count; i += 1) {
       var el = document.createElement('div');
@@ -307,10 +309,13 @@
   /* ---------------------------------------------------------------- toast */
 
   var toastTimer = null;
-  function toast(text, isError) {
+  function clearToast() {
     var old = document.querySelector('.toast');
     if (old) old.remove();
-    if (toastTimer) window.clearTimeout(toastTimer);
+    if (toastTimer) { window.clearTimeout(toastTimer); toastTimer = null; }
+  }
+  function toast(text, isError) {
+    clearToast();
     var el = document.createElement('div');
     el.className = 'toast' + (isError ? ' error' : '');
     el.textContent = text;
@@ -587,6 +592,9 @@
    *               narrowest, and opens in 3; the theme changes then, behind the door
    *   550–650 ms  the sign wobbles twice
    *   650–950 ms  up in 8 steps, then the layer goes
+   *   from 950 ms the new stock pops in, 8 ms apart, each pop a quicker slotPop
+   *               of 160 ms: done at about 1.15 s with 6 on the shelf and about
+   *               1.25 s with 19, for the spec's "about 1.1 seconds in all"
    *
    * It is started from chooseTheme, under "switching shop" further down, one
    * at a time.
@@ -610,7 +618,8 @@
   var SIGN_NARROWEST = 2;
   var SIGN_WOBBLE = [-4, 3, 0];   /* degrees, swinging from where it hangs */
   var SIGN_PIXEL = 4;
-  var RESTOCK_STAGGER_MS = 25;
+  var RESTOCK_STAGGER_MS = 8;
+  var RESTOCK_POP_MS = 160;
 
   var shuttering = false;
 
@@ -624,13 +633,14 @@
    * (.slots.restocking in style.css). The shelf setTheme draws behind the door would
    * otherwise pop in while the door is still rising, then vanish and pop in again
    * at the restock. A redraw in between, say from a press on the counter, stays
-   * hidden too. */
+   * hidden too, and its confetti never starts (spawn() makes no particles while
+   * the shutter is down). */
   function holdShelf() {
     $('slots').classList.add('restocking');
   }
 
   /* New stock: once the shutter has gone, everything on the shelf drops in, one
-   * after another, with the same slotPop a newly collected pastry uses. */
+   * after another, with the slotPop a newly collected pastry uses, played faster. */
   function restockShelf() {
     var box = $('slots');
     var filled = Array.prototype.slice.call(box.querySelectorAll('.slot.filled'));
@@ -639,6 +649,7 @@
     void box.offsetWidth;   /* so slots that already had .pop play it again */
     filled.forEach(function (slot, i) {
       slot.style.animationDelay = (i * RESTOCK_STAGGER_MS) + 'ms';
+      slot.style.animationDuration = RESTOCK_POP_MS + 'ms';
       slot.classList.add('pop');
     });
   }
@@ -1154,17 +1165,20 @@
 
   /* ---------------------------------------------------------------- switching shop
    *
-   * The one way the shop changes once the page is up, all in one go. The people,
-   * their balances and their history stay as they are; only what fills the
-   * shelves changes. A tour that is playing starts again from its first scene.
-   * A page opened with a remembered shop never comes through here: the wiring
-   * draws that shop from the start. */
+   * The one way the shop changes once the page is up, all in one go. While the
+   * visitor is driving, the people, their balances and their history stay as they
+   * are; only what fills the shelves changes. A tour that is playing starts again
+   * from its first scene, with the tour's own people and balances, as every loop
+   * of it does. Whatever names the old shop's goods goes: the name tip, the oven
+   * intro and the toast. A page opened with a remembered shop never comes through
+   * here: the wiring draws that shop from the start. */
 
   function setTheme(id) {
     if (!known(id) || id === themeId) return;
     themeId = id;
     rememberTheme(id);
     hideName();
+    clearToast();
     var oven = $('phone').querySelector('.oven');
     if (oven) oven.remove();
     renderTheme();

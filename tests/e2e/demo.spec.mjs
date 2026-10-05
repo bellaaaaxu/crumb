@@ -367,7 +367,8 @@ test('each shop draws its own shelf, cabinet and card pictures, and the Pastry s
 
 /* Runs in the page. Keeps every change to the shutter, its sign, the name drawn on the sign and
  * the mascot's accessible name, in order. `batch` counts observer callbacks: changes made in
- * the same timer tick share one, so it tells what happened together. */
+ * the same timer tick share one, so it tells what happened together. At the first change of
+ * the mascot's name it also notes whether the shelf is in sight. */
 function installRecorder() {
   const log = { records: [], added: [], removed: [] };
   window.__shutter = log;
@@ -391,6 +392,15 @@ function installRecorder() {
       }
       const kind = kindOf(record.target);
       if (kind) log.records.push({ kind, batch, target: record.target, attribute: record.attributeName, before: record.oldValue });
+      // In the tick the shop changes behind the door: is the door there, and is the new stock in sight?
+      if (kind === 'label' && !log.hiddenAtFlip) {
+        const slots = [...document.querySelectorAll('#slots .slot.filled')];
+        log.hiddenAtFlip = {
+          door: document.querySelector('#phone .shutter') !== null,
+          filled: slots.length,
+          visible: slots.filter(slot => getComputedStyle(slot).visibility !== 'hidden').length,
+        };
+      }
     }
   }).observe(document.body, {
     subtree: true, childList: true, attributes: true, attributeOldValue: true, attributeFilter: ['style', 'aria-label'],
@@ -413,6 +423,7 @@ function readRecorder() {
   return {
     added: log.added,
     removed: log.removed,
+    hiddenAtFlip: log.hiddenAtFlip ?? null,
     door: changes('door').map(change => ({ batch: change.batch, value: transform(change.after) })),
     sign: changes('sign').map(change => ({ batch: change.batch, value: transform(change.after) })),
     name: changes('name').map(change => ({ batch: change.batch, before: width(change.before), after: width(change.after) })),
@@ -468,15 +479,60 @@ test('switching shop brings the shutter down over the phone, flips its sign behi
   expect(run.label.find(change => change.value === BAKERY_MASCOT)?.batch).toBe(narrowest);
   expect(run.door[7].batch).toBeLessThanOrEqual(narrowest);
   expect(run.door[8].batch).toBeGreaterThanOrEqual(narrowest);
+  // From the narrowest point the new stock behind the door stays out of sight, so it does not
+  // show through while the door rises.
+  expect(run.hiddenAtFlip).toEqual({ door: true, filled: 6, visible: 0 });
   // The layer goes, and the new stock pops onto the shelf one item after another. The delays
-  // are the restock's own 25 ms steps: the redraw behind the door left 0, 70, 140 ms…, so this
-  // fails if the restock never ran.
+  // are the restock's own 8 ms steps, each pop 160 ms: the redraw behind the door left 0, 70,
+  // 140 ms… at slotPop's own length, so this fails if the restock never ran. Six on the shelf
+  // are done at 950 + 5 × 8 + 160 = 1150 ms, about the 1.1 s of the design.
   await expect(page.locator('#phone .shutter')).toHaveCount(0);
   await expect(page.locator('#mascot')).toHaveAttribute('aria-label', BAKERY_MASCOT);
   await expect(filled(page)).toHaveCount(6);
   await expect(page.locator('#slots .slot.filled:not(.pop)')).toHaveCount(0);
-  expect(await filled(page).evaluateAll(slots => slots.map(slot => slot.style.animationDelay)))
-    .toEqual(['0ms', '25ms', '50ms', '75ms', '100ms', '125ms']);
+  expect(await filled(page).evaluateAll(slots => slots.map(slot => [slot.style.animationDelay, slot.style.animationDuration])))
+    .toEqual(['0ms', '8ms', '16ms', '24ms', '32ms', '40ms'].map(delay => [delay, '160ms']));
+  // And it is in sight again.
+  await expect(page.locator('#slots')).not.toHaveClass(/restocking/);
+  expect(await filled(page).evaluateAll(slots => slots.map(slot => getComputedStyle(slot).visibility)))
+    .toEqual(Array(6).fill('visible'));
+  expect(errors).toEqual([]);
+});
+
+test('a switch takes the old shop\'s toast with it, and a grant pressed behind the shutter bursts nothing over it', async ({ page }) => {
+  const errors = errorsOf(page);
+  await takeControl(page);
+  await page.evaluate(installRecorder);
+  // A grant names the Pastry shop's next pastry; then the switch. In the tick the shop changes
+  // behind the door, that toast goes, and $50 is pressed on the counter, outside the phone.
+  const atFlip = await page.evaluate(mascotName => new Promise(resolve => {
+    const button = name => [...document.querySelectorAll('#shop-switch button')].find(each => each.textContent.trim() === name);
+    const mascot = document.getElementById('mascot');
+    const grant = () => document.querySelector('[data-grant="50"]').click();
+    grant();
+    const before = document.querySelector('.toast')?.textContent;
+    new MutationObserver((records, observer) => {
+      if (mascot.getAttribute('aria-label') !== mascotName) return;
+      observer.disconnect();
+      const toastAtFlip = document.querySelector('.toast') !== null;
+      grant();
+      // The grant's confetti would start 220 ms after the press; the door is still down then.
+      window.setTimeout(() => resolve({
+        before,
+        toastAtFlip,
+        door: document.querySelector('#phone .shutter') !== null,
+        particles: document.querySelectorAll('.particle').length,
+      }), 260);
+    }).observe(mascot, { attributes: true, attributeFilter: ['aria-label'] });
+    button('Bakery').click();
+  }), BAKERY_MASCOT);
+  expect(atFlip.before).toMatch(/came out of the oven!$/);
+  expect(atFlip).toMatchObject({ toastAtFlip: false, door: true, particles: 0 });
+  // The second grant's toast names a bake, under the door until it lifts.
+  await page.waitForFunction(() => window.__shutter.removed.length > 0, null, { timeout: 3000 });
+  const bakeryNames = BAKERY_LIST.keys.map(key => BAKERY_LIST.names[key].en);
+  const toastText = await page.locator('.toast').textContent();
+  expect(bakeryNames.some(name => toastText === `$50.00 added — ${name} came out of the oven!`), toastText).toBe(true);
   expect(errors).toEqual([]);
 });
 
@@ -540,9 +596,13 @@ test('with reduced motion the shop changes at once, with no shutter', async ({ b
     const page = await context.newPage();
     await page.addInitScript(countShutters);
     await page.goto(DEMO);
-    await shopButton(page, 'Bakery').click();
-    // At once: the mascot's name and the shelf are Bakery's before a shutter could have run.
-    await expect(page.locator('#mascot')).toHaveAttribute('aria-label', BAKERY_MASCOT, { timeout: 200 });
+    // At once: pressed and read in the same instant, the mascot's name is already Bakery's, and
+    // so is the shelf.
+    const label = await page.evaluate(() => {
+      [...document.querySelectorAll('#shop-switch button')].find(button => button.textContent.trim() === 'Bakery').click();
+      return document.getElementById('mascot').getAttribute('aria-label');
+    });
+    expect(label).toBe(BAKERY_MASCOT);
     expect(await keysOn(filled(page).locator('canvas'))).toEqual(DRAWINGS.bakery.shelf);
     expect(await page.evaluate(() => window.__shutters)).toBe(0);
   } finally {
