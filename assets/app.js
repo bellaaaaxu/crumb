@@ -773,6 +773,11 @@
     });
   }
 
+  /* Hands the cabinet's scroll reveal the slots drawn in place of the ones it
+   * was given (see revealOnScroll). Nothing to hand over until setUpReveals has
+   * set the reveal up, or when it never does. */
+  var revealCabinet = function () {};
+
   /* The shop's whole list. What the demo's rotation leaves out can still be
    * collected in the self-hosted app, and is drawn dashed. */
   function renderCabinet() {
@@ -786,6 +791,7 @@
       attachName(slot, key);
       box.appendChild(slot);
     });
+    revealCabinet(Array.prototype.slice.call(box.children));
   }
 
   /* A colour from the stylesheet, for drawing outside CSS: one of the variables on
@@ -1031,7 +1037,7 @@
    * gets the whole section rendered plainly instead of a blank strip. */
 
   function revealOnScroll(trigger, nodes, showClass, stagger) {
-    if (!trigger || !nodes.length) return;
+    if (!trigger || !nodes.length) return function () {};
 
     nodes.forEach(function (n) { n.classList.add('reveal-armed'); });
 
@@ -1072,6 +1078,14 @@
       played = true;
       nodes.forEach(function (n) { n.classList.remove('reveal-armed'); });
     }, 1500);
+
+    /* For nodes drawn in place of these ones (the cabinet, when the shop
+     * changes): until the reveal has played they wait hidden for it, as the
+     * ones they replace did; after that they simply show. */
+    return function (fresh) {
+      nodes = fresh;
+      if (!played) nodes.forEach(function (n) { n.classList.add('reveal-armed'); });
+    };
   }
 
   function setUpReveals() {
@@ -1080,7 +1094,7 @@
 
     revealOnScroll($('how'), pick('.how .section-head').concat(pick('.how .card')), 'rise', 90);
     revealOnScroll($('cabinet-section'), pick('.cabinet .section-head'), 'rise', 0);
-    revealOnScroll($('cabinet'), pick('#cabinet .slot'), 'pop', 20);
+    revealCabinet = revealOnScroll($('cabinet'), pick('#cabinet .slot'), 'pop', 20);
   }
 
   /* ---------------------------------------------------------------- wiring */

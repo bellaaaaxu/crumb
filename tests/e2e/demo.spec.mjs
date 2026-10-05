@@ -24,6 +24,31 @@ const showsMascot = (page, selector, shop, size) => page.evaluate(([selector, sh
   return Boolean(canvas) && canvas.toDataURL() === expected.toDataURL();
 }, [selector, shop, size]);
 
+/* The small pictures on the three cards under the demo, by card (spec §7). */
+const CARD_PICTURES = {
+  default: { 'icons-keep': ['laopo', 'tart', 'bolo'], 'icons-hide': ['charsiu'], 'icons-vary': ['mochi', 'walnut', 'mango', 'taro'] },
+  bakery: { 'icons-keep': ['toastbite', 'croissant', 'bolo'], 'icons-hide': ['cupcake'], 'icons-vary': ['donut', 'pretzel', 'mango', 'bagel'] },
+};
+
+/* Whether the canvases in `selector` show exactly the drawings of `keys`, in that order, each
+ * drawn at `size`. */
+const showsDrawings = (page, selector, keys, size) => page.evaluate(([selector, keys, size]) => {
+  const canvases = [...document.querySelectorAll(selector)];
+  return canvases.length === keys.length && canvases.every((canvas, index) => {
+    const expected = document.createElement('canvas');
+    Pixel.drawSprite(expected, Pixel.SPRITES[keys[index]], size, 0);
+    return canvas.toDataURL() === expected.toDataURL();
+  });
+}, [selector, keys, size]);
+
+/* Whether each of the three cards shows the shop's own pictures. */
+async function expectCardPictures(page, shop) {
+  for (const [id, keys] of Object.entries(CARD_PICTURES[shop])) {
+    await expect(page.locator(`#${id} canvas`), id).toHaveCount(keys.length);
+    await expect.poll(() => showsDrawings(page, `#${id} canvas`, keys, 3), { message: `${id} in ${shop}` }).toBe(true);
+  }
+}
+
 test('the tour plays by itself, hands over control, and the collection survives spending', async ({ page }) => {
   await page.goto(DEMO);
   await expect(page.locator('#get-note')).toHaveText('Playing on its own');
@@ -91,9 +116,7 @@ test('a first visit shows the Pastry shop, with the same numbers as before', asy
   await expect(page.locator('#rule-hide')).toHaveText('“Egg Tart is in the oven”');
   await expect(page.locator('#step-grant')).toHaveText('watch a pastry come out of the oven');
   await expect(page.locator('#step-switch')).toHaveText('different pastries, same rule');
-  for (const [id, count] of [['icons-keep', 3], ['icons-hide', 1], ['icons-vary', 4]]) {
-    await expect(page.locator(`#${id} canvas`)).toHaveCount(count);
-  }
+  await expectCardPictures(page, 'default');
   expect(errors).toEqual([]);
 });
 
@@ -156,9 +179,7 @@ test('in the Bakery the shelf, mascot, tab icon, crumbs, words, cards, cabinet a
   await expect(page.locator('#rule-hide')).toHaveText('“Croissant is in the oven”');
   await expect(page.locator('#step-grant')).toHaveText('watch a bake come out of the oven');
   await expect(page.locator('#step-switch')).toHaveText('different bakes, same rule');
-  for (const [id, count] of [['icons-keep', 3], ['icons-hide', 1], ['icons-vary', 4]]) {
-    await expect(page.locator(`#${id} canvas`)).toHaveCount(count);
-  }
+  await expectCardPictures(page, 'bakery');
 
   // Spending says "bake", and the crumbs are the colour of the mascot's outline.
   await page.locator('#spend').click();
@@ -178,6 +199,13 @@ test('in the Bakery the shelf, mascot, tab icon, crumbs, words, cards, cabinet a
   await expect(page.locator('#oven-caption b')).toHaveText(pastryNext);
   await expect(page.locator('#cabinet .slot')).toHaveCount(39);
   await expect(page.locator('#legend-limited-line')).toBeVisible();
+  await expectCardPictures(page, 'default');
+
+  // The cabinet was drawn again for each shop before it scrolled into view: its slots still
+  // wait hidden for it, and pop in when it comes.
+  await expect(page.locator('#cabinet .slot.reveal-armed')).toHaveCount(39);
+  await page.locator('#cabinet').scrollIntoViewIfNeeded();
+  await expect(page.locator('#cabinet .slot.pop')).toHaveCount(39);
   expect(errors).toEqual([]);
 });
 
