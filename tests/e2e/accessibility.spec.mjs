@@ -350,11 +350,15 @@ async function themeCardsPass(page, label) {
 }
 
 test('the collection theme cards on setup and in Settings fit a phone and a laptop and work from the keyboard', async ({ browser }) => {
-  const crumb = await startCrumb();
-  // An owner whose team has a priced benefit but no treat yet: the cards can still be chosen.
-  const fx = await provision(browser, { mode: 'points' });
-  const context = await browser.newContext({ reducedMotion: 'reduce' });
+  // Made inside try, so whatever was started is closed even if a later step fails.
+  let crumb;
+  let fx;
+  let context;
   try {
+    crumb = await startCrumb();
+    // An owner whose team has a priced benefit but no treat yet: the cards can still be chosen.
+    fx = await provision(browser, { mode: 'points' });
+    context = await browser.newContext({ reducedMotion: 'reduce' });
     const setupPage = await context.newPage();
     const setupProblems = await watch(setupPage);
     const ownerProblems = await watch(fx.ownerPage);
@@ -375,8 +379,8 @@ test('the collection theme cards on setup and in Settings fit a phone and a lapt
     expect(await setupProblems()).toEqual([]);
     expect(await ownerProblems()).toEqual([]);
   } finally {
-    await context.close();
-    await fx.close();
-    await crumb.close();
+    await context?.close();
+    await fx?.close();
+    await crumb?.close();
   }
 });

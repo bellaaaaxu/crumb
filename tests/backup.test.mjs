@@ -12,6 +12,7 @@ import { saveReward } from '../server/rewards.mjs';
 import { requestRedemption, resolveRedemption } from '../server/redemptions.mjs';
 import { inviteMember, issueSignInLink } from '../server/members.mjs';
 import { setLogo } from '../server/org.mjs';
+import { unknownThemeError } from '../server/themes.mjs';
 import { fixture } from './helpers.mjs';
 
 const code = expected => error => {
@@ -251,8 +252,8 @@ test('backups, restored copies and new databases can be read by their owner only
     assert.equal(modeOf(join(dir, 'restored', 'crumb.sqlite')), 0o600);
   });
 
-const UNKNOWN_THEME = 'This database uses the collection theme "cafe", which this version of Crumb does not include. ' +
-  'Run a newer Crumb, or restore a backup made by this version.';
+// The refusal's wording is pinned once, in tests/themes.test.mjs.
+const UNKNOWN_THEME = unknownThemeError('cafe').message;
 
 test('restore refuses a backup whose team uses a theme this version does not include', async t => {
   const { db, dir } = fixture(t);

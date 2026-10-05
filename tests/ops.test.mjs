@@ -8,6 +8,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { verifyPassword } from '../server/passwords.mjs';
+import { unknownThemeError } from '../server/themes.mjs';
 import { fixture } from './helpers.mjs';
 
 const scripts = fileURLToPath(new URL('../scripts/', import.meta.url));
@@ -149,8 +150,8 @@ test('recover-owner does not give a password to an owner who never joined', t =>
   assert.ok(owner.id);
 });
 
-const UNKNOWN_THEME = 'This database uses the collection theme "cafe", which this version of Crumb does not include. ' +
-  'Run a newer Crumb, or restore a backup made by this version.';
+// The refusal's wording is pinned once, in tests/themes.test.mjs.
+const UNKNOWN_THEME = unknownThemeError('cafe').message;
 
 test('recover-owner refuses a database whose team uses a theme this version does not include', t => {
   const { db, owner, dir } = fixture(t);

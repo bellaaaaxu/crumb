@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readdirSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import en from '../app/locales/en.js';
@@ -9,6 +9,7 @@ import { THEMED_KEYS, setLocale, themed } from '../app/i18n.js';
 import { ROLES } from '../server/members.mjs';
 import { CURRENCIES } from '../server/org.mjs';
 import { KINDS, MEMBER_STATUSES, STATUSES } from '../server/routes/read-models.mjs';
+import { THEME_IDS } from '../server/themes.mjs';
 
 const root = new URL('..', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
 const placeholders = text => [...text.matchAll(/\{(\w+)\}/g)].map(match => match[1]).sort();
@@ -39,11 +40,9 @@ const BUILT = {
 };
 const builtKeys = new Set(Object.entries(BUILT).flatMap(([prefix, values]) => values.map(value => `${prefix}.${value}`)));
 
-/* The collection themes, as scripts/theme-manifest.mjs writes them (themes/<id>.json). A
+/* The collection themes (THEME_IDS: every themes/<id>.json, as the server reads them). A
  * sentence that follows the theme has a version per theme, keyed `<base key>.<theme id>`
  * (THEMED_KEYS in app/i18n.js); the app reaches those through themed(), never by name. */
-const THEME_IDS = readdirSync(join(root, 'themes')).filter(name => name.endsWith('.json'))
-  .map(name => JSON.parse(readFileSync(join(root, 'themes', name), 'utf8')).themeId);
 const themedVariants = new Set(THEMED_KEYS.flatMap(base => THEME_IDS.map(id => `${base}.${id}`)));
 
 async function sources(dir) {

@@ -647,11 +647,17 @@ test('a benefit icon must be one of the team theme\'s collectibles', async t => 
   const swapped = await owner.request('PATCH', `/api/admin/rewards/${bolo.body.id}`, { iconKey: 'croissant' });
   assert.deepEqual([swapped.status, swapped.body.iconKey], [200, 'croissant']);
 
-  // The shape is still checked where the request is read: text of 2 to 32 characters.
+  // The shape is still checked where the request is read, before anything about the team: text
+  // of 2 to 32 characters. These are sent in points to this credit team, so one that got past
+  // the reader would be refused for the unit instead (409 RULES_CHANGED), not for its icon.
   for (const bad of ['a', 'x'.repeat(33), 5, {}]) {
-    const refused = await add(owner, bad);
+    const refused = await owner.request('POST', '/api/admin/rewards',
+      { name: 'Coffee', description: '', amount: '450', mode: 'points', active: true, iconKey: bad }, key());
     assert.deepEqual([refused.status, refused.body.error.field], [422, 'iconKey'], JSON.stringify(bad));
   }
+  const unitRefused = await owner.request('POST', '/api/admin/rewards',
+    { name: 'Coffee', description: '', amount: '450', mode: 'points', active: true, iconKey: 'bolo' }, key());
+  assert.deepEqual([unitRefused.status, unitRefused.body.error.code], [409, 'RULES_CHANGED'], 'a good shape gets as far as the unit');
   assert.equal(bakeryTeam.server.db.prepare('SELECT count(*) AS n FROM rewards').get().n, 2);
 
   // A Pastry shop team is the other way round.

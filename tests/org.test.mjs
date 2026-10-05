@@ -286,6 +286,11 @@ test('changing the theme removes the benefit icons it does not draw, active or n
   const hidden = saveReward(db, owner, { name: 'Mooncake box', description: '', costUnits: 2000, active: false, iconKey: 'mooncake' });
   assert.equal(updateOrg(db, owner, { theme: 'bakery' }).iconsRemoved, 1);
   assert.deepEqual(icons(), { [tart.id]: null, [bun.id]: 'bolo', [lunch.id]: null, [hidden.id]: null });
+
+  // And the other way: an icon only Bakery draws goes when the team goes back to Pastry shop.
+  const croissant = saveReward(db, owner, { name: 'Croissant Friday', description: '', costUnits: 500, active: true, iconKey: 'croissant' });
+  assert.equal(updateOrg(db, owner, { theme: 'default' }).iconsRemoved, 1);
+  assert.deepEqual(icons(), { [tart.id]: null, [bun.id]: 'bolo', [lunch.id]: null, [hidden.id]: null, [croissant.id]: null });
 });
 
 test('a change that leaves the theme alone removes no icons and is audited as before', t => {

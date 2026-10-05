@@ -160,5 +160,6 @@ test('the demo refuses a theme this version does not include, before it makes an
   assert.deepEqual(demoFolders(), before);
   // Nothing was printed.
   assert.equal(printed, '');
-  for (const id of THEME_IDS) assert.ok(errors.includes(id), errors);
+  // Only the one line, naming every theme this version has, in order.
+  assert.equal(errors, `Use --theme with one of: ${THEME_IDS.join(', ')}.\n`);
 });

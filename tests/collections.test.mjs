@@ -35,7 +35,9 @@ const spritesSource = () => readFileSync(join(ROOT, 'assets', 'sprites.js'), 'ut
 const listFile = themeId => JSON.parse(readFileSync(join(ROOT, 'themes', `${themeId}.json`), 'utf8'));
 /* sprites.js touches no browser API at load time, so it evaluates here as it does in the scripts. */
 const loadPixel = source => vm.runInNewContext(`${source}\n;Pixel`, Object.create(null), { timeout: 1000 });
-/* A test's edit of the sprite table; fails loudly if the text it edits has moved. */
+/* A test's edit of the sprite table; fails loudly if the text it edits has moved. It changes the
+ * first match only, which the tests below count on being Pastry shop's: THEMES.default comes
+ * first in THEMES, and the 0.2 drawings first in SPRITES. */
 function edit(source, from, to) {
   assert.ok(source.includes(from), `assets/sprites.js no longer contains ${from}`);
   return source.replace(from, to);
@@ -150,7 +152,7 @@ test('forSlot without a theme, or with Pastry shop, picks what 0.2 picked; other
     let sum = 0;
     for (let i = 0; i < seed.length; i += 1) sum += seed.charCodeAt(i);
     for (let index = 0; index < 70; index += 1) {
-      const before = CYCLE_0_2[(index + sum) % 33];
+      const before = CYCLE_0_2[(index + sum) % CYCLE_0_2.length];
       assert.equal(Pixel.forSlot(seed, index), before, `${seed} #${index}`);
       assert.equal(Pixel.forSlot(seed, index, 'default'), before, `${seed} #${index}`);
       for (const [themeId, entry] of Object.entries(Pixel.THEMES)) {

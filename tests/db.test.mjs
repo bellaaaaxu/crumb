@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import Database from 'better-sqlite3';
 import { openDatabase, schemaVersionOf, SCHEMA_VERSION } from '../server/db.mjs';
+import { unknownThemeError } from '../server/themes.mjs';
 import { fixture } from './helpers.mjs';
 
 const now = () => new Date().toISOString();
@@ -288,7 +289,7 @@ test('an update that would leave a reference to a missing row changes nothing', 
  * 002-spending.sql applied the way server/db.mjs applies it (foreign keys off) and recorded
  * as version 2, plus a benefit with an icon, so a column 002 added carries data too. */
 function version2Database(path) {
-  const ids = version1Database(path);
+  version1Database(path);
   const raw = new Database(path);
   raw.pragma('foreign_keys = OFF');
   raw.exec(readFileSync(new URL('../server/migrations/002-spending.sql', import.meta.url), 'utf8'));
@@ -296,7 +297,6 @@ function version2Database(path) {
   raw.prepare(`INSERT INTO rewards (id, name, description, cost_units, active, icon_key, created_at, updated_at)
                VALUES (?, 'Coffee', '', 450, 1, 'tart', ?, ?)`).run(randomUUID(), now(), now());
   raw.close();
-  return ids;
 }
 
 /* Every row a team owns, in a fixed order, for before-and-after comparisons. */
@@ -339,8 +339,8 @@ test('a team theme is 2 to 32 characters; which themes exist is up to the theme 
   assert.throws(() => set(null), /NOT NULL/);
 });
 
-const UNKNOWN_THEME = 'This database uses the collection theme "cafe", which this version of Crumb does not include. ' +
-  'Run a newer Crumb, or restore a backup made by this version.';
+// The refusal's wording is pinned once, in tests/themes.test.mjs.
+const UNKNOWN_THEME = unknownThemeError('cafe').message;
 
 test('a database whose team uses a theme this version does not include refuses to open', t => {
   const { db, path } = fixture(t);
