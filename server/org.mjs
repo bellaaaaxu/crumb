@@ -180,10 +180,11 @@ export function updateOrg(db, actor, patch, clock = () => Date.now()) {
     if (fields.threshold !== undefined) thresholdUnits = parseUnits(fields.threshold, mode);
     else if (mode !== row.mode) throw invalid('threshold', 'Set the unlock threshold again when changing between credit and points.');
     const theme = fields.theme ?? row.theme;
+    const themeChanged = theme !== row.theme;
 
     const unitChanged = mode !== row.mode || currency !== row.currency;
     // The theme is fixed exactly when the unlock step is.
-    const stepChanged = thresholdUnits !== row.threshold_units || theme !== row.theme;
+    const stepChanged = thresholdUnits !== row.threshold_units || themeChanged;
     if ((unitChanged && (row.has_ledger || row.has_rewards)) || (stepChanged && row.has_ledger))
       throw new AppError(409, 'RULES_LOCKED',
         'Reward rules are fixed once rewards are recorded (and the unit once benefits are priced), so earlier amounts keep their meaning.');
@@ -209,7 +210,6 @@ export function updateOrg(db, actor, patch, clock = () => Date.now()) {
                     admin_contact = @adminContact, feedback_url = @feedbackUrl, mode = @mode, currency = @currency,
                     threshold_units = @thresholdUnits, spending = @spending, theme = @theme, updated_at = @at
                   WHERE id = 1`).run({ ...next, at });
-      const themeChanged = theme !== row.theme;
       if (themeChanged) iconsRemoved = removeIconsOutside(db, themeById(theme).keys, at);
       const detail = themeChanged ? { changed, theme: { from: row.theme, to: theme }, iconsRemoved } : { changed };
       writeAudit(db, { actorId: current.id, action: 'org.update', detail }, at);

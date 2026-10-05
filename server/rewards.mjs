@@ -76,7 +76,7 @@ export function saveReward(db, actor, input, clock = () => Date.now(), { key } =
     iconKey: iconKey(),
   });
   // Both checks read the team's current rules, so they run inside the write. For an add with a
-  // request key that is inside the idempotent operation: a retry whose first attempt went
+  // request key, create runs inside the idempotent operation, so a retry whose first attempt went
   // through gets that stored answer even if the theme changed since, and a refusal stores nothing.
   const create = current => {
     assertSameMode(db, fields.mode);

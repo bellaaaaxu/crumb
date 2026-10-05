@@ -18,6 +18,7 @@ import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { parseArgs } from 'node:util';
 import { randomBytes } from 'node:crypto';
 import { chromium } from '@playwright/test';
 import { openDatabase } from '../server/db.mjs';
@@ -26,18 +27,20 @@ import { DEFAULT_THEME, THEME_IDS } from '../server/themes.mjs';
 import { DAY, THEME_OPTION_HINT, seedSampleTeam } from './sample-team.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const args = process.argv.slice(2);
-const themeIndex = args.indexOf('--theme');
-const theme = themeIndex >= 0 ? args[themeIndex + 1] : DEFAULT_THEME;
+// The same option parser as demo.mjs: --theme bakery and --theme=bakery both work, and an
+// unknown option is refused.
+const { values } = parseArgs({ options: {
+  theme: { type: 'string', default: DEFAULT_THEME }, out: { type: 'string' }, all: { type: 'boolean', default: false },
+} });
+const { theme } = values;
 if (!THEME_IDS.includes(theme)) {
   console.error(THEME_OPTION_HINT);
   process.exit(2);
 }
-const outIndex = args.indexOf('--out');
 // The README shows Pastry shop: another theme's pictures never land in its folder by default.
 const defaultOut = theme === DEFAULT_THEME ? join(root, 'assets', 'screenshots') : join(tmpdir(), `crumb-screenshots-${theme}`);
-const outDir = resolve(outIndex >= 0 ? args[outIndex + 1] : defaultOut);
-const captureAll = args.includes('--all');
+const outDir = resolve(values.out ?? defaultOut);
+const captureAll = values.all;
 const PASSWORD = 'sample-password-for-screenshots';
 // A large phone: the member page is made for one, and this is wide enough to read in the README.
 const PHONE = { viewport: { width: 430, height: 932 }, deviceScaleFactor: 2 };

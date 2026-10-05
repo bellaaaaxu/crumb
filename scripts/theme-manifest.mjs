@@ -31,7 +31,7 @@ function fail(message) {
 const hasText = value => typeof value === 'string' && value.trim() !== '';
 
 function checkSprite(key, sprite) {
-  if (!ID.test(key)) fail(`key "${key}" must be lowercase letters and digits`);
+  if (!ID.test(key)) fail(`key "${key}" must be 2 to 32 lowercase letters and digits, starting with a letter`);
   if (!sprite || typeof sprite.palette !== 'object' || !Array.isArray(sprite.rows)) fail(`${key} needs a palette and rows`);
   for (const [symbol, colour] of Object.entries(sprite.palette)) {
     if (symbol.length !== 1 || symbol === '.') fail(`${key} palette symbol "${symbol}" must be one character other than "."`);
@@ -64,7 +64,8 @@ function manifestOf(Pixel, themeId) {
   if (!Object.hasOwn(Pixel.THEMES, themeId)) fail(`no theme "${themeId}" in THEMES`);
   if (!ID.test(themeId)) fail(`theme id "${themeId}" must be 2 to 32 lowercase letters and digits, starting with a letter`);
   const where = `THEMES.${themeId}`;
-  const { mascot, rotation, limited, version, label, card } = Pixel.THEMES[themeId];
+  // A missing entry has no lists, so the first check below names it.
+  const { mascot, rotation, limited, version, label, card } = Pixel.THEMES[themeId] ?? {};
   if (!Array.isArray(rotation) || !Array.isArray(limited)) fail(`${where}.rotation and .limited must be lists of keys`);
   for (const list of [rotation, limited]) {
     const seen = new Set();
@@ -137,7 +138,7 @@ function main(args) {
         continue;
       }
       if (isDeepStrictEqual(committed, manifest)) continue;
-      const dropped = (Array.isArray(committed.keys) ? committed.keys : []).filter(key => !manifest.keys.includes(key));
+      const dropped = (Array.isArray(committed?.keys) ? committed.keys : []).filter(key => !manifest.keys.includes(key));
       problems.push(`themes/${themeId}.json does not match assets/sprites.js`
         + (dropped.length ? `, which drops ${dropped.join(', ')}: a released key must never leave its theme` : ''));
     }

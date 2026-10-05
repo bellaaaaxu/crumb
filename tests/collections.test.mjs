@@ -185,6 +185,7 @@ test('every theme rule of the design is checked', () => {
   refused('"zh-CN": "饼店 · {count} 款点心"', '"zh-CN": "饼店 · {count} 款点心（３９）"', /THEMES\.default\.card\.zh-CN must not type a number/);
   refused('const THEMES = {', 'const THEMES = {\n    Pastry: { mascot: "laopo", rotation: ["laopo"], limited: [], version: 1, label: { en: "x", "zh-CN": "x" }, card: { en: "{count}", "zh-CN": "{count}" } },',
     /theme id "Pastry" must be 2 to 32 lowercase letters and digits/);
+  refused('const THEMES = {', 'const THEMES = {\n    gone: null,', /THEMES\.gone\.rotation and \.limited must be lists of keys/);
   const stray = `stray: { palette: { X: "#7A4A1E" }, rows: [${Array(12).fill('"XXXXXXXXXXXX"').join(', ')}] },`;
   refused('  const SPRITES = {', `  const SPRITES = {\n    ${stray}`, /stray is drawn but is in no theme's rotation or limited/);
 });
@@ -220,6 +221,23 @@ test('the generator writes every list file and removes stale ones; --check repor
   assert.match(run.stderr, /themes\/retired\.json belongs to no theme in assets\/sprites\.js/);
   assert.match(run.stderr, /themes\/default\.json does not match assets\/sprites\.js/);
   assert.ok(existsSync(join(themes, 'retired.json')), '--check changes nothing');
+
+  // A committed list holding a key the sprite table no longer gives the theme names it, and a
+  // file that is not JSON, or JSON with no list in it, is reported like any other problem
+  // instead of stopping the check.
+  const released = JSON.parse(readFileSync(join(themes, 'default.json'), 'utf8'));
+  released.keys.push('oldpastry');
+  writeFileSync(join(themes, 'default.json'), JSON.stringify(released));
+  writeFileSync(join(themes, 'bakery.json'), '{');
+  run = generate(dir, '--check');
+  assert.equal(run.status, 1);
+  assert.match(run.stderr, /themes\/default\.json does not match assets\/sprites\.js, which drops oldpastry: a released key must never leave its theme/);
+  assert.match(run.stderr, /themes\/bakery\.json is not valid JSON/);
+  writeFileSync(join(themes, 'bakery.json'), 'null');
+  run = generate(dir, '--check');
+  assert.equal(run.status, 1);
+  assert.match(run.stderr, /themes\/bakery\.json does not match assets\/sprites\.js\n/);
+  assert.match(run.stderr, /themes\/retired\.json belongs to no theme/, 'the check went on past the file with no list');
 
   run = generate(dir);
   assert.equal(run.status, 0, run.stderr);
