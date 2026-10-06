@@ -4,6 +4,7 @@
  * Settings choose it, until the first treat fixes it. The sentences that name the collection
  * follow it too. Every person and team here is invented. */
 import { test, expect } from '@playwright/test';
+import { readFileSync } from 'node:fs';
 import { PASSWORD, nameMenu, openPerson, provision, signIn, signInWithLink, signOut, startCrumb } from './fixtures.mjs';
 import { client, orgInput } from '../helpers.mjs';
 import { themeById } from '../../server/themes.mjs';
@@ -428,8 +429,16 @@ test('Settings before the first treat: a card changes only the hint until Save, 
     expect(benefitIcons(fx.db)).toEqual(kept);
     await expect(themeCard(page, PASTRY_CARD)).toBeChecked();
     await expect.poll(() => shownOn(headerMascot(page))).toBe(wifeCake);
-    await expect(tabIcon(page)).toHaveAttribute('href', 'favicon.svg');
-    await expect(touchIcon(page)).toHaveAttribute('href', 'icons/icon-180.png');
+    // The links come back to Pastry shop by its own folder, not by index.html's addresses: the
+    // server answers those in the team's theme, so this page may already hold Bitten Toast for
+    // them, and a tab would keep showing it. These answer Pastry shop's files, whatever the theme.
+    await expect(tabIcon(page)).toHaveAttribute('href', 'icons/default/favicon.svg');
+    await expect(touchIcon(page)).toHaveAttribute('href', 'icons/default/icon-180.png');
+    for (const [path, file] of [['icons/default/favicon.svg', 'favicon.svg'], ['icons/default/icon-180.png', 'icons/icon-180.png']]) {
+      const answer = await page.request.get(new URL(path, page.url()).href);
+      expect(answer.status(), path).toBe(200);
+      expect((await answer.body()).equals(readFileSync(new URL(`../../app/${file}`, import.meta.url))), `${path} is app/${file}`).toBe(true);
+    }
     expect(errors).toEqual([]);
   } finally {
     await fx.close();

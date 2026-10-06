@@ -89,6 +89,23 @@ test('Pastry shop keeps the icon addresses index.html names; other themes use th
   }
 });
 
+test('a link that has left index.html\'s icon addresses comes back to Pastry shop by icons/default/, never by them', () => {
+  // The server answers index.html's addresses in the team's theme, so the browser may hold
+  // another theme's picture for them. A page that has only ever shown Pastry shop keeps them.
+  for (const current of [undefined, null, 'favicon.svg']) assert.equal(pixels.iconHref('default', current), 'favicon.svg', String(current));
+  for (const current of [undefined, null, 'icons/icon-180.png']) assert.equal(pixels.touchIconHref('default', current), 'icons/icon-180.png', String(current));
+  // Coming from Bakery's, and from then on: Pastry shop's own folder, whose picture never changes.
+  for (const current of ['icons/bakery/favicon.svg', 'icons/default/favicon.svg']) {
+    assert.equal(pixels.iconHref('default', current), 'icons/default/favicon.svg', current);
+    assert.equal(pixels.iconHref('cafe', current), 'icons/default/favicon.svg', current);
+  }
+  for (const current of ['icons/bakery/icon-180.png', 'icons/default/icon-180.png'])
+    assert.equal(pixels.touchIconHref('default', current), 'icons/default/icon-180.png', current);
+  // Every other theme has one address, wherever the link was.
+  for (const current of [undefined, 'favicon.svg', 'icons/default/favicon.svg']) assert.equal(pixels.iconHref('bakery', current), 'icons/bakery/favicon.svg');
+  for (const current of [undefined, 'icons/icon-180.png', 'icons/default/icon-180.png']) assert.equal(pixels.touchIconHref('bakery', current), 'icons/bakery/icon-180.png');
+});
+
 test('with no pixel table nothing is drawn, the icons are Pastry shop\'s and nothing throws', () => {
   assert.deepEqual(bare.themeIds(), []);
   assert.equal(bare.themeEntry('bakery'), null);

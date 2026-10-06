@@ -1,6 +1,7 @@
 /* The tab and home-screen icons of every collection theme. The committed files must be what
  * scripts/make-icons.mjs draws from the theme's current mascot (pixels compared, not bytes),
- * and the server answers the fixed icon addresses with the team's own theme. */
+ * and the server answers the fixed icon addresses with the team's own theme, and each theme's
+ * own addresses with that theme's. */
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
@@ -47,14 +48,26 @@ function fileFor(themeId, address) {
   return address === '/favicon.svg' ? join(APP, 'favicon.svg') : join(APP, 'icons', name);
 }
 
+async function assertServesAt(base, address, file, label) {
+  const response = await fetch(base + address);
+  assert.equal(response.status, 200, address);
+  assert.match(response.headers.get('content-type'), address.endsWith('.svg') ? /^image[/]svg[+]xml/ : /^image[/]png$/, address);
+  assert.equal(response.headers.get('cache-control'), 'no-store', address);
+  const body = Buffer.from(await response.arrayBuffer());
+  assert.ok(body.equals(readFileSync(file)), `${address} should be the ${label} file`);
+}
+
 async function assertServes(base, themeId) {
-  for (const address of ADDRESSES) {
-    const response = await fetch(base + address);
-    assert.equal(response.status, 200, address);
-    assert.match(response.headers.get('content-type'), address.endsWith('.svg') ? /^image[/]svg[+]xml/ : /^image[/]png$/, address);
-    assert.equal(response.headers.get('cache-control'), 'no-store', address);
-    const body = Buffer.from(await response.arrayBuffer());
-    assert.ok(body.equals(readFileSync(fileFor(themeId, address))), `${address} should be the ${themeId} file`);
+  for (const address of ADDRESSES) await assertServesAt(base, address, fileFor(themeId, address), themeId);
+}
+
+/* Each theme's own addresses, icons/<id>/, Pastry shop's included: always that theme's files,
+ * whatever the team's theme. A page whose links leave another theme's for Pastry shop's points
+ * at icons/default/ (app/pixels.js), so it never meets a picture of another theme there. */
+async function assertOwnAddresses(base) {
+  for (const themeId of Object.keys(Pixel.THEMES)) {
+    for (const address of ADDRESSES)
+      await assertServesAt(base, `/icons/${themeId}/${address.split('/').pop()}`, fileFor(themeId, address), themeId);
   }
 }
 
@@ -103,24 +116,18 @@ test('importing scripts/make-icons.mjs writes no file', async () => {
 test('before setup the icon addresses serve the Pastry shop icons', async t => {
   const server = await startServer(t);
   await assertServes(server.base, 'default');
+  await assertOwnAddresses(server.base);
 });
 
 test('each team gets the icons of its own theme at the same addresses', async t => {
   const server = await startServer(t);
   await setupOrganization(server);
   await assertServes(server.base, 'default');
+  await assertOwnAddresses(server.base);
   // Set directly: this is about the icons, not about how a team picks its theme.
   server.db.prepare(`UPDATE organization SET theme = 'bakery'`).run();
   assert.ok(!readFileSync(fileFor('bakery', '/favicon.svg')).equals(readFileSync(fileFor('default', '/favicon.svg'))),
     'the Bakery tab icon differs from the Pastry shop one, so the check below can tell them apart');
   await assertServes(server.base, 'bakery');
-  // Each theme's own files stay reachable at their own addresses, whatever the team's theme.
-  for (const themeId of OTHER_THEMES) {
-    for (const address of ADDRESSES) {
-      const own = `/icons/${themeId}/${address.split('/').pop()}`;
-      const response = await fetch(server.base + own);
-      assert.equal(response.status, 200, own);
-      assert.ok(Buffer.from(await response.arrayBuffer()).equals(readFileSync(fileFor(themeId, address))), own);
-    }
-  }
+  await assertOwnAddresses(server.base);
 });

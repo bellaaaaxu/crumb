@@ -61,12 +61,17 @@ function adoptSession(session) {
 /* The tab and home-screen icons of a collection theme. The server answers favicon.svg and
  * icons/icon-180.png in the team's theme too, but a page keeps the icon it already fetched for
  * an address: pointing the links at the theme's own files changes an open page's tab icon
- * without a reload. Pastry shop's are the addresses index.html names, so for it nothing moves. */
+ * without a reload. A page that has only ever shown Pastry shop keeps the addresses index.html
+ * names, so for it nothing moves; one that comes back to Pastry shop from another theme goes to
+ * Pastry shop's own folder instead (pixels.js says why). */
 function applyThemeIcons(themeId) {
-  for (const [rel, href] of [['icon', iconHref(themeId)], ['apple-touch-icon', touchIconHref(themeId)]]) {
+  for (const [rel, address] of [['icon', iconHref], ['apple-touch-icon', touchIconHref]]) {
     const link = document.head.querySelector(`link[rel="${rel}"]`);
+    if (!link) continue;
+    const current = link.getAttribute('href');
+    const href = address(themeId, current);
     // Only a different address is written: the same one again would only make the browser ask again.
-    if (link && link.getAttribute('href') !== href) link.setAttribute('href', href);
+    if (current !== href) link.setAttribute('href', href);
   }
 }
 

@@ -115,16 +115,21 @@ export function createApp({ db, config, clock = () => Date.now(), log = console.
    * places, and before setup there is no team, so those are served. Every other theme's are
    * in app/icons/<id>/ (scripts/make-icons.mjs), which the static files below also serve as is.
    * These routes come before the static files so they win over app/favicon.svg and app/icons/.
+   * Pastry shop also has its own addresses in icons/default/, like every other theme's folder:
+   * always its files, whatever the team's theme. A page whose links come back to Pastry shop
+   * from another theme points there (app/pixels.js), never at the addresses above, for which
+   * the browser may still hold the other theme's picture.
    * The sizes are ICON_SIZES in scripts/make-icons.mjs, written out again on purpose: that
    * script is not in the Docker image, so the server cannot import it. */
-  const themeIcon = (pastryShopFile, themeFile) => (req, res, next) => {
-    const themeId = orgThemeId(db);
-    const file = themeId === DEFAULT_THEME ? pastryShopFile : `icons/${themeId}/${themeFile}`;
-    res.sendFile(file, { ...fileOptions, root: APP_DIR }, error => error && next(error));
-  };
-  app.get('/favicon.svg', themeIcon('favicon.svg', 'favicon.svg'));
-  for (const size of [180, 192, 512])
-    app.get(`/icons/icon-${size}.png`, themeIcon(`icons/icon-${size}.png`, `icon-${size}.png`));
+  const sendIcon = (file, res, next) => res.sendFile(file, { ...fileOptions, root: APP_DIR }, error => error && next(error));
+  const icons = [['favicon.svg', 'favicon.svg'], ...[180, 192, 512].map(size => [`icons/icon-${size}.png`, `icon-${size}.png`])];
+  for (const [pastryShopFile, themeFile] of icons) {
+    app.get(`/${pastryShopFile}`, (req, res, next) => {
+      const themeId = orgThemeId(db);
+      sendIcon(themeId === DEFAULT_THEME ? pastryShopFile : `icons/${themeId}/${themeFile}`, res, next);
+    });
+    app.get(`/icons/${DEFAULT_THEME}/${themeFile}`, (req, res, next) => sendIcon(pastryShopFile, res, next));
+  }
   app.use(express.static(APP_DIR, { ...fileOptions, index: 'index.html', redirect: false }));
   app.use((req, res) => res.status(404).type('text/plain').send('Not found.'));
   app.use(errorHandler(log));

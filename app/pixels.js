@@ -108,15 +108,25 @@ export function themeCard(id, locale) {
   return inLanguage(themeEntry(id)?.card, locale).replaceAll('{count}', String(themeKeysOf(id).length));
 }
 
-/* Where the theme's tab icon and home-screen icon are. Pastry shop's are the files index.html
- * has always named; every other theme's are in icons/<id>/ (scripts/make-icons.mjs). Relative,
- * like index.html's own links: the same files are also published under /crumb/app/. */
-export function iconHref(id) {
+/* Where the theme's tab icon and home-screen icon are, for a link whose address is now `current`.
+ * Every theme but Pastry shop has its files in icons/<id>/ (scripts/make-icons.mjs). Pastry
+ * shop's are the files index.html has always named, and a page that has only ever shown Pastry
+ * shop keeps those addresses. But the server answers them in the team's theme, so a browser may
+ * hold another theme's picture for them, and a tab pointed back at them would keep it: a link
+ * that has left them comes back to Pastry shop by icons/default/, which the server always
+ * answers with Pastry shop's files. Relative, like index.html's own links. (A static copy of
+ * the app, as under /crumb/app/, has no icons/default/, but it never gets a session, so its
+ * links never leave index.html's.) */
+function themeIconHref(id, current, indexAddress, file) {
   const theme = knownTheme(id);
-  return theme === DEFAULT_THEME ? 'favicon.svg' : `icons/${theme}/favicon.svg`;
+  if (theme !== DEFAULT_THEME) return `icons/${theme}/${file}`;
+  return !current || current === indexAddress ? indexAddress : `icons/${DEFAULT_THEME}/${file}`;
 }
 
-export function touchIconHref(id) {
-  const theme = knownTheme(id);
-  return theme === DEFAULT_THEME ? 'icons/icon-180.png' : `icons/${theme}/icon-180.png`;
+export function iconHref(id, current) {
+  return themeIconHref(id, current, 'favicon.svg', 'favicon.svg');
+}
+
+export function touchIconHref(id, current) {
+  return themeIconHref(id, current, 'icons/icon-180.png', 'icon-180.png');
 }
