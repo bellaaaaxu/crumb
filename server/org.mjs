@@ -3,6 +3,7 @@ import { AppError } from './errors.mjs';
 import { writeTransaction } from './db.mjs';
 import { writeAudit } from './audit.mjs';
 import { freshActor, requireRole } from './permissions.mjs';
+import { DEFAULT_THEME, THEME_IDS, themeById } from './themes.mjs';
 import { parseUnits } from './units.mjs';
 import { amount, invalid, oneOf, readObject, text } from './validate.mjs';
 
@@ -11,16 +12,16 @@ export const LOCALES = ['en', 'zh-CN'];
 export const SPENDING = ['self', 'confirm'];
 const OWNER = ['owner'];
 
-const ORG_COLUMNS = `name, mode, currency, unit_label, threshold_units, locale, welcome, spending,
+const ORG_COLUMNS = `name, mode, currency, unit_label, threshold_units, locale, welcome, spending, theme,
   admin_contact, feedback_url, (logo_png IS NOT NULL) AS has_logo,
   EXISTS (SELECT 1 FROM ledger) AS has_ledger, EXISTS (SELECT 1 FROM rewards) AS has_rewards`;
 
 export const readOrgRow = db => db.prepare(`SELECT ${ORG_COLUMNS} FROM organization WHERE id = 1`).get();
 
-/* Signed-out visitors see only what the sign-in page needs. */
+/* Signed-out visitors see only what the sign-in page needs: the theme is there for its mascot. */
 export function orgView(row, { signedIn }) {
   if (!row) return null;
-  if (!signedIn) return { name: row.name, locale: row.locale, hasLogo: row.has_logo === 1 };
+  if (!signedIn) return { name: row.name, locale: row.locale, hasLogo: row.has_logo === 1, theme: row.theme };
   return {
     name: row.name,
     mode: row.mode,
@@ -30,11 +31,17 @@ export function orgView(row, { signedIn }) {
     locale: row.locale,
     welcome: row.welcome,
     spending: row.spending,
+    theme: row.theme,
     adminContact: row.admin_contact,
     feedbackUrl: row.feedback_url,
     hasLogo: row.has_logo === 1,
-    // Once anything is recorded the rules are fixed; once benefits are priced, so is the unit.
-    locks: { mode: row.has_ledger === 1 || row.has_rewards === 1, threshold: row.has_ledger === 1 },
+    // Once anything is recorded the rules are fixed, the collection theme together with the
+    // unlock step; once benefits are priced, so is the unit.
+    locks: {
+      mode: row.has_ledger === 1 || row.has_rewards === 1,
+      threshold: row.has_ledger === 1,
+      theme: row.has_ledger === 1,
+    },
   };
 }
 
@@ -53,9 +60,12 @@ const NEW_ORG = {
   locale: oneOf(LOCALES),
   welcome: text({ max: 500, optional: true, multiline: true }),
   spending: oneOf(SPENDING, { optional: true }),
+  // Only the themes this version ships; the database column checks shape only.
+  theme: oneOf(THEME_IDS, { optional: true }),
 };
 
-/* Reward rules chosen at first setup: credit needs a currency, points must not have one. */
+/* Reward rules chosen at first setup: credit needs a currency, points must not have one.
+ * The collection theme is Pastry shop (`default`) unless another is chosen. */
 export function readNewOrg(input) {
   const org = readObject(input, NEW_ORG, 'org.');
   if (org.mode === 'credit' && !org.currency) throw invalid('org.currency', 'Choose a currency for credit.');
@@ -69,6 +79,7 @@ export function readNewOrg(input) {
     locale: org.locale,
     welcome: org.welcome ?? '',
     spending: org.spending ?? 'self',
+    theme: org.theme ?? DEFAULT_THEME,
   };
 }
 
@@ -121,20 +132,36 @@ const ORG_PATCH = {
   currency: oneOf(CURRENCIES, { optional: true }),
   threshold: amount({ optional: true }),
   spending: oneOf(SPENDING, { optional: true }),
+  theme: oneOf(THEME_IDS, { optional: true }),
 };
 
 const COLUMN = {
   name: 'name', welcome: 'welcome', locale: 'locale', unitLabel: 'unit_label', adminContact: 'admin_contact',
   feedbackUrl: 'feedback_url', mode: 'mode', currency: 'currency', thresholdUnits: 'threshold_units',
-  spending: 'spending',
+  spending: 'spending', theme: 'theme',
 };
+
+/* After a theme change a benefit keeps its icon only if the new theme draws it; shared keys
+ * stay. Active and switched-off benefits alike. Returns how many icons were removed. */
+function removeIconsOutside(db, keys, at) {
+  const drawn = new Set(keys);
+  const stale = db.prepare('SELECT id, icon_key FROM rewards WHERE icon_key IS NOT NULL').all()
+    .filter(reward => !drawn.has(reward.icon_key));
+  const clear = db.prepare('UPDATE rewards SET icon_key = NULL, updated_at = ? WHERE id = ?');
+  for (const reward of stale) clear.run(at, reward.id);
+  return stale.length;
+}
 
 /**
  * Owner-only settings. Names, welcome text, language, links and the spending
  * mode can always change. The reward rules — credit or points, currency,
- * unlock threshold — are fixed once the ledger has an entry, and the unit is
- * also fixed once a benefit has a price in it, so nothing already recorded
- * changes meaning.
+ * unlock threshold, collection theme — are fixed once the ledger has an entry,
+ * and the unit is also fixed once a benefit has a price in it, so nothing
+ * already recorded changes meaning. Before the first entry nobody has
+ * unlocked anything, so a theme change never touches a collection; it does
+ * remove, in the same transaction, every benefit icon the new theme lacks.
+ * The answer is the signed-in view plus `iconsRemoved` (0 when the theme did
+ * not change), which is not part of the organization itself.
  */
 export function updateOrg(db, actor, patch, clock = () => Date.now()) {
   requireRole(actor, OWNER);
@@ -152,9 +179,13 @@ export function updateOrg(db, actor, patch, clock = () => Date.now()) {
     let thresholdUnits = row.threshold_units;
     if (fields.threshold !== undefined) thresholdUnits = parseUnits(fields.threshold, mode);
     else if (mode !== row.mode) throw invalid('threshold', 'Set the unlock threshold again when changing between credit and points.');
+    const theme = fields.theme ?? row.theme;
+    const themeChanged = theme !== row.theme;
 
     const unitChanged = mode !== row.mode || currency !== row.currency;
-    if ((unitChanged && (row.has_ledger || row.has_rewards)) || (thresholdUnits !== row.threshold_units && row.has_ledger))
+    // The theme is fixed exactly when the unlock step is.
+    const stepChanged = thresholdUnits !== row.threshold_units || themeChanged;
+    if ((unitChanged && (row.has_ledger || row.has_rewards)) || (stepChanged && row.has_ledger))
       throw new AppError(409, 'RULES_LOCKED',
         'Reward rules are fixed once rewards are recorded (and the unit once benefits are priced), so earlier amounts keep their meaning.');
 
@@ -169,16 +200,21 @@ export function updateOrg(db, actor, patch, clock = () => Date.now()) {
       currency,
       thresholdUnits,
       spending: fields.spending ?? row.spending,
+      theme,
     };
     const changed = Object.keys(next).filter(key => next[key] !== row[COLUMN[key]]);
+    let iconsRemoved = 0;
     if (changed.length) {
       const at = new Date(clock()).toISOString();
       db.prepare(`UPDATE organization SET name = @name, welcome = @welcome, locale = @locale, unit_label = @unitLabel,
                     admin_contact = @adminContact, feedback_url = @feedbackUrl, mode = @mode, currency = @currency,
-                    threshold_units = @thresholdUnits, spending = @spending, updated_at = @at WHERE id = 1`).run({ ...next, at });
-      writeAudit(db, { actorId: current.id, action: 'org.update', detail: { changed } }, at);
+                    threshold_units = @thresholdUnits, spending = @spending, theme = @theme, updated_at = @at
+                  WHERE id = 1`).run({ ...next, at });
+      if (themeChanged) iconsRemoved = removeIconsOutside(db, themeById(theme).keys, at);
+      const detail = themeChanged ? { changed, theme: { from: row.theme, to: theme }, iconsRemoved } : { changed };
+      writeAudit(db, { actorId: current.id, action: 'org.update', detail }, at);
     }
-    return orgView(readOrgRow(db), { signedIn: true });
+    return { ...orgView(readOrgRow(db), { signedIn: true }), iconsRemoved };
   });
 }
 

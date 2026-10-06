@@ -106,19 +106,21 @@ export async function openPerson(page, name) {
  * An organization with an owner and one member, but no rewards yet. `spending` is how the
  * team spends: 'confirm' (the default) also adds a "Coffee" benefit to ask for; 'self' has
  * no benefits. Points: unlock every 100, Coffee costs 40. Credit: unlock every $50.00,
- * Coffee costs $12.50. Owner and member use separate browser contexts, so they are two
- * different devices with two different sessions. Both ask for less motion unless a test
- * says otherwise, so the intro never stands in front of a page a test is about to use.
+ * Coffee costs $12.50. `theme` is the collection theme chosen at setup ('bakery' for
+ * Bakery); left out, setup sends none and the team is on Pastry shop. Owner and member use
+ * separate browser contexts, so they are two different devices with two different
+ * sessions. Both ask for less motion unless a test says otherwise, so the intro never
+ * stands in front of a page a test is about to use.
  */
 export async function provision(browser, {
-  mode = 'points', spending = 'confirm', memberName = 'Mina Park', memberUsername = 'mina', reducedMotion = 'reduce',
+  mode = 'points', spending = 'confirm', theme, memberName = 'Mina Park', memberUsername = 'mina', reducedMotion = 'reduce',
 } = {}) {
   const crumb = await startCrumb();
   const api = client(crumb.origin);
   await api.bootstrap();
   const setup = await api.request('POST', '/api/setup', {
     setupToken: crumb.setupToken, username: 'olive', password: PASSWORD, displayName: 'Olive Chen',
-    org: orgInput(mode, { name: 'Northside Coffee Co.', spending, ...MODES[mode].org }),
+    org: orgInput(mode, { name: 'Northside Coffee Co.', spending, ...MODES[mode].org, ...(theme === undefined ? {} : { theme }) }),
   });
   if (setup.status !== 201) throw new Error(`setup failed: ${JSON.stringify(setup.body)}`);
   api.csrf = setup.body.csrfToken;

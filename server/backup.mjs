@@ -5,6 +5,7 @@ import { chmod, copyFile, link, rm, unlink } from 'node:fs/promises';
 import { basename, dirname, join, resolve } from 'node:path';
 import Database from 'better-sqlite3';
 import { SCHEMA_VERSION, schemaVersionOf, tooNewError } from './db.mjs';
+import { checkDatabaseTheme } from './themes.mjs';
 
 const failure = (code, message) => Object.assign(new Error(message), { code });
 /* Backups and databases hold password hashes: owner-only. (No effect on Windows.) */
@@ -102,7 +103,8 @@ function isHealthy(db) {
 /**
  * Restores a backup into a new file that does not exist yet. The work happens
  * in a temporary file beside the target: it must pass a full integrity and
- * reference check, be a Crumb database no newer than this version, and then
+ * reference check, be a Crumb database no newer than this version whose team,
+ * if it has one, uses a collection theme this version ships, and then
  * loses every session, invitation link and reset link (people sign in again;
  * links are issued again). Only then is it moved into place.
  *
@@ -143,6 +145,10 @@ export async function restoreDatabase({ sourcePath, destinationPath }) {
     if (version === 0 || !['organization', 'ledger', 'sessions', 'tokens', 'login_limits'].every(name => hasTable(copy, name)))
       throw failure('INVALID_BACKUP', 'That database is not a Crumb backup.');
     if (version > SCHEMA_VERSION) throw tooNewError(version);
+    // Only reads, before anything in the copy changes or the target exists: a team on a theme
+    // from a newer Crumb is refused like a newer schema. Before schema 3 there is no theme
+    // column, and before setup no team; both pass and come up on the default theme.
+    checkDatabaseTheme(copy);
     copy.transaction(() => copy.exec('DELETE FROM sessions; DELETE FROM tokens; DELETE FROM login_limits;'))();
     copy.close();
     copy = null;

@@ -1,65 +1,142 @@
 # Validation report
 
-What has been checked for Crumb 0.2.0, how, where — and what has **not** been checked.
+What has been checked for Crumb 0.3.0, how, where — and what has **not** been checked.
 Nothing here is marked as passing unless it was actually run. The per-requirement view is in
 [RELEASE-CHECKLIST.md](RELEASE-CHECKLIST.md).
 
-This report covers 0.1 and the one-page round (branch `feature/one-page`, designed in
-[the one-page design](superpowers/specs/2026-09-29-crumb-one-page-design.md)): one member
-page, self-recorded or confirmed spending, treats to several people at once, corrections of
-self-recorded entries, benefit icons, the Team and Settings pages, the one-line header, the
-animations, and migration 002. The one-page round is released as Crumb 0.2.0 and moves the
-database to schema 2; "0.1" here means the earlier release, commit `643e237`, with its
-database at schema 1. Until its version was set to 0.2.0, late in development, the branch
-carried the version number 0.1.0; the runs made with it are named under "Earlier runs during
-development" below.
+This report covers 0.1, the one-page round and the collection themes round. The themes round
+(branch `feature/themes`, designed in
+[the themes design](superpowers/specs/2026-10-03-crumb-themes-design.md)) adds a collection
+theme chosen per team at setup and fixed at the first treat; a second theme, Bakery, with its
+own mascot, pictures, icons and a few sentences of its own; migration 003; and a switch between
+Pastry shop and Bakery, with a shutter animation, on the public demo. It is released as Crumb
+0.3.0 and moves the database to schema 3. The one-page round (branch `feature/one-page`,
+designed in [the one-page design](superpowers/specs/2026-09-29-crumb-one-page-design.md))
+brought one member page, self-recorded or confirmed spending, treats to several people at
+once, corrections of self-recorded entries, benefit icons, the Team and Settings pages, the
+one-line header, the animations, and migration 002; it was released as Crumb 0.2.0 (merge
+commit `bbfda7f`), with its database at schema 2. "0.1" here means the first release, commit
+`643e237`, with its database at schema 1. Until its version was set to 0.2.0, late in
+development, the one-page branch carried the version number 0.1.0; the runs made with it are
+named under "Earlier runs during development" below.
 
 ## In short
 
 - **Checked on one Windows computer:** every unit, API, concurrency and browser test (in
   Chromium) and the operations drill with real server processes, from a fresh clone of the
-  branch, including the one-page round, its review fixes, the four decisions taken after the
-  review and the sign-out fix.
-- **Checked in CI** (GitHub Actions, Linux), for 0.1 only: the same tests with
-  none skipped, and the container drill — the Docker image was built and taken through setup,
+  themes branch at `9849c31` (see "Results from a fresh clone (local)").
+- **Checked in CI** (GitHub Actions, Linux), for 0.1 and for 0.2.0: the same tests with none
+  skipped, and the container drill — the Docker image was built and taken through setup,
   restart, backup, restore into a new volume, owner recovery and rollback. **CI has not run on
-  the one-page round:** the branch has not been pushed.
-- **Checked by hand on one iPhone:** signing in by QR code with the camera and through
+  the themes round:** the branch has not been pushed.
+- **Checked by hand on one iPhone,** for 0.1: signing in by QR code with the camera and through
   WeChat, and the home-screen icon (see "Real phone check").
+- **Shown to the maintainer and approved,** for the themes round: the 12 new drawings, at
+  intro and header size, before they were final; and on 2026-10-06, six pictures taken from
+  the fresh clone of `9849c31`: the Bakery member page, Settings with the two theme cards
+  before the first treat, Settings after switching to Bakery with one benefit icon removed,
+  the public demo after switching to Bakery at 1280 px, the shutter animation as a strip of
+  frames, and the Bakery sign-in page at phone width; the public demo at `9849c31` was also
+  opened for the maintainer in a browser (see "Pictures from the fresh clone").
 - **Not checked:** HTTPS through Caddy on a real domain (only its Compose configuration was
   validated), arm64, Docker Desktop, Android phones, and browsers other than Chromium apart
-  from that one iPhone. For the one-page round also: CI and the container drill, upgrading a
-  real deployment of 0.1 (migration 002 ran only on schema 1 files the tests build), and any
-  real phone.
-- **Reviewed by AI only:** seven review passes (six by Claude agents, one by ChatGPT). No human
-  review and no professional security audit has happened yet, of 0.1 or of the one-page
-  round.
-- So Crumb 0.2.0 is **not yet validated for managing a real team's benefits.** What is still
+  from that one iPhone. For the one-page round: upgrading a real deployment of 0.1 (migration
+  002 ran only on schema 1 files the tests build), and any real phone. For the themes round:
+  CI and the container drill, upgrading a real deployment of 0.2 (migration 003 ran only on
+  schema 2 files the tests build), any real phone (the Bakery icon on a home screen included),
+  and the demo's switch on GitHub Pages.
+- **Reviewed by AI only:** seven review passes up to 0.1 (six by Claude agents, one by
+  ChatGPT), the review of the one-page round described under "The review fixes", and for the
+  themes round a review of each task against the design and for code quality, a review of a
+  cleanup pass over the minor findings, and one review of the whole branch from six sides
+  with three independent checks of each finding, all by Claude agents. No human code review
+  and no professional security audit has happened yet, of any round.
+- So Crumb 0.3.0 is **not yet validated for managing a real team's benefits.** What is still
   needed is at the end of the checklist.
 
 ## Environment
 
 | | Local | CI |
 | --- | --- | --- |
-| Commit | The development branch `feature/one-page`, from a fresh clone, after the review fixes, the four decisions taken after the review and the sign-out fix (see "Results from a fresh clone (local)"). The commit cloned was `2ddc69b` ("fix: sign-out counts only once the server confirms it"), the sign-out fix on top of the squashed release commit `1421aa2` ("Crumb 0.2.0"). The previous record, a fresh clone of `1421aa2`, is kept below. Earlier runs during development, before the branch history was squashed into the 0.2.0 commit, are listed under "Earlier runs during development". | `67a174b`, [run 36412250215](https://github.com/bellaaaaxu/crumb/actions/runs/36412250215) (0.1; not run on `feature/one-page`) |
-| Date | 2026-10-01 (the fresh clone of `2ddc69b`, and the previous one of `1421aa2`); 2026-09-30 and 2026-10-01 (the earlier runs during development) | 2026-09-28 |
-| Machine | Windows 11 Pro 10.0.26200 | GitHub Actions `ubuntu-24.04` (image 20260920.314.1), x64 |
-| Node.js | 24.14.0, npm 11.9.0 | 24.14.0 for the tests; 24.21.0 inside the image |
+| Commit | The development branch `feature/themes`, from a fresh clone (see "Results from a fresh clone (local)"). The commit cloned was `9849c31` ("docs: the themes spec says it is implemented on feature/themes"). The 0.2.0 record, a fresh clone of `2ddc69b`, and the records before it are kept below. | 0.1: `67a174b`, [run 36412250215](https://github.com/bellaaaaxu/crumb/actions/runs/36412250215). 0.2.0: the pull request's last commit `1fb57ee`, [run 36983236954](https://github.com/bellaaaaxu/crumb/actions/runs/36983236954), and the merge commit `bbfda7f` on `main`, [run 36984318360](https://github.com/bellaaaaxu/crumb/actions/runs/36984318360). Not run on `feature/themes`. |
+| Date | 2026-10-05 (the fresh clone of `9849c31`); 2026-10-01 (the 0.2.0 records); 2026-09-30 and 2026-10-01 (the earlier runs during development of 0.2.0) | 2026-09-28 (0.1); 2026-10-02 (0.2.0) |
+| Machine | Windows 11 Pro 10.0.26200 | GitHub Actions `ubuntu-24.04`, x64 (image 20260920.314.1 for 0.1, 20260927.320.1 for 0.2.0) |
+| Node.js | 24.14.0, npm 11.9.0 | 24.14.0 for the tests; 24.21.0 inside the image (0.1) |
 | SQLite, images | 3.53.4 (better-sqlite3 13.0.3); sharp 0.35.5 with libvips 8.18.7 | the same packages |
-| Browser | Chromium 153.0.8010.12 (Playwright 1.63.0) | the same |
+| Browser | Chromium 153.0.8010.12 (Playwright 1.63.0) | Chromium 153.0.8010.12 (Playwright 1.63.0) |
 | Docker | **not installed** | the runner's Docker Engine and Compose |
 
 ## Results from a fresh clone (local)
 
+A new clone of the development branch `feature/themes` into an empty temporary folder, with
+no files carried over (deleted afterwards), on 2026-10-05, on the computer and with the
+versions under "Environment". The commit cloned was `9849c31`
+("docs: the themes spec says it is implemented on feature/themes"). Its code is the code of
+this release; only this report and the release checklist have changed since. Merging the
+branch with a merge commit keeps `9849c31` on `main` as it is.
+
+| Step | Command | Result |
+| --- | --- | --- |
+| Install the locked dependencies | `npm ci` | passed — 84 packages, nothing compiled (see `.npmrc`) |
+| Unit, API, concurrency and operations tests | `npm test` | 285 tests: 283 passed, **2 skipped** (file permissions and umask, which Windows does not have; both passed in CI for 0.1 and 0.2.0) |
+| Theme lists | `node scripts/theme-manifest.mjs --check` | current: `default` 39 keys, `bakery` 24 keys |
+| Operations drill with real server processes | `node scripts/ci/process-drill.mjs` | 20 of 20 checks passed |
+| Browser | `npx playwright install chromium` | installed |
+| Browser tests | `npm run test:e2e -- --project=chromium` | 105 of 105 passed (Chromium only) |
+| Whitespace in the change | `git diff --check origin/main..HEAD` (since 0.2.0, `bbfda7f`) | clean |
+| Nothing changed by the runs | `git status --short` | clean |
+| Anything with Docker | | **not run here** (no Docker), and not in CI either for this round — see below |
+
+The decisions of [the themes design](superpowers/specs/2026-10-03-crumb-themes-design.md)
+(its §1) were all in this run:
+
+| Decision | Checked by |
+| --- | --- |
+| Two themes: Pastry shop (`default`: the 39 pastries, with the keys and version of 0.2.0; its list file gains only a `mascot` field) and Bakery (`bakery`: 24 breads and cakes, 12 of them shared with Pastry shop, with Bitten Toast as its mascot) | `node scripts/theme-manifest.mjs --check` above; `tests/themes.test.mjs` and `tests/collections.test.mjs` (each list file equals a fresh build and what the server loads; released keys per theme; three names for every key) |
+| Only the pictures and a few sentences change: how items are earned, ordered and kept is the same | `tests/collections.test.mjs` (a Bakery team unlocks from its 24 keys, capped at 24, in hash order; `forSlot` with no theme gives 0.2.0's pick), `tests/i18n.test.mjs` (Pastry shop keeps its sentences; Bakery's have the same placeholders) |
+| Chosen at setup, Pastry shop when none is chosen; changeable until the first treat, then fixed together with the unlock step | `tests/org.test.mjs` (setup with no theme, with `bakery`, or with an unknown one, refused; an owner's change before the first treat, an admin refused, `RULES_LOCKED` after); the Settings browser tests in `tests/e2e/themes.spec.mjs` |
+| A change before the lock removes the benefit icons the new theme lacks, keeps shared ones, and says how many | `tests/org.test.mjs` (`iconsRemoved` and the activity row), `tests/api.test.mjs` (a benefit's retried request after a change); the browser tests showing the number removed, and "Settings saved." when none was |
+| One sketchbook, several lists: `npm run themes` writes each theme's list file and icons from `assets/sprites.js` | `tests/themes.test.mjs`, `tests/icons.test.mjs` (the icon files decode to the mascot's pixels) |
+| Teams already using Crumb are on Pastry shop after the upgrade | `tests/db.test.mjs` (a 0.2.0 database opens on `default`, its data unchanged) |
+| The mascot and the icons follow the team's theme | `tests/icons.test.mjs` (the four icon addresses answer with the team's theme, and with Pastry shop's before setup), `tests/pixels.test.mjs` (each theme's mascot and icon addresses; a missing or unknown theme id gets Pastry shop's, and nothing throws); the browser tests of a Bakery team's pages, its tab-icon link, its sign-in page after a sign-out, the tab and home-screen icon links following a theme change in Settings without a reload, and a theme id the page does not know drawing the wife cake |
+| The public demo switches between Pastry shop and Bakery, Pastry shop first, with the shutter | `tests/e2e/demo.spec.mjs` (the switch, and the eight shutter tests); how the shutter looks, from its frames shown to the maintainer (see "Pictures from the fresh clone") |
+
+### Pictures from the fresh clone
+
+From the same fresh clone,
+`node scripts/screenshots.mjs --theme bakery --all --out <folder>`, with a temporary folder
+outside the clone, photographed every page of the sample team on Bakery: its member page in
+English and Chinese, the keypad, the Team and Settings pages, the sign-in pages and the name
+menu. A separate script, not kept, added three things: Settings for a team on Pastry shop
+that had priced two benefits and sent no treat yet, as it opened, with Bakery chosen but not
+saved, and after saving, when the icon only Pastry shop has was removed, the shared one was
+kept and the tab icon pointed at Bakery's without a reload; the public demo on Pastry shop at
+1280 px, and after switching to Bakery at 1280 px and 390 px; and the shutter, frame by frame
+from the browser's own screen recording (39 frames after the switch was pressed). No console
+errors. During the run, the Claude agent making it checked every one of these pictures
+against the themes design. The shutter finishing in a background tab, which headless Chromium
+cannot show: checked once on the fresh clone in a Chromium tab hidden while the shutter was
+down, where the switch still finished, on Bakery with no shutter left.
+
+Six of these pictures were shown to the maintainer on 2026-10-06 (§12 of the themes design,
+acceptance 3): the Bakery member page; Settings with the two theme cards before the first
+treat; Settings after switching to Bakery, with one benefit icon removed; the demo after
+switching to Bakery at 1280 px; the shutter's frame strip; and the Bakery sign-in page at
+phone width. The public demo at `9849c31` was also opened for the maintainer in a browser.
+All six were approved as they are, with the restock's 160 ms pop, 8 ms apart, kept. None of
+these pictures is kept in the repository: the README shows Pastry shop.
+
+### The 0.2.0 record: the fresh clone of `2ddc69b`
+
 A new clone of the development branch `feature/one-page`, after the review fixes, the four
 decisions taken after the review and the sign-out fix, into an empty temporary folder, with no
-files carried over (deleted afterwards), on 2026-10-01, on the computer and with the versions
-under "Environment". Its code is the code of this release; only this report and the release
-checklist have changed since. The commit cloned was `2ddc69b` ("fix: sign-out counts only
-once the server confirms it"), the sign-out fix on top of the squashed release commit
-`1421aa2` ("Crumb 0.2.0"). The earlier runs listed under "Earlier runs during development"
-were all made on the development branch before it was squashed; the squash itself changed no
-code.
+files carried over (deleted afterwards), on 2026-10-01, on the same computer with Node.js
+24.14.0, npm 11.9.0, SQLite 3.53.4 (better-sqlite3 13.0.3), sharp 0.35.5 with libvips 8.18.7
+and Chromium 153.0.8010.12 (Playwright 1.63.0). Its code is the code of 0.2.0. The commit
+cloned was `2ddc69b` ("fix: sign-out counts only once the server confirms it"), the sign-out
+fix on top of the squashed release commit `1421aa2` ("Crumb 0.2.0"). The earlier runs listed
+under "Earlier runs during development" were all made on the development branch before it was
+squashed; the squash itself changed no code.
 
 | Step | Command | Result |
 | --- | --- | --- |
@@ -70,10 +147,10 @@ code.
 | Browser | `npx playwright install chromium` | installed |
 | Browser tests | `npm run test:e2e -- --project=chromium` | 81 of 81 passed (Chromium only) |
 | Whitespace in the change | `git diff --check 643e237..HEAD` (since 0.1) | clean |
-| Anything with Docker | | **not run here** (no Docker), and not in CI either for this round — see below |
+| Anything with Docker | | **not run here** (no Docker); in CI later, on the pull request — see "Results in CI" |
 
 The four decisions taken after the review and the sign-out fix, each with its own section
-below, are all in this run:
+below, were all in that run:
 
 | Decision | Checked by |
 | --- | --- |
@@ -97,7 +174,7 @@ its history was squashed and on the same code, gave the same counts.
 
 During development, before the branch history was squashed into the 0.2.0 commit, seven
 earlier runs were recorded as the round grew, all on the same computer and none of them in CI.
-Each covered part of what the fresh clone above covers. The runs in the development folder
+Each covered part of what the fresh clone of `2ddc69b` covers. The runs in the development folder
 used the dependencies already installed there. All but the last were made while the branch
 still carried the version number 0.1.0.
 
@@ -136,13 +213,13 @@ each time the page learns who is signed in only that person's stay, none when no
 the review of that change, each place the page removes keys got a browser test of its own, and
 the deployment guide and the design were made exact about what an entry holds and when an old
 one goes. Both steps were run in the development folder, not from a fresh clone and not in CI,
-before the fresh clone above (see "Earlier runs during development").
+before the fresh clone of `2ddc69b` (see "Earlier runs during development").
 
 ### The activity log for admins
 
 Decided after the review: admins, who cannot open Settings, read the activity log ("Who did
 what"), read-only, at the bottom of the Team page; owners read it in Settings only. Run in the
-development folder, not from a fresh clone and not in CI, before the fresh clone above (see
+development folder, not from a fresh clone and not in CI, before the fresh clone of `2ddc69b` (see
 "Earlier runs during development").
 
 A scratch script also drove the sample team (`scripts/demo.mjs`) in Chromium at 390 px and
@@ -157,7 +234,7 @@ in `package.json` and in both root fields of `package-lock.json` (the footer and
 `GET /api/session` report it), with a test that keeps the lock file on it; the guides and the
 READMEs say 0.2, with a test that keeps both READMEs' contents heading and status line on it;
 and the README's member and keypad screenshots were retaken. Run in the development folder,
-not from a fresh clone and not in CI, before the fresh clone above. That run also covered
+not from a fresh clone and not in CI, before the fresh clone of `2ddc69b`. That run also covered
 "Almost there" only when the member is short by at most half a benefit's price, which had no
 run of its own (see "Earlier runs during development").
 
@@ -168,12 +245,12 @@ is open-source software (MIT)."; its picture of the Team page came out the same 
 was not changed.
 
 Run again just before the fresh clone, the script drew the same footer on the member and
-keypad screenshots, which are the ones this release carries; their pastries differ from the
+keypad screenshots, which are the ones 0.2.0 carried; their pastries differ from the
 earlier take only because each run gives the sample team new account ids and a member's shelf
 fills in an order that follows their id, and the Team page again came out the same. These
 sections were then run together from the fresh clone of `1421aa2` (see "Previous record"),
 with the manifest check and the operations drill included, and again in the fresh clone of
-`2ddc69b`, with the counts at the top of "Results from a fresh clone (local)".
+`2ddc69b`, with the counts under "The 0.2.0 record: the fresh clone of `2ddc69b`".
 
 ### Sign-out confirmed by the server
 
@@ -223,10 +300,17 @@ For `67a174b`, both jobs passed:
   - owner recovery from the command line lifted the sign-in lock;
   - rolled back to the original volume with the original data and password.
 
-The commits after `67a174b` run the same CI on the pull request; their results are shown
-there, not recorded here. The one-page round has had **no CI run**: `feature/one-page` has not
-been pushed, so neither the Linux test job (with the two file-permission tests) nor the
-container drill has run on it.
+The commits after `67a174b` ran the same CI on their pull request, where their results are
+shown. For 0.2.0 both jobs passed on the pull request's last commit, `1fb57ee`
+([run 36983236954](https://github.com/bellaaaaxu/crumb/actions/runs/36983236954)), and on the
+merge commit `bbfda7f` on `main`
+([run 36984318360](https://github.com/bellaaaaxu/crumb/actions/runs/36984318360), image
+20260927.320.1). In the run on `bbfda7f`: `npm test` 229 of 229 with none skipped, the
+collectible manifest current, the process drill passed, Playwright 81 passed, and the
+container drill passed.
+
+The themes round has had **no CI run**: `feature/themes` has not been pushed, so neither the
+Linux test job (with the two file-permission tests) nor the container drill has run on it.
 
 ## What the tests cover
 
@@ -240,7 +324,7 @@ container drill has run on it.
 | Settings, logo upload, CSV export | `tests/org.test.mjs`, `tests/csv.test.mjs` | Upload limits and re-encoding, formula-safe CSV, export only from Crumb's own pages. |
 | Backup, restore, owner recovery | `tests/backup.test.mjs`, `tests/ops.test.mjs`, the drills | See the record below. |
 | Member and team journeys | `tests/e2e/product.spec.mjs` | Credit and points, two browser contexts as two devices, a team member joining with a sign-in link and a new link signing the old phone out, an admin joining with a password, deactivation, settings in Chinese; answers lost, cut short, or lost and followed by a reload. For sign-in links also: signing out, a used link opened again, a tap whose answer is cut short or lost, and a link page replaced while it loads. |
-| Phone and laptop layout, keyboard, reduced motion, HTML-looking input | `tests/e2e/accessibility.spec.mjs` | 390 px and 1440 px widths, no sideways scrolling, no CSP violations: the member page in both spending modes, the keypad, the Team page with a batch opened, the treat dialog, Settings, and the name menu at 390 px. Every stop on the member page at 390 px shows its whole focus ring; tabbing out of the name menu closes it. |
+| Phone and laptop layout, keyboard, reduced motion, HTML-looking input | `tests/e2e/accessibility.spec.mjs` | 390 px and 1440 px widths, no sideways scrolling, no CSP violations: the member page in both spending modes, the keypad, the Team page with a batch opened, the treat dialog, Settings, the name menu at 390 px, and the collection theme cards on setup and in Settings. Every stop on the member page at 390 px shows its whole focus ring; tabbing out of the name menu closes it. |
 | Self-recorded spending and corrections | `tests/spending.test.mjs`, `tests/api.test.mjs`, `tests/csv.test.mjs`, `tests/e2e/one-page.spec.mjs` | An entry needs a positive amount within the available balance, in the current unit, whole in points; refused in confirmed mode and for inactive accounts; a retry is recorded once; the shelf never changes. A manager corrects an entry once, with a reason; the amount comes back and nothing unlocks. Both kinds export to CSV. In the browser: an entry changes the big number and the log, more than the balance cannot be confirmed, and the owner corrects an entry from the Team log, which the member then sees. |
 | Spending modes | `tests/org.test.mjs`, `tests/redemptions.test.mjs`, `tests/e2e/one-page.spec.mjs` | Defaults to self-recorded, chosen at setup, changed by owners only and at any time; requests only in confirmed mode; switching changes both pages; a request left waiting by a switch still shows and can be confirmed. |
 | Treats to several people | `tests/batch.test.mjs`, `tests/api.test.mjs`, `tests/e2e/one-page.spec.mjs` | One row, one unlock and one audit row per person with one batch id; all or nothing; a single treat beside batches; every Team log row carries its batch's size and `?batchId=` lists one batch. In the browser: three people from the dialog fold into one log line, and a batch of 25 whose rows run past the first page of the log stays one line that opens to all 25, each with their own "Take back". |
@@ -250,8 +334,14 @@ container drill has run on it.
 | The intro and the animations | `tests/e2e/one-page.spec.mjs` | The intro is skipped with a tap (the page's clock held still, so only the tap can end it); with reduced motion no intro shows and no pastry drops, and without it the pastries do drop. |
 | Last-seen numbers in the browser | `tests/e2e/one-page.spec.mjs` | `crumb.seen.<user id>` is there for the signed-in member, and gone after they sign out, and after the server ends their session (a new sign-in link) once the page reloads. A treat that came in since the last look is announced ("Someone treated you"), also one that arrives while the page is open and is found by the reading after an entry; the member's own entries are not. |
 | QR codes and the home-screen icon | `tests/qr.test.mjs`, `tests/members.test.mjs`, `tests/home-screen.test.mjs`, `tests/e2e/product.spec.mjs` | Every kind of link, on every panel, comes with a QR code that reads back as exactly that link (decoded with jsqr, dark on light only), with a white border four modules wide; a saved or shared picture does too; Save is always there, Share only where the system offers it, and a failed share saves instead; a missing, odd or non-PNG picture leaves the link alone; the home-screen tip shows for team members only (not owners or admins), until dismissed in that browser, also with storage blocked, and never inside a home-screen app; inside WeChat the link stays in the address until used or left; the notes on the link page are read with its button; the iPhone-app note shows only in an iPhone home-screen app; the manifest opens in the browser and the icons are PNGs of the right sizes. |
-| The demo command and static hosting | `tests/demo.test.mjs`, `tests/e2e/static-host.spec.mjs` | `npm run demo` starts the invented English team and prints how to sign in (that it deletes its data on Ctrl+C is checked on Linux only: Windows cannot send it that signal from a test); the app folder served as static files under `/crumb/`, as GitHub Pages does, finds every file it asks for and says it needs its own server, with links to the demo and the README. |
+| The demo command and static hosting | `tests/demo.test.mjs`, `tests/e2e/static-host.spec.mjs` | `npm run demo` starts the invented English team and prints how to sign in (that it deletes its data on Ctrl+C is checked on Linux only: Windows cannot send it that signal from a test); with `--theme bakery` it starts the same team on Bakery, and a theme this version does not include is refused before anything is made; the app folder served as static files under `/crumb/`, as GitHub Pages does, finds every file it asks for and says it needs its own server, with links to the demo and the README. |
 | Public demo, documents and source | `tests/e2e/demo.spec.mjs`, `tests/docs.test.mjs`, `tests/source.test.mjs` | Local links and images resolve; no invisible direction or byte-order characters. External links are not fetched by the tests. |
+| Collection themes | `tests/themes.test.mjs`, `tests/collections.test.mjs` | Each theme's list file equals a fresh build from `assets/sprites.js` and what the server loads; released keys are kept per theme, and a key in both themes is listed under both; every key has English, Traditional and Simplified names; card texts hold `{count}` and no digits; `forSlot` with no theme, or `default`, gives what 0.2.0 gave. A Bakery team unlocks from its own 24 keys, capped at 24, in hash order; a Pastry shop team as before. |
+| Choosing and changing the theme | `tests/org.test.mjs`, `tests/auth.test.mjs`, `tests/api.test.mjs`, `tests/e2e/themes.spec.mjs` | Setup with no theme (Pastry shop), with `bakery`, or with an unknown one (refused), recorded in the activity log; owners change it until the first treat and admins never; after the first treat `RULES_LOCKED`; a change clears the benefit icons the new theme lacks and keeps shared ones, reporting `iconsRemoved` and logging the change; a benefit added with a request key before a change still gets its stored answer after it, and a new icon only the old theme has is refused with nothing stored; the session (signed in and out), `/api/me` and `/api/admin/rewards` carry the team's theme. In the browser: the cards on setup and in Settings, the number of icons removed or "Settings saved.", the revised notice for a team with priced benefits and no treat, and greyed-out cards after the first treat. |
+| Migration 003 and unknown themes | `tests/db.test.mjs`, `tests/backup.test.mjs`, `tests/ops.test.mjs` | A 0.2.0 database opens on `default` after migration 003 with its data unchanged; a database whose team uses a theme this version does not include is refused when it is opened (`THEME_UNKNOWN`), also by `recover-owner`, and a backup of one is refused before anything is written; a database with no team, schema 1 and 2 backups and backups taken before setup open or restore as usual. |
+| Icons and the mascot per theme | `tests/icons.test.mjs`, `tests/pixels.test.mjs`, `tests/e2e/themes.spec.mjs` | Every theme other than Pastry shop has its four icon files, and their PNGs decode to the same pixels as drawing its mascot; the server answers `/favicon.svg` and the three PNG addresses with the team's theme, and with Pastry shop's before setup. The page's theme look-ups give each theme its own mascot, items and icon addresses; a missing or unknown theme id gets Pastry shop's, and a page whose pixel table did not load draws nothing and keeps Pastry shop's icon addresses, all without throwing. In the browser: a Bakery team's member page, header, intro and sign-in page, the tab-icon link, the sign-in page's mascot after a sign-out whose follow-up question gets no answer, the tab and home-screen icon links following a theme change in Settings, without a reload, and a theme id the page does not know, or none, drawing the wife cake with no error. |
+| Wording per theme | `tests/i18n.test.mjs` | Both languages have the same keys and placeholders; every `<key>.<theme id>` has its base key and the same placeholders; every Bakery sentence is used; no new interface string says "recognition" or 认可. |
+| The demo's theme switch | `tests/e2e/demo.spec.mjs` | Pastry shop's shelf and legend (33 and 6) as in 0.2.0; after switching to Bakery the shelf, the mascot and its accessible name, the cabinet and the numbers change and all three cards have pictures, with no console errors; the choice survives a reload and "Reset the demo"; the tour starts again. The shutter: it comes down over the phone in eight steps, its sign squashes to a line, takes the new shop's name at its narrowest in the same moment as the shop changes behind it, opens and wobbles, the shutter rolls up in eight steps and the shelf restocks one item after another, 8 ms apart, each pop 160 ms; a switch takes the old shop's toast with it, and a grant pressed behind the shutter bursts nothing over it; one switch at a time (a second press before the sign flips, or a press on the other shop after it flips while the shutter is still down, is ignored); no shutter for a press on the shop already on show; with reduced motion no shutter and an instant switch; the choice is stored at the press, and a page opened with it remembered draws it with no shutter; a switch while the tour plays runs one shutter and restarts the tour from Sam, with no oven intro (that the restart comes while the shutter is down: **not verified**). |
 
 ### Tests shown to catch the bug they are for
 
@@ -448,6 +538,15 @@ password screening.
   in there (a new sign-in link, a deactivation, an expired session), also on the next load.
 - **The one-page round:** where the build differs from its own approved design is listed in
   §16 of [the one-page design](superpowers/specs/2026-09-29-crumb-one-page-design.md).
+- **The themes round:** built as
+  [the themes design](superpowers/specs/2026-10-03-crumb-themes-design.md) describes, with
+  these additions: the screenshot script takes `--theme` too and, unless `--out` is given,
+  writes another theme's pictures to a temporary folder, so the README keeps Pastry shop's;
+  `npm run demo` and the screenshot script refuse a theme they do not include with the line
+  `Use --theme with one of: default, bakery.`; a page that switches its team back to Pastry
+  shop points its tab and home-screen icon links at `icons/default/…`, which serve the same
+  Pastry shop files, so a browser that kept the Bakery icon under `favicon.svg` fetches the
+  Pastry shop one; the restock after the shutter plays the existing pop in 160 ms, 8 ms apart.
 - **Incomplete answers:** a success whose body does not arrive whole is treated as no answer
   (`INCOMPLETE_ANSWER`), so the change can be retried safely.
 - **Restore keeps the backup's database version** instead of upgrading it, and refuses copies
@@ -521,9 +620,9 @@ password screening.
   operations-guide link in Settings and the pull-request template link point at `main`.
 - **The fallback for file systems without hard links** in backup and restore, and a temporary
   file that cannot be deleted afterwards (for example, held by a virus scanner).
-- **A human review and a professional security audit.**
-- **The one-page round in CI:** the Linux test job (where the two file-permission tests run)
-  and the container drill have not run on `feature/one-page`; it has not been pushed. Docker
+- **A human code review and a professional security audit.**
+- **The themes round in CI:** the Linux test job (where the two file-permission tests run)
+  and the container drill have not run on `feature/themes`; it has not been pushed. Docker
   is not installed on the computer that ran the fresh clone.
 - **Upgrading a real deployment of 0.1:** migration 002 has run only on schema 1 database
   files that the unit tests build from `001-initial.sql`, and on new databases, where 001 and
@@ -533,6 +632,15 @@ password screening.
   intro and the animations were checked in Chromium at phone sizes only. How they look and
   feel on a real iPhone or Android phone, including with reduced motion turned on in the
   system settings, was not tried.
+- **Upgrading a real deployment of 0.2:** migration 003 has run only on schema 2 database
+  files the unit tests build and on new databases. Pulling 0.3 and rebuilding the image over a
+  running instance of 0.2, as OPERATIONS.md describes, was not tried, with Docker or without;
+  nor was going from 0.1 straight to 0.3.
+- **The themes round on real phones:** a Bakery team's pages, the tab icon, the home-screen
+  icon (and that an icon already on a home screen keeps its old picture until it is added
+  again), and the demo's switch and shutter were checked in Chromium only.
+- **The demo's switch on GitHub Pages:** checked with the page opened straight from disk, in
+  Chromium; the published page only after merging.
 
 ## Known limits
 

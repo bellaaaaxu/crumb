@@ -69,6 +69,52 @@
     '🧈 Empty is fine too. Thanks for today.',
   ];
 
+  /* ---------------------------------------------------------------- shops
+   * The demo shows either collection theme. Every sentence that names the goods
+   * comes from here (spec §7); the rest of the page is the same in both. The
+   * Pastry shop's lines are the page's original wording, word for word. */
+
+  var TEXT = {
+    default: {
+      mascot: 'Mascot: wife cake',
+      tourFirst: '<b>Sam</b> is six months in. Six pastries on the shelf, $84.25 to spend.',
+      tourLast: '<b>Alex</b>, two years in: nineteen pastries — and not one of them the same as Sam’s.',
+      spent: 'the shelf keeps every pastry 🍞',
+      stepGrant: 'watch a pastry come out of the oven',
+      stepSwitch: 'different pastries, same rule',
+      keep: 'Spend your whole balance and your pastries stay.',
+      keepRule: '$50 received = 1 pastry',
+      hideRule: '“Egg Tart is in the oven”',
+      cabinet: 'The pastry cabinet',
+    },
+    bakery: {
+      mascot: 'Mascot: bitten toast',
+      tourFirst: '<b>Sam</b> is six months in. Six bakes on the shelf, $84.25 to spend.',
+      tourLast: '<b>Alex</b>, two years in: nineteen bakes, in an order nobody else has.',
+      spent: 'the shelf keeps every bake 🍞',
+      stepGrant: 'watch a bake come out of the oven',
+      stepSwitch: 'different bakes, same rule',
+      keep: 'Spend your whole balance and your bakes stay.',
+      keepRule: '$50 received = 1 bake',
+      hideRule: '“Croissant is in the oven”',
+      cabinet: 'The bakery case',
+    },
+  };
+
+  /* The small pictures on the three cards under the demo, by card. */
+  var CARD_ICONS = {
+    default: {
+      'icons-keep': ['laopo', 'tart', 'bolo'],
+      'icons-hide': ['charsiu'],
+      'icons-vary': ['mochi', 'walnut', 'mango', 'taro'],
+    },
+    bakery: {
+      'icons-keep': ['toastbite', 'croissant', 'bolo'],
+      'icons-hide': ['cupcake'],
+      'icons-vary': ['donut', 'pretzel', 'mango', 'bagel'],
+    },
+  };
+
   /* ---------------------------------------------------------------- helpers */
 
   var $ = function (id) { return document.getElementById(id); };
@@ -129,6 +175,32 @@
 
   var current = function () { return state.people[state.active]; };
 
+  /* ---------------------------------------------------------------- shop
+   * Which theme the demo shows. Kept under a key of its own, outside the demo's
+   * state, so "Reset the demo" leaves it alone. Storage that cannot be read or
+   * written just means nothing is remembered: the Pastry shop. */
+
+  var THEME_KEY = 'crumb_demo_theme';
+  var known = function (id) { return Object.prototype.hasOwnProperty.call(TEXT, id); };
+
+  function readTheme() {
+    try {
+      var saved = window.localStorage.getItem(THEME_KEY);
+      return known(saved) ? saved : 'default';
+    } catch (err) {
+      return 'default';
+    }
+  }
+
+  function rememberTheme(id) {
+    try { window.localStorage.setItem(THEME_KEY, id); } catch (err) { /* private mode */ }
+  }
+
+  var themeId = readTheme();
+
+  var mascotKey = function () { return Pixel.THEMES[themeId].mascot; };
+  var mascotSprite = function () { return Pixel.SPRITES[mascotKey()]; };
+
   /* ---------------------------------------------------------------- particles
    * Pixel squares, straight onto the body, outside any framework's idea of state. */
 
@@ -154,8 +226,10 @@
     if (!document.hidden) sweepParticles(false);
   });
 
+  /* Every burst comes off something in the phone. While the shop's shutter is down
+   * over it (shutter(), below) that is out of sight, so nothing bursts over the door. */
   function spawn(x, y, count, color, size, opts) {
-    if (reduced()) return;
+    if (reduced() || shuttering) return;
     sweepParticles(false);
     for (var i = 0; i < count; i += 1) {
       var el = document.createElement('div');
@@ -185,8 +259,11 @@
     }
   }
 
+  /* Crumbs come off the mascot, so they take its outline colour. The fallback is
+   * the wife cake's outline, for a drawing without one. */
   function crumbs(x, y, n) {
-    spawn(x, y, n || 9, '#5C3A1D', 5, { from: Math.PI * 0.15, arc: Math.PI * 0.7, distance: 46, gravity: 70, duration: 650 });
+    var colour = mascotSprite().palette.X || '#5C3A1D';
+    spawn(x, y, n || 9, colour, 5, { from: Math.PI * 0.15, arc: Math.PI * 0.7, distance: 46, gravity: 70, duration: 650 });
   }
   function confetti(x, y) {
     var colors = ['#EFB63C', '#FFD97A', '#D97B34'];
@@ -232,10 +309,13 @@
   /* ---------------------------------------------------------------- toast */
 
   var toastTimer = null;
-  function toast(text, isError) {
+  function clearToast() {
     var old = document.querySelector('.toast');
     if (old) old.remove();
-    if (toastTimer) window.clearTimeout(toastTimer);
+    if (toastTimer) { window.clearTimeout(toastTimer); toastTimer = null; }
+  }
+  function toast(text, isError) {
+    clearToast();
     var el = document.createElement('div');
     el.className = 'toast' + (isError ? ' error' : '');
     el.textContent = text;
@@ -290,7 +370,7 @@
       var slot = document.createElement('div');
       slot.className = 'slot';
       if (i < filled) {
-        var key = Pixel.forSlot(person.id, i);
+        var key = Pixel.forSlot(person.id, i, themeId);
         slot.className = 'slot filled';
         slot.appendChild(pastryCanvas(key, 3));
         if (i >= dropFrom) {
@@ -302,7 +382,7 @@
       box.appendChild(slot);
     }
 
-    var next = Pixel.forSlot(person.id, filled);
+    var next = Pixel.forSlot(person.id, filled, themeId);
     $('oven-caption').innerHTML = '';
     $('oven-caption').appendChild(pastryCanvas(next, 2));
     var label = document.createElement('span');
@@ -388,7 +468,7 @@
       btn.type = 'button';
       btn.className = 'person';
       btn.setAttribute('aria-pressed', String(p.id === state.active));
-      btn.appendChild(pastryCanvas(Pixel.forSlot(p.id, 0), 2));
+      btn.appendChild(pastryCanvas(Pixel.forSlot(p.id, 0, themeId), 2));
       var who = document.createElement('span');
       who.className = 'who';
       who.innerHTML = '<span class="nm">' + p.name + ' &middot; #' + p.id + '</span>' +
@@ -479,7 +559,7 @@
 
     var el = document.createElement('div');
     el.className = 'oven';
-    el.appendChild(pastryCanvas('laopo', 8));
+    el.appendChild(pastryCanvas(mascotKey(), 8));
     var t = document.createElement('p');
     t.className = 'oven-text';
     t.textContent = 'Today’s perks are out of the oven!';
@@ -501,16 +581,171 @@
     window.setTimeout(dismiss, 900);
   }
 
+  /* ---------------------------------------------------------------- the shutter
+   *
+   * Changing shop pulls a roller shutter down over the phone, flips the sign on it
+   * from one shop to the other while the shelf is restocked behind it, rolls it back
+   * up, and the new stock pops onto the shelf (spec §7.1):
+   *
+   *     0–300 ms  down in 8 steps
+   *   300–550 ms  the sign squashes to a line in 3 steps, takes the new name at the
+   *               narrowest, and opens in 3; the theme changes then, behind the door
+   *   550–650 ms  the sign wobbles twice
+   *   650–950 ms  up in 8 steps, then the layer goes
+   *   from 950 ms the new stock pops in, 8 ms apart, each pop a quicker slotPop
+   *               of 160 ms: done at about 1.15 s with 6 on the shelf and about
+   *               1.25 s with 19, for the spec's "about 1.1 seconds in all"
+   *
+   * It is started from chooseTheme, under "switching shop" further down, one
+   * at a time.
+   *
+   * Every step runs on a timer, never requestAnimationFrame. A background tab paints
+   * no frames at all, so a frame-driven shutter would stay down over a half-made
+   * switch until the visitor came back. Timers still run there, only late; so each
+   * tick runs every step whose time has come, in order, and a late tick catches up.
+   * The theme always changes before the shutter goes. The timers are the shutter's
+   * own, never the tour's later(): a tour that is playing restarts behind the door,
+   * and its clearLater() must not cancel the rest of the shutter. */
+
+  var SHUTTER_DOWN_MS = 300;
+  var SHUTTER_FLIP_MS = 550;
+  var SHUTTER_WOBBLE_MS = 650;
+  var SHUTTER_UP_MS = 950;
+  var SHUTTER_STEPS = 8;
+  /* The sign's width through the flip. The third is the narrowest, a line rather than
+   * nothing, and the name changes there. */
+  var SIGN_SQUASH = [0.66, 0.33, 0.06, 0.33, 0.66, 1];
+  var SIGN_NARROWEST = 2;
+  var SIGN_WOBBLE = [-4, 3, 0];   /* degrees, swinging from where it hangs */
+  var SIGN_PIXEL = 4;
+  var RESTOCK_STAGGER_MS = 8;
+  var RESTOCK_POP_MS = 160;
+
+  var shuttering = false;
+
+  /* The shop's name in the page's pixel letters, which are capitals only: "Pastry shop"
+   * is written PASTRY SHOP, "Bakery" BAKERY. */
+  function drawSign(canvas, id) {
+    Pixel.drawText(canvas, Pixel.THEMES[id].label.en.toUpperCase(), SIGN_PIXEL, token('--ink'));
+  }
+
+  /* From the narrowest point until the restock, the shelf stays out of sight
+   * (.slots.restocking in style.css). The shelf setTheme draws behind the door would
+   * otherwise pop in while the door is still rising, then vanish and pop in again
+   * at the restock. A redraw in between, say from a press on the counter, stays
+   * hidden too, and its confetti never starts (spawn() makes no particles while
+   * the shutter is down). */
+  function holdShelf() {
+    $('slots').classList.add('restocking');
+  }
+
+  /* New stock: once the shutter has gone, everything on the shelf drops in, one
+   * after another, with the slotPop a newly collected pastry uses, played faster. */
+  function restockShelf() {
+    var box = $('slots');
+    var filled = Array.prototype.slice.call(box.querySelectorAll('.slot.filled'));
+    filled.forEach(function (slot) { slot.classList.remove('pop'); });
+    box.classList.remove('restocking');
+    void box.offsetWidth;   /* so slots that already had .pop play it again */
+    filled.forEach(function (slot, i) {
+      slot.style.animationDelay = (i * RESTOCK_STAGGER_MS) + 'ms';
+      slot.style.animationDuration = RESTOCK_POP_MS + 'ms';
+      slot.classList.add('pop');
+    });
+  }
+
+  /* Runs each cue once its time has come; a late tick runs all it missed, in order.
+   * If a cue throws, `stop` still runs, so the shutter never stays down. */
+  function runCues(cues, stop) {
+    var started = performance.now();   /* never jumps when the system clock is set */
+    var next = 0;
+    var tick = function () {
+      var now = performance.now() - started;
+      try {
+        while (next < cues.length && cues[next].at <= now) {
+          next += 1;
+          cues[next - 1].run();
+        }
+      } catch (err) {
+        stop();
+        throw err;
+      }
+      if (next < cues.length) window.setTimeout(tick, Math.ceil(cues[next].at - now));
+    };
+    tick();
+  }
+
+  function shutter(to) {
+    var door = document.createElement('div');
+    door.className = 'shutter';
+    door.setAttribute('aria-hidden', 'true');
+    var sign = document.createElement('div');
+    sign.className = 'shutter-sign';
+    var name = document.createElement('canvas');
+    drawSign(name, themeId);
+    sign.appendChild(name);
+    door.appendChild(sign);
+    $('phone').appendChild(door);
+    shuttering = true;
+
+    /* At the narrowest: the new name on the sign, the new shop behind the door. */
+    var swap = function () {
+      drawSign(name, to);
+      holdShelf();
+      setTheme(to);
+    };
+    /* At 950 ms, or as soon as a cue throws (runCues), so the door never stays down
+     * and the shop buttons never stay locked. */
+    var finished = false;
+    var finish = function () {
+      if (finished) return;
+      finished = true;
+      door.remove();
+      shuttering = false;
+      restockShelf();
+    };
+
+    var cues = [];
+    var at = function (ms, run) { cues.push({ at: ms, run: run }); };
+    var cover = function (steps) {
+      return function () {
+        door.style.transform = 'translateY(' + (steps * 100 / SHUTTER_STEPS - 100) + '%)';
+      };
+    };
+    var i;
+    var down = SHUTTER_DOWN_MS / SHUTTER_STEPS;
+    for (i = 1; i <= SHUTTER_STEPS; i += 1) at((i - 1) * down, cover(i));
+    var flip = (SHUTTER_FLIP_MS - SHUTTER_DOWN_MS) / SIGN_SQUASH.length;
+    SIGN_SQUASH.forEach(function (scale, k) {
+      at(SHUTTER_DOWN_MS + k * flip, function () {
+        sign.style.transform = 'scaleX(' + scale + ')';
+        if (k === SIGN_NARROWEST) swap();
+      });
+    });
+    var sway = (SHUTTER_WOBBLE_MS - SHUTTER_FLIP_MS) / SIGN_WOBBLE.length;
+    SIGN_WOBBLE.forEach(function (degrees, k) {
+      at(SHUTTER_FLIP_MS + k * sway, function () {
+        sign.style.transform = 'rotate(' + degrees + 'deg)';
+      });
+    });
+    var up = (SHUTTER_UP_MS - SHUTTER_WOBBLE_MS) / SHUTTER_STEPS;
+    for (i = 1; i <= SHUTTER_STEPS; i += 1) at(SHUTTER_WOBBLE_MS + (i - 1) * up, cover(SHUTTER_STEPS - i));
+    at(SHUTTER_UP_MS, finish);
+
+    runCues(cues, finish);
+  }
+
   /* ---------------------------------------------------------------- mascot bite */
 
+  /* The mascot is looked up at every frame, so a switch of shop in the middle of
+   * a bite carries on with the new one and grows back as the new one. */
   function biteMascot() {
     var canvas = $('mascot-canvas');
-    var sprite = Pixel.SPRITES.laopo;
     var DEPTH = 0.55;
 
     var restore = function () {
       window.setTimeout(function () {
-        Pixel.drawSprite(canvas, sprite, 3, 0);
+        Pixel.drawSprite(canvas, mascotSprite(), 3, 0);
         canvas.classList.remove('regrow');
         void canvas.offsetWidth;
         canvas.classList.add('regrow');
@@ -518,7 +753,7 @@
     };
 
     if (reduced()) {
-      Pixel.drawSprite(canvas, sprite, 3, DEPTH);
+      Pixel.drawSprite(canvas, mascotSprite(), 3, DEPTH);
       restore();
       return;
     }
@@ -527,7 +762,7 @@
     var step = function (ts) {
       if (started === null) started = ts;
       var p = Math.min((ts - started) / 240, 1);
-      Pixel.drawSprite(canvas, sprite, 3, p * DEPTH);
+      Pixel.drawSprite(canvas, mascotSprite(), 3, p * DEPTH);
       if (p < 1) {
         requestAnimationFrame(step);
       } else {
@@ -582,7 +817,7 @@
         var c = centreOf(slot);
         window.setTimeout(function () { confetti(c.x, c.y); }, 220);
       }
-      var key = Pixel.forSlot(current().id, after - 1);
+      var key = Pixel.forSlot(current().id, after - 1, themeId);
       toast('$' + dollars + '.00 added — ' + Pixel.NAMES[key].en + ' came out of the oven!');
     } else {
       toast('$' + dollars + '.00 added to ' + current().name + '’s credit');
@@ -604,7 +839,7 @@
     $('big-number').classList.add('dip');
 
     biteMascot();
-    toast('$' + money(cents) + ' taken off — the shelf keeps every pastry 🍞');
+    toast('$' + money(cents) + ' taken off — ' + TEXT[themeId].spent);
     markStep('spend');
     return null;
   }
@@ -685,33 +920,105 @@
 
   function renderWordmark() {
     Pixel.drawText($('wordmark'), 'CRUMB', 7, '#4a2f1b');
-    Pixel.drawSprite($('app-icon'), Pixel.SPRITES.laopo, 7, 0);
     Pixel.drawSprite($('more-arrow'), CHEVRON, 3, 0);
   }
 
   function renderCardIcons() {
-    var sets = {
-      'icons-keep': ['laopo', 'tart', 'bolo'],
-      'icons-hide': ['charsiu'],
-      'icons-vary': ['mochi', 'walnut', 'mango', 'taro'],
-    };
+    var sets = CARD_ICONS[themeId];
     Object.keys(sets).forEach(function (id) {
       var box = $(id);
+      box.textContent = '';
       sets[id].forEach(function (key) { box.appendChild(pastryCanvas(key, 3)); });
     });
   }
 
+  /* Hands the cabinet's scroll reveal the slots drawn in place of the ones it
+   * was given (see revealOnScroll). Nothing to hand over until setUpReveals has
+   * set the reveal up, or when it never does. */
+  var revealCabinet = function () {};
+
+  /* The shop's whole list. What the demo's rotation leaves out can still be
+   * collected in the self-hosted app, and is drawn dashed. */
   function renderCabinet() {
     var box = $('cabinet');
-    var limited = {};
-    Pixel.LIMITED.forEach(function (k) { limited[k] = true; });
-    Pixel.CYCLE.concat(Pixel.LIMITED).forEach(function (key) {
+    var rotation = Pixel.THEMES[themeId].rotation;
+    box.textContent = '';
+    Pixel.themeKeys(themeId).forEach(function (key) {
       var slot = document.createElement('div');
-      slot.className = 'slot filled' + (limited[key] ? ' limited' : '');
+      slot.className = 'slot filled' + (rotation.indexOf(key) === -1 ? ' limited' : '');
       slot.appendChild(pastryCanvas(key, 3));
       attachName(slot, key);
       box.appendChild(slot);
     });
+    revealCabinet(Array.prototype.slice.call(box.children));
+  }
+
+  /* A colour from the stylesheet, for drawing outside CSS: one of the variables on
+   * :root, such as '--bg'. */
+  function token(name) {
+    return window.getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  }
+
+  /* The tab icon. The Pastry shop keeps the page's own icon; another shop's is its
+   * mascot, one square per pixel on the page's background colour, as a data: URI
+   * so it works opened from disk too. Like the page's own icon (and the app's, from
+   * scripts/make-icons.mjs) it keeps a margin one cell wide, so a mascot that fills
+   * its 12x12 grid does not touch the edges of the tab: 14x14, the grid at (1, 1). */
+  var PAGE_TAB_ICON = $('tab-icon').getAttribute('href');
+
+  function tabIcon(id) {
+    if (id === 'default') return PAGE_TAB_ICON;
+    var sprite = Pixel.SPRITES[Pixel.THEMES[id].mascot];
+    var shift = Pixel.offset(sprite);
+    var background = token('--bg');
+    var svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 14 14" shape-rendering="crispEdges">';
+    if (background) svg += '<rect width="14" height="14" fill="' + background + '"/>';
+    sprite.rows.forEach(function (row, y) {
+      for (var x = 0; x < row.length; x += 1) {
+        var colour = sprite.palette[row.charAt(x)];
+        if (colour) {
+          svg += '<rect x="' + (1 + x + shift.dx) + '" y="' + (1 + y + shift.dy) +
+            '" width="1" height="1" fill="' + colour + '"/>';
+        }
+      }
+    });
+    return 'data:image/svg+xml,' + encodeURIComponent(svg + '</svg>');
+  }
+
+  /* Everything outside the person on screen that depends on the shop: the
+   * switch, the mascot in the header and on the app icon, its accessible name,
+   * the tab icon, the counts, the words that name the goods, the cards and the
+   * cabinet. The counts come from the theme's list, never typed in. */
+  function renderTheme() {
+    var words = TEXT[themeId];
+    var keys = Pixel.themeKeys(themeId);
+    var rotation = Pixel.THEMES[themeId].rotation;
+    var limited = keys.length - rotation.length;
+
+    Array.prototype.forEach.call($('shop-switch').querySelectorAll('[data-shop]'), function (btn) {
+      btn.setAttribute('aria-pressed', String(btn.dataset.shop === themeId));
+    });
+
+    Pixel.drawSprite($('mascot-canvas'), mascotSprite(), 3, 0);
+    Pixel.drawSprite($('app-icon'), mascotSprite(), 7, 0);
+    $('mascot').setAttribute('aria-label', words.mascot);
+    $('tab-icon').setAttribute('href', tabIcon(themeId));
+
+    $('stat-collectibles').textContent = String(keys.length);
+    $('cabinet-count').textContent = String(keys.length);
+    $('legend-rotation').textContent = String(rotation.length);
+    $('legend-limited').textContent = String(limited);
+    $('legend-limited-line').hidden = limited === 0;
+
+    $('step-grant').textContent = words.stepGrant;
+    $('step-switch').textContent = words.stepSwitch;
+    $('card-keep').textContent = words.keep;
+    $('rule-keep').textContent = words.keepRule;
+    $('rule-hide').textContent = words.hideRule;
+    $('cabinet-title').textContent = words.cabinet;
+
+    renderCardIcons();
+    renderCabinet();
   }
 
   function resetDemo(opts) {
@@ -779,7 +1086,7 @@
     clearLater();
     resetDemo({ silent: true, intro: firstRun });
 
-    say('<b>Sam</b> is six months in. Six pastries on the shelf, $84.25 to spend.', 0);
+    say(TEXT[themeId].tourFirst, 0);
 
     later(2600, function () {
       say('A team lead sends her $50 of recognition.', 1);
@@ -787,7 +1094,7 @@
     });
 
     later(3300, function () {
-      var coming = Pixel.NAMES[Pixel.forSlot(current().id, collectedCount(current()))].en;
+      var coming = Pixel.NAMES[Pixel.forSlot(current().id, collectedCount(current()), themeId)].en;
       grant(50);
       say('<b>' + coming + '</b> comes out of the oven.', 1);
     });
@@ -809,7 +1116,7 @@
     });
 
     later(13800, function () {
-      say('<b>Alex</b>, two years in: nineteen pastries — and not one of them the same as Sam’s.', 4);
+      say(TEXT[themeId].tourLast, 4);
       press(document.querySelectorAll('.person')[2], 600);
       switchTo('377');
     });
@@ -826,15 +1133,21 @@
     runTour(true);
   }
 
-  function endTour(quiet) {
-    autoplaying = false;
+  /* Drops whatever the scene in progress left half done: its timers, an open
+   * keypad sheet, a button still shown pressed. */
+  function stopScene() {
     clearLater();
     if (sheet && sheet.isOpen()) sheet.close();
     sheet = null;
-    document.body.classList.remove('autoplay');
     Array.prototype.forEach.call(document.querySelectorAll('.pressed'), function (el) {
       el.classList.remove('pressed');
     });
+  }
+
+  function endTour(quiet) {
+    autoplaying = false;
+    stopScene();
+    document.body.classList.remove('autoplay');
     state.tookControl = true;
     save();
     $('take-control').textContent = 'Replay the tour';
@@ -842,6 +1155,54 @@
     setDots(-1);
     if (!quiet) say('Yours now — give recognition, spend it, switch person.');
     else say('Give recognition on the counter and watch the phone.');
+  }
+
+  /* Back to the first scene, the way the tour loops: no oven intro. */
+  function restartTour() {
+    stopScene();
+    runTour(false);
+  }
+
+  /* ---------------------------------------------------------------- switching shop
+   *
+   * The one way the shop changes once the page is up, all in one go. While the
+   * visitor is driving, the people, their balances and their history stay as they
+   * are; only what fills the shelves changes. A tour that is playing starts again
+   * from its first scene, with the tour's own people and balances, as every loop
+   * of it does. Whatever names the old shop's goods goes: the name tip, the oven
+   * intro and the toast. A page opened with a remembered shop never comes through
+   * here: the wiring draws that shop from the start. */
+
+  function setTheme(id) {
+    if (!known(id) || id === themeId) return;
+    themeId = id;
+    rememberTheme(id);
+    hideName();
+    clearToast();
+    var oven = $('phone').querySelector('.oven');
+    if (oven) oven.remove();
+    renderTheme();
+    if (autoplaying) {
+      restartTour();
+    } else {
+      renderAll({ dropFrom: 0 });
+      scrollPhoneTop();
+    }
+  }
+
+  /* What the shop buttons call. The shutter comes down and setTheme redraws
+   * everything behind it; with motion reduced the switch is instant. One switch at
+   * a time: a press while the shutter runs is ignored. The choice is stored the
+   * moment it is made, so a reload part-way through draws the new shop straight
+   * away. A page opened with a remembered shop never comes through here either. */
+  function chooseTheme(id) {
+    if (shuttering || !known(id) || id === themeId) return;
+    if (reduced()) {
+      setTheme(id);
+      return;
+    }
+    rememberTheme(id);
+    shutter(id);
   }
 
   /* ---------------------------------------------------------------- scroll reveals
@@ -855,7 +1216,7 @@
    * gets the whole section rendered plainly instead of a blank strip. */
 
   function revealOnScroll(trigger, nodes, showClass, stagger) {
-    if (!trigger || !nodes.length) return;
+    if (!trigger || !nodes.length) return function () {};
 
     nodes.forEach(function (n) { n.classList.add('reveal-armed'); });
 
@@ -896,6 +1257,14 @@
       played = true;
       nodes.forEach(function (n) { n.classList.remove('reveal-armed'); });
     }, 1500);
+
+    /* For nodes drawn in place of these ones (the cabinet, when the shop
+     * changes): until the reveal has played they wait hidden for it, as the
+     * ones they replace did; after that they simply show. */
+    return function (fresh) {
+      nodes = fresh;
+      if (!played) nodes.forEach(function (n) { n.classList.add('reveal-armed'); });
+    };
   }
 
   function setUpReveals() {
@@ -904,15 +1273,13 @@
 
     revealOnScroll($('how'), pick('.how .section-head').concat(pick('.how .card')), 'rise', 90);
     revealOnScroll($('cabinet-section'), pick('.cabinet .section-head'), 'rise', 0);
-    revealOnScroll($('cabinet'), pick('#cabinet .slot'), 'pop', 20);
+    revealCabinet = revealOnScroll($('cabinet'), pick('#cabinet .slot'), 'pop', 20);
   }
 
   /* ---------------------------------------------------------------- wiring */
 
   renderWordmark();
-  renderCardIcons();
-  renderCabinet();
-  Pixel.drawSprite($('mascot-canvas'), Pixel.SPRITES.laopo, 3, 0);
+  renderTheme();
 
   renderAll({ dropFrom: 0 });
   renderSteps();
@@ -938,6 +1305,10 @@
   $('take-control').addEventListener('click', function () {
     if (autoplaying) endTour(false);
     else startTour();
+  });
+
+  Array.prototype.forEach.call($('shop-switch').querySelectorAll('[data-shop]'), function (btn) {
+    btn.addEventListener('click', function () { chooseTheme(btn.dataset.shop); });
   });
 
   Array.prototype.forEach.call(document.querySelectorAll('[data-grant]'), function (btn) {

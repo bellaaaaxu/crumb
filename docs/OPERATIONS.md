@@ -1,8 +1,9 @@
 # Operating Crumb
 
 How to keep a Crumb instance safe once it is running: backups, restores, upgrades (including
-from 0.1 to 0.2), rollbacks, a locked-out owner, and disk space; and switching how
-people spend, putting a mistaken entry right, and how a treat to several people is recorded.
+from 0.1 to 0.2 and from 0.2 to 0.3), a theme this version does not include, rollbacks, a
+locked-out owner, and disk space; and switching how people spend, changing the collection
+theme, putting a mistaken entry right, and how a treat to several people is recorded.
 The commands assume the Docker Compose setup
 from [DEPLOYMENT.md](DEPLOYMENT.md) and are run in the project folder. With HTTPS,
 `init-secrets --origin` put `COMPOSE_FILE=compose.yaml:compose.https.yaml` in `.env`, so
@@ -92,6 +93,11 @@ starts. It also refuses a file with a `-wal` or `-journal` file beside it: that 
 of a running (or crashed) database whose latest changes are in the other file. Restore a file
 made by the backup command instead, or stop the Crumb that uses it first.
 
+A backup whose team uses a collection theme this version does not include is refused too,
+like one from a newer schema, before the restored file is created: see
+[Unknown theme](#unknown-theme). Backups from before 0.3 (schema 1 and 2), and backups taken
+before setup, count as the Pastry shop and restore as usual.
+
 Switch to the restored volume and start Crumb:
 
 ```bash
@@ -160,11 +166,71 @@ before the port opens:
 Back up first, as for any upgrade. Once the update has run, 0.1 refuses the database (its
 schema is newer), so going back means restoring the backup made before it, as below.
 
+### Upgrading from 0.2 to 0.3
+
+Crumb 0.3 keeps its database at schema version 3. The footer of the signed-in pages says which
+version is running (Crumb 0.2.0 or Crumb 0.3.0), and the backup command prints `schema 2`
+before the update and `schema 3` after it. The first start of 0.3 runs migration 003 on a
+schema 2 database once, before the port opens:
+
+- The organization gets its collection theme (`organization.theme`). An existing team is on
+  the **Pastry shop** (`default`): its shelves, mascot, icons and the sentences about the
+  collection stay exactly as in 0.2.
+- Nothing else is changed.
+
+It runs in one transaction, and every reference between tables is checked before it commits,
+as in the update to 0.2: if one points at a missing row, nothing is changed and Crumb does not
+start (`docker compose logs crumb` shows "Crumb cannot start: Updating the database to schema
+3 was stopped and nothing was changed" and names the first rows). Crumb 0.2 never writes such
+a reference, so this points at a damaged or hand-edited file. The database is untouched, so
+the previous image still opens it: put it back with steps 1, 2 and 4 of
+[Rolling back](#rolling-back) (no restore needed), and look into the file or restore a good
+backup before trying again.
+
+After the update, an owner's Settings has the collection theme under Rewards. A team that has
+already sent a treat sees the theme cards greyed out, on the Pastry shop: like the unlock
+step, the theme is fixed after the first treat. A team that has not can still change it (see
+[Changing the collection theme](#changing-the-collection-theme)).
+
+Crumb 0.1 can be upgraded straight to 0.3. The first start then runs migrations 002 and 003
+in one transaction — everything [Upgrading from 0.1 to 0.2](#upgrading-from-01-to-02)
+describes, then the theme — and a failure message names schema 3: "Updating the database to
+schema 3 was stopped and nothing was changed".
+
+Back up first, as for any upgrade. Once the update has run, 0.2 refuses the database (its
+schema is newer), so going back means restoring the backup made before it (see
+[Rolling back](#rolling-back)).
+
+### Unknown theme
+
+Each version of Crumb includes a fixed set of collection themes. A database whose team uses a
+theme this version does not include — one last used by a newer Crumb with more themes, for
+example — is refused instead of guessed at, and Crumb does not start. `docker compose logs
+crumb` shows, with the theme's id in place of `{id}`:
+
+```
+Crumb cannot start: This database uses the collection theme "{id}", which this version of Crumb does not include. Run a newer Crumb, or restore a backup made by this version.
+```
+
+As it says: run a version of Crumb that includes the theme, or restore a backup made by this
+version (see [Restoring](#restoring)). `scripts/recover-owner.mjs` refuses such a database
+with the same message, and `scripts/restore.mjs` refuses such a backup before creating the
+restored file. A database whose team has not been set up yet always opens.
+
+`scripts/backup.mjs` does not check the theme, so it still backs up such a database. Crumb
+does not start, so `docker compose exec` cannot reach it; run the backup with
+`docker compose run` instead:
+
+```bash
+docker compose run --rm crumb node scripts/backup.mjs --output /backups/crumb-$(date +%F).sqlite
+```
+
 ### Rolling back
 
 Code and data roll back together. Once a newer Crumb has updated the database, an older
 Crumb refuses to open it (it says the schema is newer than it understands) instead of
-guessing. So:
+guessing. It refuses a database whose team uses a collection theme it does not include in the
+same way ([Unknown theme](#unknown-theme)). So:
 
 1. `docker compose stop crumb`
 2. Put the old image back: `docker tag crumb:before-upgrade crumb:local`
@@ -221,6 +287,28 @@ admins' "Waiting on you" until they are confirmed, declined or cancelled. A team
 confirmed starts with the benefits already on its list, none if it never had any: add them on
 the Team page.
 
+## Changing the collection theme
+
+A team's collection theme — the Pastry shop or the Bakery — decides the pictures on everyone's
+shelf, the mascot, the browser tab and home-screen icons, and a few sentences about the
+collection. It is chosen at setup (the Pastry shop unless the owner picks another). Until the
+first treat, an owner can change it under **Settings → Rewards → Collection theme**: tapping a
+card selects it, and **Save settings** applies it. Any entry in the ledger then fixes it,
+together with the unlock step: the cards are greyed out, and the server refuses a change.
+Teams upgraded from 0.2 that had already sent a treat stay on the Pastry shop.
+
+Nobody has unlocked anything before the first treat, so a change touches no one's shelf. It
+does touch benefit icons: in the same save, every benefit (active or not) whose icon the new
+theme does not have loses its icon, and Settings says how many, for example "Theme changed. 2
+benefit icon(s) aren’t in this theme, so they were removed. You can pick new ones." instead of
+"Settings saved.". Icons the two themes share are kept. Pick new icons on the Team page. The
+activity log records the change; its detail (`GET /api/admin/audit`) has the old and the new
+theme and how many icons were removed.
+
+The page that saved the change switches its tab icon right away; other pages already open
+switch the next time they load. An icon already on a phone's home screen keeps its old picture
+until it is removed and added to the home screen again.
+
 ## Putting a mistaken entry right
 
 The ledger is append-only: nothing in it is edited or deleted. A mistake is put right with a
@@ -230,8 +318,8 @@ new entry, from the log on the Team page, and always with a reason:
   The amount goes back to the person, and the log keeps both rows: the entry, marked "Put
   right", and the correction ("A slip, put right"; "Fixed" in the member's recent log). Each
   entry can be put right once. Team members cannot undo their own entries; they ask an admin.
-- **A treat**: **Take back**. The original stays, marked "Taken back". Pastries already on the
-  shelf stay.
+- **A treat**: **Take back**. The original stays, marked "Taken back". Collectibles already
+  on the shelf stay.
 - **A confirmed benefit**: **Refund**, once. The request stays, marked "Refunded".
 
 The CSV export and the activity log keep both rows, with who made each one.
@@ -239,8 +327,8 @@ The CSV export and the activity log keep both rows, with who made each one.
 ## Treats to several people
 
 A treat to several people is recorded all or nothing, in one transaction, but it is not one
-entry: each person gets their own `grant` row in the ledger and their own pastries, and the
-rows share one batch id.
+entry: each person gets their own `grant` row in the ledger and their own collectibles, and
+the rows share one batch id.
 
 - The **Team log** shows the batch as one line: the amount each, how many people, the date
   and the message, whatever page of the log its rows fall on. Opened, it lists each person

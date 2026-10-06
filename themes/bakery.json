@@ -1,0 +1,154 @@
+{
+  "themeId": "bakery",
+  "version": 1,
+  "source": "assets/sprites.js",
+  "mascot": "toastbite",
+  "keys": [
+    "toastbite",
+    "croissant",
+    "bolo",
+    "strawberrycake",
+    "baguette",
+    "gaimei",
+    "cupcake",
+    "loaf",
+    "caketriangle",
+    "bagel",
+    "sausage",
+    "donut",
+    "cinnamonroll",
+    "swissroll",
+    "pretzel",
+    "creambun",
+    "tiramisu",
+    "boloyau",
+    "madeleine",
+    "blackforest",
+    "cheesehotdog",
+    "mango",
+    "papercake",
+    "chestnut"
+  ],
+  "names": {
+    "toastbite": {
+      "en": "Bitten Toast",
+      "zh-Hant": "咬一口吐司",
+      "zh-CN": "咬一口吐司"
+    },
+    "croissant": {
+      "en": "Croissant",
+      "zh-Hant": "牛角包",
+      "zh-CN": "牛角包"
+    },
+    "bolo": {
+      "en": "Pineapple Bun",
+      "zh-Hant": "菠蘿包",
+      "zh-CN": "菠萝包"
+    },
+    "strawberrycake": {
+      "en": "Strawberry Cake",
+      "zh-Hant": "草莓蛋糕",
+      "zh-CN": "草莓蛋糕"
+    },
+    "baguette": {
+      "en": "Baguette",
+      "zh-Hant": "法棍",
+      "zh-CN": "法棍"
+    },
+    "gaimei": {
+      "en": "Cocktail Bun",
+      "zh-Hant": "雞尾包",
+      "zh-CN": "鸡尾包"
+    },
+    "cupcake": {
+      "en": "Cupcake",
+      "zh-Hant": "紙杯蛋糕",
+      "zh-CN": "纸杯蛋糕"
+    },
+    "loaf": {
+      "en": "Loaf",
+      "zh-Hant": "山形吐司",
+      "zh-CN": "山形吐司"
+    },
+    "caketriangle": {
+      "en": "Triangle Cake",
+      "zh-Hant": "三角蛋糕",
+      "zh-CN": "三角蛋糕"
+    },
+    "bagel": {
+      "en": "Bagel",
+      "zh-Hant": "貝果",
+      "zh-CN": "贝果"
+    },
+    "sausage": {
+      "en": "Sausage Bun",
+      "zh-Hant": "腸仔包",
+      "zh-CN": "肠仔包"
+    },
+    "donut": {
+      "en": "Donut",
+      "zh-Hant": "甜甜圈",
+      "zh-CN": "甜甜圈"
+    },
+    "cinnamonroll": {
+      "en": "Cinnamon Roll",
+      "zh-Hant": "肉桂卷",
+      "zh-CN": "肉桂卷"
+    },
+    "swissroll": {
+      "en": "Swiss Roll",
+      "zh-Hant": "瑞士卷",
+      "zh-CN": "瑞士卷"
+    },
+    "pretzel": {
+      "en": "Pretzel",
+      "zh-Hant": "椒鹽卷餅",
+      "zh-CN": "椒盐卷饼"
+    },
+    "creambun": {
+      "en": "Cream Bun",
+      "zh-Hant": "奶油麵包",
+      "zh-CN": "奶油面包"
+    },
+    "tiramisu": {
+      "en": "Tiramisu",
+      "zh-Hant": "提拉米蘇",
+      "zh-CN": "提拉米苏"
+    },
+    "boloyau": {
+      "en": "Pineapple Bun with Butter",
+      "zh-Hant": "菠蘿油",
+      "zh-CN": "菠萝油"
+    },
+    "madeleine": {
+      "en": "Madeleine",
+      "zh-Hant": "瑪德蓮",
+      "zh-CN": "玛德琳"
+    },
+    "blackforest": {
+      "en": "Black Forest Cake",
+      "zh-Hant": "黑森林蛋糕",
+      "zh-CN": "黑森林蛋糕"
+    },
+    "cheesehotdog": {
+      "en": "Cheese Hot Dog Bun",
+      "zh-Hant": "芝士熱狗包",
+      "zh-CN": "芝士热狗包"
+    },
+    "mango": {
+      "en": "Mango Mousse Cake",
+      "zh-Hant": "芒果慕斯蛋糕",
+      "zh-CN": "芒果慕斯蛋糕"
+    },
+    "papercake": {
+      "en": "Paper-Wrapped Cake",
+      "zh-Hant": "紙包蛋糕",
+      "zh-CN": "纸包蛋糕"
+    },
+    "chestnut": {
+      "en": "Chestnut Cake",
+      "zh-Hant": "栗子蛋糕",
+      "zh-CN": "栗子蛋糕"
+    }
+  }
+}

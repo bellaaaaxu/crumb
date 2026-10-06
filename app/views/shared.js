@@ -2,7 +2,8 @@
 
 import { keyFor, request, settleKey, wasRefused } from '../api.js';
 import { button, el, formError, openDialog, uid } from '../dom.js';
-import { formatDateTime, t } from '../i18n.js';
+import { formatDateTime, getLocale, t } from '../i18n.js';
+import { spriteCanvas, themeCard, themeIds, themeKeysOf } from '../pixels.js';
 
 export const loading = () => el('p', { text: t('common.loading'), attrs: { class: 'loading', role: 'status' } });
 
@@ -150,4 +151,42 @@ export async function oneTap(ctx, action, { method = 'POST', path, body }, onDon
   await settleKey(action);
   onDone(result);
   return true;
+}
+
+/**
+ * The collection theme as one radio card per theme: the first three items of its list (the
+ * first is its mascot) over its card text, which is also the radio's name. The cards are
+ * native radios in one group, built like radios() in dom.js, so the keyboard works the same
+ * way: Tab reaches the chosen card and the arrow keys choose another. Setup and Settings both
+ * use it; the caller decides what a change does. Without the pixel table (sprites.js did not
+ * load) there is no theme to show: no fieldset, and no value, so no theme is sent.
+ */
+export function themeCards(selectedId, { disabled = false } = {}) {
+  const name = 'theme';
+  const locale = getLocale();
+  const inputs = [];
+  const cards = themeIds().map(id => {
+    const inputId = uid(`radio-${name}`);
+    const input = el('input', { attrs: { type: 'radio', id: inputId, name, value: id, checked: id === selectedId, disabled } });
+    inputs.push(input);
+    return el('div', { attrs: { class: 'radio theme-card' } }, [
+      input,
+      el('label', { attrs: { for: inputId } }, [
+        el('span', { attrs: { class: 'theme-card-pics' } }, themeKeysOf(id).slice(0, 3).map(key => spriteCanvas(key, 3))),
+        el('span', { text: themeCard(id, locale), attrs: { class: 'radio-label' } }),
+      ]),
+    ]);
+  });
+  const fieldset = el('fieldset', { attrs: { class: 'radios' } }, [
+    el('legend', { text: t('settings.theme') }),
+    el('div', { attrs: { class: 'theme-cards' } }, cards),
+  ]);
+  return {
+    // el() leaves out a null child, so the caller can list it either way.
+    fieldset: cards.length ? fieldset : null,
+    inputs,
+    get value() {
+      return inputs.find(input => input.checked)?.value;
+    },
+  };
 }

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash, randomUUID } from 'node:crypto';
-import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { copyFileSync, cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import Database from 'better-sqlite3';
@@ -12,6 +12,7 @@ import { saveReward } from '../server/rewards.mjs';
 import { requestRedemption, resolveRedemption } from '../server/redemptions.mjs';
 import { inviteMember, issueSignInLink } from '../server/members.mjs';
 import { setLogo } from '../server/org.mjs';
+import { unknownThemeError } from '../server/themes.mjs';
 import { fixture } from './helpers.mjs';
 
 const code = expected => error => {
@@ -157,14 +158,16 @@ const ROOT = fileURLToPath(new URL('..', import.meta.url));
 
 /* The next release, as far as backups care: this code with one more
  * migration. It lives under node_modules/.cache so it still finds the
- * project's dependencies, and is removed afterwards. */
+ * project's dependencies, and is removed afterwards. db.mjs and backup.mjs
+ * import server/themes.mjs, which reads ../themes/, so the theme lists come too. */
 async function newerCrumb(t) {
   const base = join(ROOT, 'node_modules', '.cache', `crumb-newer-${randomUUID()}`);
   t.after(() => rmSync(base, { recursive: true, force: true }));
   mkdirSync(join(base, 'server', 'migrations'), { recursive: true });
-  for (const file of ['backup.mjs', 'db.mjs', 'errors.mjs']) copyFileSync(join(ROOT, 'server', file), join(base, 'server', file));
+  for (const file of ['backup.mjs', 'db.mjs', 'errors.mjs', 'themes.mjs']) copyFileSync(join(ROOT, 'server', file), join(base, 'server', file));
   for (const file of readdirSync(join(ROOT, 'server', 'migrations')))
     copyFileSync(join(ROOT, 'server', 'migrations', file), join(base, 'server', 'migrations', file));
+  cpSync(join(ROOT, 'themes'), join(base, 'themes'), { recursive: true });
   const next = String(SCHEMA_VERSION + 1).padStart(3, '0');
   writeFileSync(join(base, 'server', 'migrations', `${next}-add-stock.sql`), 'ALTER TABLE rewards ADD COLUMN stock INTEGER;\n');
   return import(pathToFileURL(join(base, 'server', 'backup.mjs')).href);
@@ -248,3 +251,67 @@ test('backups, restored copies and new databases can be read by their owner only
     await restoreDatabase({ sourcePath: backup, destinationPath: join(dir, 'restored', 'crumb.sqlite') });
     assert.equal(modeOf(join(dir, 'restored', 'crumb.sqlite')), 0o600);
   });
+
+// The refusal's wording is pinned once, in tests/themes.test.mjs.
+const UNKNOWN_THEME = unknownThemeError('cafe').message;
+
+test('restore refuses a backup whose team uses a theme this version does not include', async t => {
+  const { db, dir } = fixture(t);
+  const backup = (await backupDatabase(db, join(dir, 'cafe.sqlite'))).path;
+  const raw = new Database(backup);
+  raw.prepare(`UPDATE organization SET theme = 'cafe' WHERE id = 1`).run();
+  raw.close();
+  const destination = join(dir, 'from-cafe', 'crumb.sqlite');
+  await assert.rejects(restoreDatabase({ sourcePath: backup, destinationPath: destination }),
+    { code: 'THEME_UNKNOWN', message: UNKNOWN_THEME });
+  assert.deepEqual(readdirSync(join(dir, 'from-cafe')), [], 'neither the target nor a temporary copy is left behind');
+});
+
+/* A backup made by an earlier release: migrations 001 up to `version` applied the way
+ * server/db.mjs applies them (foreign keys off) and recorded, then a team and its owner.
+ * Closed cleanly, so no -wal or -journal sits beside it. */
+function olderBackup(path, version) {
+  const raw = new Database(path);
+  raw.pragma('foreign_keys = OFF');
+  raw.exec('CREATE TABLE schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL)');
+  const at = new Date().toISOString();
+  ['001-initial.sql', '002-spending.sql'].slice(0, version).forEach((file, index) => {
+    raw.exec(readFileSync(new URL(`../server/migrations/${file}`, import.meta.url), 'utf8'));
+    raw.prepare('INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)').run(index + 1, at);
+  });
+  raw.prepare(`INSERT INTO organization (id, name, mode, currency, unit_label, threshold_units, locale, created_at)
+               VALUES (1, 'Old Team', 'credit', 'CAD', 'Team credit', 5000, 'en', ?)`).run(at);
+  raw.prepare(`INSERT INTO users (id, username, display_name, password_hash, role, active, joined_at, created_at)
+               VALUES (?, 'owner', 'Olive', 'x', 'owner', 1, ?, ?)`).run(randomUUID(), at, at);
+  raw.close();
+  return path;
+}
+
+test('backups from before schema 3, and from before setup, restore as usual', async t => {
+  const { dir } = fixture(t);
+  for (const version of [1, 2]) {
+    const destination = join(dir, `from-schema-${version}`, 'crumb.sqlite');
+    const source = olderBackup(join(dir, `schema-${version}.sqlite`), version);
+    assert.deepEqual(await restoreDatabase({ sourcePath: source, destinationPath: destination }),
+      { path: destination, schemaVersion: version });
+    // The restored copy keeps its schema; Crumb brings it up to date, onto the default theme.
+    const upgraded = openDatabase(destination);
+    try {
+      assert.equal(schemaVersionOf(upgraded), SCHEMA_VERSION);
+      assert.deepEqual(upgraded.prepare('SELECT name, theme FROM organization').get(), { name: 'Old Team', theme: 'default' });
+    } finally {
+      upgraded.close();
+    }
+  }
+
+  const notSetUp = openDatabase(join(dir, 'not-set-up.sqlite'));
+  let beforeSetup;
+  try {
+    beforeSetup = (await backupDatabase(notSetUp, join(dir, 'before-setup.sqlite'))).path;
+  } finally {
+    notSetUp.close();
+  }
+  const destination = join(dir, 'from-before-setup', 'crumb.sqlite');
+  assert.deepEqual(await restoreDatabase({ sourcePath: beforeSetup, destinationPath: destination }),
+    { path: destination, schemaVersion: SCHEMA_VERSION });
+});

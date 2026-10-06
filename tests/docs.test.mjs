@@ -55,6 +55,46 @@ test('every other document links only to files that exist', async () => {
   }
 });
 
+/* GitHub's heading anchors: lower case, punctuation dropped, each space a hyphen. */
+const anchorOf = heading => heading.trim().toLowerCase().replace(/[^\p{L}\p{N} _-]/gu, '').replace(/ /g, '-');
+
+// A link to a section that was renamed, or never written, silently opens the top of the page.
+test('every link to a section of a document lands on one of its headings', async () => {
+  const files = ['README.md', 'README.zh-CN.md', 'CONTRIBUTING.md', 'docs/DEPLOYMENT.md', 'docs/OPERATIONS.md',
+    'docs/THEMES.md', 'docs/VALIDATION.md', 'docs/RELEASE-CHECKLIST.md'];
+  for (const file of files) {
+    const markdown = await readFile(file, 'utf8');
+    for (const [, target] of markdown.matchAll(/\]\(([^)]+)\)/g)) {
+      if (/^(https?:|mailto:)/.test(target) || !target.includes('#')) continue;
+      const [path, section] = target.split('#');
+      const linked = path ? resolve(dirname(file), decodeURIComponent(path)) : resolve(file);
+      if (!linked.endsWith('.md')) continue;
+      // Windows checkouts may have CRLF line endings. A shell comment inside a code block
+      // (`# open http://…`) is not a heading; fences may be indented inside a list.
+      const headings = [];
+      let fenced = false;
+      for (const line of (await readFile(linked, 'utf8')).replace(/\r\n/g, '\n').split('\n')) {
+        if (/^\s*```/.test(line)) fenced = !fenced;
+        else if (!fenced && /^#{1,6} /.test(line)) headings.push(anchorOf(line.replace(/^#{1,6} /, '')));
+      }
+      assert.ok(headings.includes(section), `${file} links ${target}, but no heading there makes #${section}`);
+    }
+  }
+});
+
+// Someone several versions behind needs every upgrade section on the way, so each one stays linked.
+test('both READMEs link the upgrade section of every release so far', async () => {
+  const { version } = JSON.parse(await readFile('package.json', 'utf8'));
+  const minor = Number(version.split('.')[1]);
+  for (const file of ['README.md', 'README.zh-CN.md']) {
+    const markdown = await readFile(file, 'utf8');
+    for (let to = 2; to <= minor; to += 1) {
+      const section = `upgrading-from-0${to - 1}-to-0${to}`;
+      assert.ok(markdown.includes(`](docs/OPERATIONS.md#${section})`), `${file} links docs/OPERATIONS.md#${section}`);
+    }
+  }
+});
+
 // The footer and the session report package.json's version; a release that changes it in one
 // place only would leave the lock file naming a version that was never released.
 test('package-lock.json names the version package.json gives', async () => {

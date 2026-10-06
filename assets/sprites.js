@@ -1,6 +1,7 @@
 /* Crumb — pixel art data and canvas helpers. No dependencies, no external fonts.
  * Every sprite below is character-grid data on a 12x12 grid; digits and capitals on 3x5.
- * Generated from the source project's sprite table — do not hand-edit. */
+ * This file is the source to edit (docs/THEMES.md): the drawings, their names and the
+ * collection themes. themes/<id>.json is generated from it by scripts/theme-manifest.mjs. */
 
 const Pixel = (function () {
   const SPRITES = {
@@ -589,6 +590,186 @@ const Pixel = (function () {
       "............",
       "............",
     ] },
+    /* 咬一口吐司 Bitten Toast */
+    toastbite: { palette: { X: "#6B3F17", C: "#CF8A34", I: "#FCE6B4", D: "#A8641F" }, rows: [
+      "..XXXXX....C",
+      ".XCCCCCX.C..",
+      "XCCIIIIX...C",
+      "XCIIIIIIXX..",
+      "XCIIIIIIIIXX",
+      "XCIIIIIIIICX",
+      "XCIIIIIIIICX",
+      ".XCIIIIIICX.",
+      ".XCIIIIIICX.",
+      ".XCIIIIIICX.",
+      ".XDDDDDDDDX.",
+      ".XXXXXXXXXX.",
+    ] },
+    /* 牛角包 Croissant */
+    croissant: { palette: { X: "#7A4A1E", b: "#E3A048", l: "#F3C878", d: "#B8752C" }, rows: [
+      "............",
+      "............",
+      "....XXXX....",
+      "..XXllllXX..",
+      ".XlXbbbbXlX.",
+      "XlbdbbbbdblX",
+      "XbbdbbbbdbbX",
+      "XdddXXXXdddX",
+      ".XbX....XbX.",
+      "..X......X..",
+      "............",
+      "............",
+    ] },
+    /* 法棍 Baguette */
+    baguette: { palette: { X: "#7A4A1E", b: "#D98E3A", s: "#FBE7B4", d: "#B06A26" }, rows: [
+      "........XXX.",
+      ".......XbbbX",
+      "......XbsbdX",
+      ".....XbbsbdX",
+      "....XbsbbdX.",
+      "...XbbsbdX..",
+      "..XbsbbdX...",
+      ".XbbsbdX....",
+      "XbsbbdX.....",
+      "XbsbdX......",
+      "XbddX.......",
+      ".XXX........",
+    ] },
+    /* 山形吐司 Loaf */
+    loaf: { palette: { X: "#6B3F17", t: "#B8692A", b: "#E0A24E", h: "#F2C77E", d: "#A8641F" }, rows: [
+      "............",
+      "............",
+      ".XXXX..XXXX.",
+      "XhhttXXhhttX",
+      "XhttdXXhttdX",
+      "XttttttttttX",
+      "XbbbbbbbbbbX",
+      "XbbbbbbbbbbX",
+      "XddddddddddX",
+      ".XXXXXXXXXX.",
+      "............",
+      "............",
+    ] },
+    /* 貝果 Bagel */
+    bagel: { palette: { X: "#7A4A1E", b: "#D9923C", h: "#F0C070", s: "#FFF6DC", d: "#A8641F" }, rows: [
+      "............",
+      "............",
+      "...XXXXXX...",
+      ".XXhhbsbbXX.",
+      "XhsbXXXXbsbX",
+      "XhbX....XbbX",
+      "XbbX....XbbX",
+      "XdbbXXXXbbdX",
+      "XdbsbbbbsbdX",
+      ".XddddddddX.",
+      "..XXXXXXXX..",
+      "............",
+    ] },
+    /* 椒鹽卷餅 Pretzel */
+    pretzel: { palette: { X: "#4E2A10", b: "#9A5424", h: "#C07A3A", s: "#FFF6E8" }, rows: [
+      ".XXXX..XXXX.",
+      "XhhbsXXsbhhX",
+      "Xh..XbbX..bX",
+      "Xb..XhbX..bX",
+      "Xb..XbhX..bX",
+      "Xb.XbXXbX.bX",
+      "XbbbX..XbbsX",
+      ".XbbX..XbbX.",
+      "..XsbXXbbX..",
+      "...XbbbbX...",
+      "....XXXX....",
+      "............",
+    ] },
+    /* 肉桂卷 Cinnamon Roll */
+    cinnamonroll: { palette: { X: "#7A4A1E", b: "#E8B067", k: "#8E5024", w: "#FFF8EC" }, rows: [
+      "...XXXXXX...",
+      ".XXwwbbbbXX.",
+      ".XbbkwwbbbX.",
+      "XbbkbbbwwbbX",
+      "XbkbbkkbbwwX",
+      "XbkbkbbkbkbX",
+      "XbkbkkbkbkbX",
+      "XbkbbbbkbkbX",
+      "XbbkbbbkbkX.",
+      ".XbbkkkbbkbX",
+      ".XXbbbbbbkbX",
+      "...XXXXXXXX.",
+    ] },
+    /* 草莓蛋糕 Strawberry Cake */
+    strawberrycake: { palette: { X: "#8E3A2E", w: "#FFFDF4", c: "#F3DDB8", r: "#D9443A", g: "#6B8E3E" }, rows: [
+      ".....gg.....",
+      "...gggggg...",
+      "gggXgrrgXggg",
+      "rrrXrcrrXrrr",
+      ".r.XrrrcX.r.",
+      ".XXXrcrrXXX.",
+      "XwwwXrrXwwwX",
+      "XwwwwXXwwwwX",
+      "XccccccccccX",
+      "XwwwwwwwwwwX",
+      "XwwwwwwwwwwX",
+      ".XXXXXXXXXX.",
+    ] },
+    /* 紙杯蛋糕 Cupcake */
+    cupcake: { palette: { X: "#A8792F", w: "#FFF8EC", c: "#F2D9A8", l: "#C4704A", r: "#C4483C" }, rows: [
+      ".....rr.....",
+      "....XrrX....",
+      "....XwwX....",
+      "...XwwwcX...",
+      "..XXccccXX..",
+      ".XwwwwwwwwX.",
+      "XwwwwwwwwwcX",
+      "XXccccccccXX",
+      ".XlwwllwwlX.",
+      ".XlwwllwwlX.",
+      "..XlwllwlX..",
+      "..XXXXXXXX..",
+    ] },
+    /* 甜甜圈 Donut */
+    donut: { palette: { X: "#A0465F", p: "#F29AB2", P: "#FBC8D6", d: "#E3AC62", s: "#FFF6E0" }, rows: [
+      "....XXXX....",
+      "..XXPPppXX..",
+      ".XPPppppspX.",
+      ".XPpppspppX.",
+      "XppppXXppppX",
+      "XpppX..XpspX",
+      "XpspX..XpppX",
+      "XdpppXXpppdX",
+      ".XdpppsppdX.",
+      ".XddpddpddX.",
+      "..XXddddXX..",
+      "....XXXX....",
+    ] },
+    /* 提拉米蘇 Tiramisu */
+    tiramisu: { palette: { X: "#4A2A14", k: "#6E4428", d: "#9A6A44", w: "#FBF0DA", s: "#B07440" }, rows: [
+      "............",
+      "..XXXXXXXX..",
+      ".XkdkkkdkkX.",
+      ".XkkkdkkdkX.",
+      ".XwwwwwwwwX.",
+      ".XwwwwwwwwX.",
+      ".XssssssssX.",
+      ".XwwwwwwwwX.",
+      ".XwwwwwwwwX.",
+      ".XssssssssX.",
+      "..XXXXXXXX..",
+      "............",
+    ] },
+    /* 瑪德蓮 Madeleine */
+    madeleine: { palette: { X: "#7A4A1E", b: "#F2C25E", d: "#D9963A", e: "#A8641F" }, rows: [
+      "............",
+      "...XXXXXX...",
+      ".XXedbbdeXX.",
+      "XebbdbbdbbeX",
+      "XbdbdbbdbdbX",
+      "XbdbbddbbdbX",
+      ".XbdbddbdbX.",
+      ".XebddddbeX.",
+      "..XebddbeX..",
+      "...XeeeeX...",
+      "....XXXX....",
+      "............",
+    ] },
   };
 
   /* Rotation order. Collecting one full lap = $1650 of gift cards received.
@@ -598,46 +779,86 @@ const Pixel = (function () {
   /* Named sprites outside this demo's rotation. The self-hosted app's collection includes them (themes/default.json). */
   const LIMITED = ["pistachiohorn", "cnybox", "mooncake", "radishcake", "tarocake", "ricecake"];
 
+  /* zh: Traditional Chinese, en: English, cn: Simplified Chinese (the zh-CN interface). */
   const NAMES = {
-    laopo: { zh: "老婆餅", en: "Wife Cake" },
-    tart: { zh: "蛋撻", en: "Egg Tart" },
-    bolo: { zh: "菠蘿包", en: "Pineapple Bun" },
-    gaimei: { zh: "雞尾包", en: "Cocktail Bun" },
-    sausage: { zh: "腸仔包", en: "Sausage Bun" },
-    caketriangle: { zh: "三角蛋糕", en: "Triangle Cake" },
-    papercake: { zh: "紙包蛋糕", en: "Paper-Wrapped Cake" },
-    swissroll: { zh: "瑞士卷", en: "Swiss Roll" },
-    boloyau: { zh: "菠蘿油", en: "Pineapple Bun with Butter" },
-    coconuttart: { zh: "椰撻", en: "Coconut Tart" },
-    eggyolk: { zh: "蛋黃酥", en: "Egg Yolk Pastry" },
-    centuryegg: { zh: "皮蛋酥", en: "Century Egg Pastry" },
-    taro: { zh: "芋頭酥", en: "Taro Pastry" },
-    bridecake: { zh: "嫁女餅", en: "Bridal Cake" },
-    dragonphoenix: { zh: "龍鳳餅", en: "Dragon & Phoenix Cake" },
-    mungbean: { zh: "綠豆糕", en: "Mung Bean Cake" },
-    mochi: { zh: "綠茶紅豆糯米糍", en: "Green Tea Red Bean Mochi" },
-    charsiu: { zh: "叉燒酥", en: "BBQ Pork Puff" },
-    walnut: { zh: "核桃酥", en: "Walnut Cookie" },
-    chickenpie: { zh: "雞批", en: "Chicken Pie" },
-    blackforest: { zh: "黑森林蛋糕", en: "Black Forest Cake" },
-    mango: { zh: "芒果慕斯蛋糕", en: "Mango Mousse Cake" },
-    almond: { zh: "杏仁條", en: "Almond Stick" },
-    creambun: { zh: "奶油麵包", en: "Cream Bun" },
-    mooncake: { zh: "蓮蓉蛋黃月餅", en: "Lotus & Egg Yolk Mooncake" },
-    shrimpchip: { zh: "蝦片", en: "Prawn Cracker" },
-    cnybox: { zh: "賀年全盒", en: "New Year Candy Box" },
-    porttart: { zh: "葡式蛋撻", en: "Portuguese Egg Tart" },
-    nougat: { zh: "鹹蛋黃肉鬆牛軋糖", en: "Salted Yolk Pork Floss Nougat" },
-    datepastry: { zh: "蛋黃棗泥酥", en: "Date & Egg Yolk Pastry" },
-    blacksesamepastry: { zh: "黑芝麻酥", en: "Black Sesame Pastry" },
-    blacksesamemochi: { zh: "黑芝麻糯米糍", en: "Black Sesame Mochi" },
-    pumpkintuile: { zh: "南瓜子薄脆", en: "Pumpkin Seed Tuile" },
-    cheesehotdog: { zh: "芝士熱狗包", en: "Cheese Hot Dog Bun" },
-    pistachiohorn: { zh: "開心果奶油號角", en: "Pistachio Cream Horn" },
-    radishcake: { zh: "蘿蔔糕", en: "Turnip Cake" },
-    tarocake: { zh: "芋頭臘腸糕", en: "Taro & Sausage Cake" },
-    ricecake: { zh: "椰汁黃糖年糕", en: "Coconut Brown Sugar Nian Gao" },
-    chestnut: { zh: "栗子蛋糕", en: "Chestnut Cake" },
+    laopo: { zh: "老婆餅", en: "Wife Cake", cn: "老婆饼" },
+    tart: { zh: "蛋撻", en: "Egg Tart", cn: "蛋挞" },
+    bolo: { zh: "菠蘿包", en: "Pineapple Bun", cn: "菠萝包" },
+    gaimei: { zh: "雞尾包", en: "Cocktail Bun", cn: "鸡尾包" },
+    sausage: { zh: "腸仔包", en: "Sausage Bun", cn: "肠仔包" },
+    caketriangle: { zh: "三角蛋糕", en: "Triangle Cake", cn: "三角蛋糕" },
+    papercake: { zh: "紙包蛋糕", en: "Paper-Wrapped Cake", cn: "纸包蛋糕" },
+    swissroll: { zh: "瑞士卷", en: "Swiss Roll", cn: "瑞士卷" },
+    boloyau: { zh: "菠蘿油", en: "Pineapple Bun with Butter", cn: "菠萝油" },
+    coconuttart: { zh: "椰撻", en: "Coconut Tart", cn: "椰挞" },
+    eggyolk: { zh: "蛋黃酥", en: "Egg Yolk Pastry", cn: "蛋黄酥" },
+    centuryegg: { zh: "皮蛋酥", en: "Century Egg Pastry", cn: "皮蛋酥" },
+    taro: { zh: "芋頭酥", en: "Taro Pastry", cn: "芋头酥" },
+    bridecake: { zh: "嫁女餅", en: "Bridal Cake", cn: "嫁女饼" },
+    dragonphoenix: { zh: "龍鳳餅", en: "Dragon & Phoenix Cake", cn: "龙凤饼" },
+    mungbean: { zh: "綠豆糕", en: "Mung Bean Cake", cn: "绿豆糕" },
+    mochi: { zh: "綠茶紅豆糯米糍", en: "Green Tea Red Bean Mochi", cn: "绿茶红豆糯米糍" },
+    charsiu: { zh: "叉燒酥", en: "BBQ Pork Puff", cn: "叉烧酥" },
+    walnut: { zh: "核桃酥", en: "Walnut Cookie", cn: "核桃酥" },
+    chickenpie: { zh: "雞批", en: "Chicken Pie", cn: "鸡批" },
+    blackforest: { zh: "黑森林蛋糕", en: "Black Forest Cake", cn: "黑森林蛋糕" },
+    mango: { zh: "芒果慕斯蛋糕", en: "Mango Mousse Cake", cn: "芒果慕斯蛋糕" },
+    almond: { zh: "杏仁條", en: "Almond Stick", cn: "杏仁条" },
+    creambun: { zh: "奶油麵包", en: "Cream Bun", cn: "奶油面包" },
+    mooncake: { zh: "蓮蓉蛋黃月餅", en: "Lotus & Egg Yolk Mooncake", cn: "莲蓉蛋黄月饼" },
+    shrimpchip: { zh: "蝦片", en: "Prawn Cracker", cn: "虾片" },
+    cnybox: { zh: "賀年全盒", en: "New Year Candy Box", cn: "贺年全盒" },
+    porttart: { zh: "葡式蛋撻", en: "Portuguese Egg Tart", cn: "葡式蛋挞" },
+    nougat: { zh: "鹹蛋黃肉鬆牛軋糖", en: "Salted Yolk Pork Floss Nougat", cn: "咸蛋黄肉松牛轧糖" },
+    datepastry: { zh: "蛋黃棗泥酥", en: "Date & Egg Yolk Pastry", cn: "蛋黄枣泥酥" },
+    blacksesamepastry: { zh: "黑芝麻酥", en: "Black Sesame Pastry", cn: "黑芝麻酥" },
+    blacksesamemochi: { zh: "黑芝麻糯米糍", en: "Black Sesame Mochi", cn: "黑芝麻糯米糍" },
+    pumpkintuile: { zh: "南瓜子薄脆", en: "Pumpkin Seed Tuile", cn: "南瓜子薄脆" },
+    cheesehotdog: { zh: "芝士熱狗包", en: "Cheese Hot Dog Bun", cn: "芝士热狗包" },
+    pistachiohorn: { zh: "開心果奶油號角", en: "Pistachio Cream Horn", cn: "开心果奶油号角" },
+    radishcake: { zh: "蘿蔔糕", en: "Turnip Cake", cn: "萝卜糕" },
+    tarocake: { zh: "芋頭臘腸糕", en: "Taro & Sausage Cake", cn: "芋头腊肠糕" },
+    ricecake: { zh: "椰汁黃糖年糕", en: "Coconut Brown Sugar Nian Gao", cn: "椰汁黄糖年糕" },
+    chestnut: { zh: "栗子蛋糕", en: "Chestnut Cake", cn: "栗子蛋糕" },
+    toastbite: { zh: "咬一口吐司", en: "Bitten Toast", cn: "咬一口吐司" },
+    croissant: { zh: "牛角包", en: "Croissant", cn: "牛角包" },
+    baguette: { zh: "法棍", en: "Baguette", cn: "法棍" },
+    loaf: { zh: "山形吐司", en: "Loaf", cn: "山形吐司" },
+    bagel: { zh: "貝果", en: "Bagel", cn: "贝果" },
+    pretzel: { zh: "椒鹽卷餅", en: "Pretzel", cn: "椒盐卷饼" },
+    cinnamonroll: { zh: "肉桂卷", en: "Cinnamon Roll", cn: "肉桂卷" },
+    strawberrycake: { zh: "草莓蛋糕", en: "Strawberry Cake", cn: "草莓蛋糕" },
+    cupcake: { zh: "紙杯蛋糕", en: "Cupcake", cn: "纸杯蛋糕" },
+    donut: { zh: "甜甜圈", en: "Donut", cn: "甜甜圈" },
+    tiramisu: { zh: "提拉米蘇", en: "Tiramisu", cn: "提拉米苏" },
+    madeleine: { zh: "瑪德蓮", en: "Madeleine", cn: "玛德琳" },
+  };
+
+  /* Collection themes: one sketchbook (SPRITES), several lists. A team picks one.
+   *   mascot    one of its rotation's keys, drawn in the header, the intro and the icons
+   *   rotation  the public demo's order; a theme's card draws its first three
+   *   limited   collectible only in the self-hosted app
+   *   version   raise it by one when the theme's keys change
+   * A theme's keys (themes/<id>.json) are rotation followed by limited. Once released, a
+   * key stays in its theme for good (docs/THEMES.md). label is the theme's name and card
+   * the line under its card; {count} is filled in from the number of keys, never typed. */
+  const THEMES = {
+    default: {
+      mascot: "laopo",
+      rotation: CYCLE,
+      limited: LIMITED,
+      version: 1,
+      label: { en: "Pastry shop", "zh-CN": "饼店" },
+      card: { en: "Pastry shop · {count} pastries", "zh-CN": "饼店 · {count} 款点心" },
+    },
+    bakery: {
+      mascot: "toastbite",
+      rotation: ["toastbite", "croissant", "bolo", "strawberrycake", "baguette", "gaimei", "cupcake", "loaf", "caketriangle", "bagel", "sausage", "donut", "cinnamonroll", "swissroll", "pretzel", "creambun", "tiramisu", "boloyau", "madeleine", "blackforest", "cheesehotdog", "mango", "papercake", "chestnut"],
+      limited: [],
+      version: 1,
+      label: { en: "Bakery", "zh-CN": "面包店" },
+      card: { en: "Bakery · {count} breads and cakes", "zh-CN": "面包店 · {count} 款面包和蛋糕" },
+    },
   };
 
   const DIGITS = {
@@ -771,13 +992,20 @@ const Pixel = (function () {
 
   const drawNumber = (canvas, text, pixelSize, color) => drawText(canvas, text, pixelSize, color, DIGITS);
 
-  /* Each person's collection starts at a different point in the rotation, so the
-   * same balance looks different on different phones. Variety, not uniqueness. */
-  function forSlot(seed, index) {
+  /* Each person's collection starts at a different point in the theme's rotation, so the
+   * same balance looks different on different phones. Variety, not uniqueness.
+   * Without a theme it is Pastry shop's, exactly as before themes existed. */
+  function forSlot(seed, index, themeId = 'default') {
+    const rotation = THEMES[themeId].rotation;
     let sum = 0;
     for (let i = 0; i < seed.length; i += 1) sum += seed.charCodeAt(i);
-    return CYCLE[(index + sum) % CYCLE.length];
+    return rotation[(index + sum) % rotation.length];
   }
 
-  return { SPRITES, CYCLE, LIMITED, NAMES, DIGITS, LETTERS, offset, drawSprite, drawText, drawNumber, forSlot };
+  /* A theme's collectibles in list-file order: its rotation, then its app-only ones. */
+  function themeKeys(themeId) {
+    return THEMES[themeId].rotation.concat(THEMES[themeId].limited);
+  }
+
+  return { SPRITES, CYCLE, LIMITED, NAMES, THEMES, DIGITS, LETTERS, offset, drawSprite, drawText, drawNumber, forSlot, themeKeys };
 })();

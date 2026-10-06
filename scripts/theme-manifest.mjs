@@ -1,13 +1,14 @@
-/* Builds themes/default.json — the list of collectible sprites the server
- * unlocks — from the sprite table in assets/sprites.js.
+/* Builds one list file per collection theme, themes/<id>.json (the collectibles the
+ * server unlocks for a team on that theme), from the THEMES table in assets/sprites.js.
+ * This script holds no theme data of its own: it checks the rules every theme keeps.
  *
- *   node scripts/theme-manifest.mjs           write themes/default.json
- *   node scripts/theme-manifest.mjs --check   fail if the committed file is stale
+ *   node scripts/theme-manifest.mjs           write every themes/<id>.json, remove stale ones
+ *   node scripts/theme-manifest.mjs --check   fail if a list file is out of date, missing or stale
  *
- * The keys in the manifest are stored in members' collections forever, so a
- * key may be added but never removed, renamed or reused (docs/THEMES.md). */
+ * The keys in a list are stored in members' collections forever, so a key may be added to
+ * a theme but never removed from it, renamed or reused (docs/THEMES.md). */
 
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
@@ -15,32 +16,22 @@ import vm from 'node:vm';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SPRITES_PATH = join(root, 'assets', 'sprites.js');
-const MANIFEST_PATH = join(root, 'themes', 'default.json');
+const THEMES_DIR = join(root, 'themes');
 
-export const THEME_ID = 'default';
-export const THEME_VERSION = 1;
 const GRID = 12;
-
-/* sprites.js carries Traditional Chinese names; the zh-CN interface shows these. */
-const SIMPLIFIED = {
-  laopo: '老婆饼', tart: '蛋挞', bolo: '菠萝包', gaimei: '鸡尾包', sausage: '肠仔包',
-  caketriangle: '三角蛋糕', papercake: '纸包蛋糕', swissroll: '瑞士卷', boloyau: '菠萝油',
-  coconuttart: '椰挞', eggyolk: '蛋黄酥', centuryegg: '皮蛋酥', taro: '芋头酥', bridecake: '嫁女饼',
-  dragonphoenix: '龙凤饼', mungbean: '绿豆糕', mochi: '绿茶红豆糯米糍', charsiu: '叉烧酥',
-  walnut: '核桃酥', chickenpie: '鸡批', blackforest: '黑森林蛋糕', mango: '芒果慕斯蛋糕',
-  almond: '杏仁条', creambun: '奶油面包', mooncake: '莲蓉蛋黄月饼', shrimpchip: '虾片',
-  cnybox: '贺年全盒', porttart: '葡式蛋挞', nougat: '咸蛋黄肉松牛轧糖', datepastry: '蛋黄枣泥酥',
-  blacksesamepastry: '黑芝麻酥', blacksesamemochi: '黑芝麻糯米糍', pumpkintuile: '南瓜子薄脆',
-  cheesehotdog: '芝士热狗包', pistachiohorn: '开心果奶油号角', radishcake: '萝卜糕',
-  tarocake: '芋头腊肠糕', ricecake: '椰汁黄糖年糕', chestnut: '栗子蛋糕',
-};
+/* Sprite keys and theme ids alike: they end up in members' rows, file names and URLs. */
+const ID = /^[a-z][a-z0-9]{1,31}$/;
+/* The languages a theme's name and card text come in. */
+const LOCALES = ['en', 'zh-CN'];
 
 function fail(message) {
   throw new Error(`assets/sprites.js: ${message}`);
 }
 
+const hasText = value => typeof value === 'string' && value.trim() !== '';
+
 function checkSprite(key, sprite) {
-  if (!/^[a-z][a-z0-9]{1,31}$/.test(key)) fail(`key "${key}" must be lowercase letters and digits`);
+  if (!ID.test(key)) fail(`key "${key}" must be 2 to 32 lowercase letters and digits, starting with a letter`);
   if (!sprite || typeof sprite.palette !== 'object' || !Array.isArray(sprite.rows)) fail(`${key} needs a palette and rows`);
   for (const [symbol, colour] of Object.entries(sprite.palette)) {
     if (symbol.length !== 1 || symbol === '.') fail(`${key} palette symbol "${symbol}" must be one character other than "."`);
@@ -59,38 +50,120 @@ function checkSprite(key, sprite) {
   if (painted === 0) fail(`${key} has no painted cells`);
 }
 
-/** Evaluates the sprite table in an empty context and returns the manifest object. */
-export function buildManifest(source) {
+/** The sprite table (Pixel), evaluated in an empty context: sprites.js touches no browser API
+ * at load time. scripts/make-icons.mjs reads it through here too. */
+export function evaluateSprites(source) {
   const Pixel = vm.runInNewContext(`${source}\n;Pixel`, Object.create(null), { timeout: 1000 });
-  const keys = [...Pixel.CYCLE, ...Pixel.LIMITED];
-  if (new Set(keys).size !== keys.length) fail('CYCLE and LIMITED repeat a key');
-  const drawn = Object.keys(Pixel.SPRITES).sort();
-  if (JSON.stringify([...keys].sort()) !== JSON.stringify(drawn)) fail('every sprite must be in CYCLE or LIMITED, exactly once');
+  if (!Pixel || typeof Pixel.THEMES !== 'object' || Pixel.THEMES === null) fail('THEMES is missing');
+  return Pixel;
+}
+
+/* One theme's list file, after every rule that concerns that theme alone. Everything
+ * returned is built here, outside the evaluated table, so it compares equal to parsed JSON. */
+function manifestOf(Pixel, themeId) {
+  if (!Object.hasOwn(Pixel.THEMES, themeId)) fail(`no theme "${themeId}" in THEMES`);
+  if (!ID.test(themeId)) fail(`theme id "${themeId}" must be 2 to 32 lowercase letters and digits, starting with a letter`);
+  const where = `THEMES.${themeId}`;
+  // A missing entry has no lists, so the first check below names it.
+  const { mascot, rotation, limited, version, label, card } = Pixel.THEMES[themeId] ?? {};
+  if (!Array.isArray(rotation) || !Array.isArray(limited)) fail(`${where}.rotation and .limited must be lists of keys`);
+  for (const list of [rotation, limited]) {
+    const seen = new Set();
+    for (const key of list) {
+      if (seen.has(key)) fail(`${where} repeats the key "${key}"`);
+      seen.add(key);
+    }
+  }
+  for (const key of limited) if (rotation.includes(key)) fail(`${where} has "${key}" in both rotation and limited`);
+  if (!rotation.includes(mascot)) fail(`${where}.mascot "${mascot}" must be in its rotation`);
+  if (!Number.isInteger(version) || version < 1) fail(`${where}.version must be a positive whole number`);
+  for (const [field, texts] of [['label', label], ['card', card]]) {
+    for (const locale of LOCALES) if (!hasText(texts?.[locale])) fail(`${where}.${field} needs "${locale}" text`);
+  }
+  for (const locale of LOCALES) {
+    if (!card[locale].includes('{count}')) fail(`${where}.card.${locale} must contain {count}`);
+    if (/\p{Nd}/u.test(card[locale])) fail(`${where}.card.${locale} must not type a number: {count} is filled in from the list`);
+  }
+  const keys = [...rotation, ...limited];
   const names = {};
   for (const key of keys) {
+    if (typeof key !== 'string' || !Object.hasOwn(Pixel.SPRITES, key)) fail(`"${key}" in ${where} is not drawn in SPRITES`);
     checkSprite(key, Pixel.SPRITES[key]);
-    const name = Pixel.NAMES[key];
-    if (!name?.en || !name?.zh) fail(`${key} needs an English and a Chinese name`);
-    if (!SIMPLIFIED[key]) fail(`${key} needs a Simplified Chinese name in scripts/theme-manifest.mjs`);
-    names[key] = { en: name.en, 'zh-Hant': name.zh, 'zh-CN': SIMPLIFIED[key] };
+    const name = Object.hasOwn(Pixel.NAMES, key) ? Pixel.NAMES[key] : undefined;
+    if (!hasText(name?.en) || !hasText(name?.zh) || !hasText(name?.cn)) {
+      fail(`${key} needs English (en), Traditional (zh) and Simplified (cn) names in NAMES`);
+    }
+    names[key] = { en: name.en, 'zh-Hant': name.zh, 'zh-CN': name.cn };
   }
-  return { themeId: THEME_ID, version: THEME_VERSION, source: 'assets/sprites.js', keys, names };
+  return { themeId, version, source: 'assets/sprites.js', mascot, keys, names };
+}
+
+/** The list file of one theme. Throws on any rule that theme breaks. */
+export function buildManifest(source, themeId) {
+  return manifestOf(evaluateSprites(source), themeId);
+}
+
+/** Every theme's list file, keyed by theme id, once every drawing belongs to a theme. */
+export function buildAll(source) {
+  const Pixel = evaluateSprites(source);
+  const manifests = {};
+  for (const themeId of Object.keys(Pixel.THEMES)) manifests[themeId] = manifestOf(Pixel, themeId);
+  const listed = new Set(Object.values(manifests).flatMap(manifest => manifest.keys));
+  for (const key of Object.keys(Pixel.SPRITES)) {
+    if (!listed.has(key)) fail(`${key} is drawn but is in no theme's rotation or limited`);
+  }
+  return manifests;
 }
 
 function main(args) {
-  const manifest = buildManifest(readFileSync(SPRITES_PATH, 'utf8'));
+  const manifests = buildAll(readFileSync(SPRITES_PATH, 'utf8'));
+  const wanted = new Set(Object.keys(manifests).map(themeId => `${themeId}.json`));
+  const stale = existsSync(THEMES_DIR)
+    ? readdirSync(THEMES_DIR).filter(name => name.endsWith('.json') && !wanted.has(name)).sort()
+    : [];
+
   if (args.includes('--check')) {
-    const committed = JSON.parse(readFileSync(MANIFEST_PATH, 'utf8'));
-    if (!isDeepStrictEqual(committed, manifest)) {
-      console.error('themes/default.json does not match assets/sprites.js. Run: node scripts/theme-manifest.mjs');
-      process.exit(1);
+    const problems = [];
+    for (const [themeId, manifest] of Object.entries(manifests)) {
+      const path = join(THEMES_DIR, `${themeId}.json`);
+      if (!existsSync(path)) {
+        problems.push(`themes/${themeId}.json is missing`);
+        continue;
+      }
+      let committed;
+      try {
+        committed = JSON.parse(readFileSync(path, 'utf8'));
+      } catch {
+        problems.push(`themes/${themeId}.json is not valid JSON`);
+        continue;
+      }
+      if (isDeepStrictEqual(committed, manifest)) continue;
+      const dropped = (Array.isArray(committed?.keys) ? committed.keys : []).filter(key => !manifest.keys.includes(key));
+      problems.push(`themes/${themeId}.json does not match assets/sprites.js`
+        + (dropped.length ? `, which drops ${dropped.join(', ')}: a released key must never leave its theme` : ''));
     }
-    for (const key of committed.keys) if (!manifest.keys.includes(key)) fail(`key "${key}" was removed`);
-    console.log(`themes/default.json is current (${manifest.keys.length} sprites).`);
+    for (const name of stale) problems.push(`themes/${name} belongs to no theme in assets/sprites.js`);
+    if (problems.length) {
+      for (const problem of problems) console.error(problem);
+      console.error('Run: node scripts/theme-manifest.mjs');
+      process.exitCode = 1;
+      return;
+    }
+    for (const [themeId, manifest] of Object.entries(manifests)) {
+      console.log(`themes/${themeId}.json is current (${manifest.keys.length} collectibles).`);
+    }
     return;
   }
-  writeFileSync(MANIFEST_PATH, `${JSON.stringify(manifest, null, 2)}\n`);
-  console.log(`wrote themes/default.json — ${manifest.keys.length} sprites`);
+
+  mkdirSync(THEMES_DIR, { recursive: true });
+  for (const [themeId, manifest] of Object.entries(manifests)) {
+    writeFileSync(join(THEMES_DIR, `${themeId}.json`), `${JSON.stringify(manifest, null, 2)}\n`);
+    console.log(`wrote themes/${themeId}.json — ${manifest.keys.length} collectibles`);
+  }
+  for (const name of stale) {
+    rmSync(join(THEMES_DIR, name));
+    console.log(`removed themes/${name} — no theme in assets/sprites.js has that id`);
+  }
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) main(process.argv.slice(2));

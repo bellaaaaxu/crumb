@@ -2,6 +2,12 @@
  *
  *   node scripts/screenshots.mjs                 writes assets/screenshots/member.png, admin.png and spend.png
  *   node scripts/screenshots.mjs --all --out DIR also captures every page, for review
+ *   node scripts/screenshots.mjs --theme bakery --all --out DIR
+ *                                                the same, for the team on the Bakery collection theme.
+ *                                                The README stays on Pastry shop: without --out, another
+ *                                                theme's pictures go to a new crumb-screenshots-<theme>-*
+ *                                                folder in the temporary folder, never to assets/screenshots;
+ *                                                each "wrote" line names it.
  *
  * It starts a throwaway Crumb on a random port with a temporary database,
  * fills it with the invented team from sample-team.mjs, and photographs it in
@@ -12,24 +18,35 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { parseArgs } from 'node:util';
 import { randomBytes } from 'node:crypto';
 import { chromium } from '@playwright/test';
 import { openDatabase } from '../server/db.mjs';
 import { createApp } from '../server/app.mjs';
-import { DAY, seedSampleTeam } from './sample-team.mjs';
+import { DEFAULT_THEME, THEME_IDS } from '../server/themes.mjs';
+import { DAY, THEME_OPTION_HINT, seedSampleTeam } from './sample-team.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const args = process.argv.slice(2);
-const outIndex = args.indexOf('--out');
-const outDir = resolve(outIndex >= 0 ? args[outIndex + 1] : join(root, 'assets', 'screenshots'));
-const captureAll = args.includes('--all');
 const PASSWORD = 'sample-password-for-screenshots';
 // A large phone: the member page is made for one, and this is wide enough to read in the README.
 const PHONE = { viewport: { width: 430, height: 932 }, deviceScaleFactor: 2 };
 const DESK = { viewport: { width: 1200, height: 800 }, deviceScaleFactor: 2 };
 
-async function main() {
+/* The folder the pictures go to: --out as given, made if it is not there, or the README's for
+ * Pastry shop. The README shows Pastry shop: another theme's pictures never land in its folder
+ * by default, but in a new folder in the temporary directory, crumb-screenshots-<theme>-
+ * and six random characters, made here and nowhere else. A fixed name there could be a folder
+ * someone else on the machine made first (a shared /tmp), holding links that would make the
+ * pictures overwrite files of whoever runs this, or pictures swapped before anyone looks. */
+export function outputFolder(theme, out) {
+  if (out === undefined && theme !== DEFAULT_THEME) return mkdtempSync(join(tmpdir(), `crumb-screenshots-${theme}-`));
+  const dir = resolve(out ?? join(root, 'assets', 'screenshots'));
+  mkdirSync(dir, { recursive: true });
+  return dir;
+}
+
+async function main({ theme, out, all: captureAll }) {
   const dir = mkdtempSync(join(tmpdir(), 'crumb-shots-'));
   const setupToken = randomBytes(32).toString('base64url');
   writeFileSync(join(dir, 'setup-token'), setupToken);
@@ -46,9 +63,9 @@ async function main() {
 
   const browser = await chromium.launch();
   try {
-    const { owner, people } = await seedSampleTeam({ origin, setupToken, password: PASSWORD, time });
+    const { owner, people } = await seedSampleTeam({ origin, setupToken, password: PASSWORD, time, theme });
 
-    mkdirSync(outDir, { recursive: true });
+    const outDir = outputFolder(theme, out);
     // The signed-in person's name in the header opens their menu; it is there once a page is.
     const nameMenu = page => page.getByRole('button', { name: /^Menu for / });
     const signIn = async (context, username) => {
@@ -156,7 +173,18 @@ async function main() {
   }
 }
 
-main().catch(error => {
-  console.error(error);
-  process.exit(1);
-});
+if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
+  // The same option parser as demo.mjs: --theme bakery and --theme=bakery both work, and an
+  // unknown option is refused.
+  const { values } = parseArgs({ options: {
+    theme: { type: 'string', default: DEFAULT_THEME }, out: { type: 'string' }, all: { type: 'boolean', default: false },
+  } });
+  if (!THEME_IDS.includes(values.theme)) {
+    console.error(THEME_OPTION_HINT);
+    process.exit(2);
+  }
+  main(values).catch(error => {
+    console.error(error);
+    process.exit(1);
+  });
+}

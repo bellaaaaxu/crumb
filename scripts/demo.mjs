@@ -1,10 +1,11 @@
 /* A look around Crumb without deploying it: a throwaway copy on this computer with the
- * invented "Corner Café (sample team)", in English.
+ * invented "Corner Café (sample team)", in English, on the Pastry shop collection theme.
  *
  *   npm run demo                          at http://localhost:3000
  *   npm run demo -- --port 4000
  *   npm run demo -- --lan 192.168.1.20    also open to phones on the same network (use this
  *                                         computer's address), so its QR codes can be scanned
+ *   npm run demo -- --theme bakery        the same team on the Bakery collection theme
  *
  * Everything lives in a temporary folder, deleted when you stop the demo with Ctrl+C. */
 
@@ -16,9 +17,12 @@ import { parseArgs } from 'node:util';
 import { randomBytes } from 'node:crypto';
 import { openDatabase } from '../server/db.mjs';
 import { createApp } from '../server/app.mjs';
-import { DAY, seedSampleTeam } from './sample-team.mjs';
+import { DEFAULT_THEME, THEME_IDS } from '../server/themes.mjs';
+import { DAY, THEME_OPTION_HINT, seedSampleTeam } from './sample-team.mjs';
 
-const { values } = parseArgs({ options: { port: { type: 'string', default: '3000' }, lan: { type: 'string' } } });
+const { values } = parseArgs({ options: {
+  port: { type: 'string', default: '3000' }, lan: { type: 'string' }, theme: { type: 'string', default: DEFAULT_THEME },
+} });
 const port = Number(values.port);
 if (!Number.isInteger(port) || port < 0 || port > 65535) {
   console.error('Use --port with a number from 0 to 65535.');
@@ -26,6 +30,10 @@ if (!Number.isInteger(port) || port < 0 || port > 65535) {
 }
 if (values.lan !== undefined && !/^[A-Za-z0-9.-]+$/.test(values.lan)) {
   console.error('Use --lan with this computer\'s address on the network, such as 192.168.1.20.');
+  process.exit(2);
+}
+if (!THEME_IDS.includes(values.theme)) {
+  console.error(THEME_OPTION_HINT);
   process.exit(2);
 }
 
@@ -62,7 +70,7 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
   });
 }
 
-const { owner, people } = await seedSampleTeam({ origin, direct: `http://127.0.0.1:${actualPort}`, setupToken, password, time });
+const { owner, people } = await seedSampleTeam({ origin, direct: `http://127.0.0.1:${actualPort}`, setupToken, password, time, theme: values.theme });
 time.live = true;
 const { signinUrl } = await owner.send('POST', `/api/admin/members/${people.mina.id}/signin-link`);
 

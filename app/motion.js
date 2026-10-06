@@ -2,7 +2,7 @@
  * person has asked for less motion, and none of them changes what the page says. */
 
 import { el } from './dom.js';
-import { spriteCanvas } from './pixels.js';
+import { outlineColour, spriteCanvas } from './pixels.js';
 
 export const reducedMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
 
@@ -42,18 +42,20 @@ function spawn(x, y, count, color, size, opts) {
   }
 }
 
-/* Crumbs falling from a point on screen, for the mascot. */
-export function crumbs(x, y, count = 9) {
-  spawn(x, y, count, '#5C3A1D', 5, { from: Math.PI * 0.15, arc: Math.PI * 0.7, distance: 46, gravity: 70, duration: 650 });
+/* Crumbs falling from a point on screen, for the mascot, in the colour given: the outline
+ * colour of the mascot's drawing, so they look as if they came off it. A missing colour is
+ * outlineColour()'s fallback, so they never come out with no colour, and so unseen. */
+export function crumbs(x, y, color = outlineColour(), count = 9) {
+  spawn(x, y, count, color, 5, { from: Math.PI * 0.15, arc: Math.PI * 0.7, distance: 46, gravity: 70, duration: 650 });
 }
 
-/* Shakes the mascot and spills crumbs from it. */
-export function crackMascot(button) {
+/* Shakes the mascot and spills crumbs from it. `spriteKey` is the drawing on the button. */
+export function crackMascot(button, spriteKey) {
   button.classList.remove('crack');
   void button.offsetWidth; // restart the animation when tapped again quickly
   button.classList.add('crack');
   const box = button.getBoundingClientRect();
-  crumbs(box.left + box.width / 2, box.top + box.height / 2);
+  crumbs(box.left + box.width / 2, box.top + box.height / 2, outlineColour(spriteKey));
 }
 
 /* ---------------------------------------------------------------- the rolling number */
@@ -150,9 +152,10 @@ let introShown = false;
 
 /**
  * "Today's treats are out of the oven": under a second, once per page load, a tap skips it.
- * Resolves when it has left, so the page can start the tile's entrance after it.
+ * `mascot` is the sprite key of the team's mascot. Resolves when it has left, so the page can
+ * start the tile's entrance after it.
  */
-export function ovenIntro({ title, skip }) {
+export function ovenIntro({ title, skip, mascot }) {
   if (introShown || reducedMotion()) {
     introShown = true;
     return Promise.resolve();
@@ -160,7 +163,7 @@ export function ovenIntro({ title, skip }) {
   introShown = true;
   return new Promise(resolve => {
     const node = el('div', { attrs: { class: 'oven', role: 'presentation' } }, [
-      spriteCanvas('laopo', 8),
+      spriteCanvas(mascot, 8),
       el('p', { text: title, attrs: { class: 'oven-text' } }),
       el('p', { text: skip, attrs: { class: 'oven-sub' } }),
     ]);

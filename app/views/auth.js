@@ -4,20 +4,28 @@
 
 import { request, setCsrf, wasRefused } from '../api.js';
 import { button, el, field, formError, inWeChat, openedAsIPhoneHomeScreenApp, radios, toast, uid } from '../dom.js';
-import { LANGUAGES, getLocale, t } from '../i18n.js';
+import { LANGUAGES, getLocale, t, themed } from '../i18n.js';
 import { amountToUnits } from '../format.js';
-import { pixelWord, spriteCanvas } from '../pixels.js';
-import { loading } from './shared.js';
+import { mascotKey, pixelWord, spriteCanvas } from '../pixels.js';
+import { loading, themeCards } from './shared.js';
 
 const USERNAME = /^[a-z0-9._-]{3,64}$/;
 const CURRENCIES = ['CAD', 'USD', 'CNY'];
 const passwordLength = value => [...value].length;
 
+/* A theme's mascot for the brand at the top of the card; Setup swaps it by its class. */
+function brandMascot(themeId) {
+  const node = spriteCanvas(mascotKey(themeId), 4);
+  node.classList.add('auth-mascot');
+  return node;
+}
+
 function frame(ctx, title, children) {
   const org = ctx.session.org;
   return el('main', { attrs: { id: 'main', class: 'auth', tabindex: '-1' } }, [
     el('div', { attrs: { class: 'auth-card' } }, [
-      el('div', { attrs: { class: 'auth-brand' } }, [spriteCanvas('laopo', 4), pixelWord('CRUMB', 5, '#4a2f1b')]),
+      // The team's mascot. Before setup there is no team yet, and Pastry shop's is drawn.
+      el('div', { attrs: { class: 'auth-brand' } }, [brandMascot(org?.theme), pixelWord('CRUMB', 5, '#4a2f1b')]),
       org?.hasLogo ? el('img', { attrs: { src: '/api/org/logo', alt: t('auth.logoAlt', { name: org.name }), class: 'auth-logo' } }) : null,
       el('h1', { text: title }),
       ...children,
@@ -246,7 +254,12 @@ function setup(root, ctx) {
     options: CURRENCIES.map(value => ({ value, label: t(`currency.${value}`) })),
   });
   const unitLabel = field({ label: t('setup.unitLabel'), name: 'unitLabel', hint: t('setup.unitLabelHint'), value: t('setup.creditLabel'), attrs: { maxlength: 24 } });
-  const threshold = field({ label: t('setup.threshold'), name: 'threshold', hint: t('setup.thresholdCredit'), value: '50.00', attrs: { inputmode: 'decimal' } });
+  // Pastry shop unless another card is chosen; Settings can change it until the first treat.
+  // The unlock-step hint and the mascot at the top of the page follow the chosen card.
+  const theme = themeCards('default');
+  // Each key is themed()'s first argument: tests/i18n.test.mjs counts them there.
+  const thresholdHint = () => (mode.value === 'credit' ? themed('setup.thresholdCredit', theme.value) : themed('setup.thresholdPoints', theme.value));
+  const threshold = field({ label: t('setup.threshold'), name: 'threshold', hint: thresholdHint(), value: '50.00', attrs: { inputmode: 'decimal' } });
   const welcome = field({ label: t('settings.welcome'), name: 'welcome', multiline: true, hint: t('settings.welcomeHint'), attrs: { maxlength: 500 } });
   const displayName = field({ label: t('setup.yourName'), name: 'displayName', attrs: { autocomplete: 'name', maxlength: 80 } });
   const username = field({
@@ -263,15 +276,21 @@ function setup(root, ctx) {
   let thresholdEdited = false;
   unitLabel.control.addEventListener('input', () => { labelEdited = true; });
   threshold.control.addEventListener('input', () => { thresholdEdited = true; });
+  const showHint = () => { threshold.wrapper.querySelector('.field-hint').textContent = thresholdHint(); };
   const applyMode = () => {
     const credit = mode.value === 'credit';
     currency.wrapper.hidden = !credit;
     if (!labelEdited) unitLabel.control.value = t(credit ? 'setup.creditLabel' : 'setup.pointsLabel');
     if (!thresholdEdited) threshold.control.value = credit ? '50.00' : '100';
     threshold.control.setAttribute('inputmode', credit ? 'decimal' : 'numeric');
-    threshold.wrapper.querySelector('.field-hint').textContent = t(credit ? 'setup.thresholdCredit' : 'setup.thresholdPoints');
+    showHint();
   };
   for (const input of mode.inputs) input.addEventListener('change', applyMode);
+  const applyTheme = () => {
+    showHint();
+    root.querySelector('.auth-brand .auth-mascot')?.replaceWith(brandMascot(theme.value));
+  };
+  for (const input of theme.inputs) input.addEventListener('change', applyTheme);
 
   const fields = [code, orgName, unitLabel, threshold, displayName, username, password, confirm];
   const form = el('form', {
@@ -306,6 +325,8 @@ function setup(root, ctx) {
           spending: spending.value,
         };
         if (chosenMode === 'credit') org.currency = currency.control.value;
+        // No card to choose (the pixel table did not load): the server's default theme.
+        if (theme.value) org.theme = theme.value;
         try {
           const result = await request('/api/setup', {
             method: 'POST',
@@ -329,7 +350,8 @@ function setup(root, ctx) {
     el('fieldset', { attrs: { class: 'group' } }, [el('legend', { text: t('setup.codeGroup') }), code.wrapper]),
     el('fieldset', { attrs: { class: 'group' } }, [
       el('legend', { text: t('setup.orgGroup') }),
-      orgName.wrapper, language.wrapper, mode.fieldset, currency.wrapper, unitLabel.wrapper, threshold.wrapper, spending.fieldset, welcome.wrapper,
+      orgName.wrapper, language.wrapper, mode.fieldset, currency.wrapper, unitLabel.wrapper, threshold.wrapper, theme.fieldset,
+      spending.fieldset, welcome.wrapper,
     ]),
     el('fieldset', { attrs: { class: 'group' } }, [
       el('legend', { text: t('setup.ownerGroup') }),

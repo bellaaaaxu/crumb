@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import Database from 'better-sqlite3';
 import { openDatabase, schemaVersionOf, SCHEMA_VERSION } from '../server/db.mjs';
+import { unknownThemeError } from '../server/themes.mjs';
 import { fixture } from './helpers.mjs';
 
 const now = () => new Date().toISOString();
@@ -208,6 +209,8 @@ test('migration 002 carries a version 1 database across intact', t => {
     assertLedgerCarried(db, before);
     assert.equal(db.prepare('SELECT grant_id FROM collection_unlocks WHERE user_id = ?').get(member).grant_id, grantId);
     assert.equal(db.prepare('SELECT spending FROM organization').get().spending, 'self');
+    // 0.1 goes straight to the latest schema: 003 runs in the same update, and the team is on the default theme.
+    assert.equal(db.prepare('SELECT theme FROM organization').get().theme, 'default');
     const names = db.prepare(`SELECT name FROM sqlite_master WHERE tbl_name = 'ledger' AND type IN ('index', 'trigger') AND name NOT LIKE 'sqlite_autoindex_%' ORDER BY name`).all().map(row => row.name);
     assert.deepEqual(names, ['ledger_by_batch', 'ledger_by_time', 'ledger_by_user', 'ledger_no_delete', 'ledger_no_update', 'ledger_one_correction']);
     // The widened constraint accepts the new kinds and still refuses the wrong sign.
@@ -271,11 +274,97 @@ test('an update that would leave a reference to a missing row changes nothing', 
     assert.equal(schemaVersionOf(after), 1);
     assert.equal(after.prepare(`SELECT count(*) AS n FROM sqlite_master WHERE name = 'ledger_v2'`).get().n, 0);
     assert.equal(after.prepare(`SELECT count(*) AS n FROM pragma_table_info('organization') WHERE name = 'spending'`).get().n, 0);
+    // 002 and 003 run in one transaction, so 003's column went back with everything else.
+    assert.equal(after.prepare(`SELECT count(*) AS n FROM pragma_table_info('organization') WHERE name = 'theme'`).get().n, 0);
     assert.doesNotMatch(after.prepare(`SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'ledger'`).get().sql, /spend/);
     assert.deepEqual(ledgerRows(after), before);
     const triggers = after.prepare(`SELECT name FROM sqlite_master WHERE type = 'trigger' AND tbl_name = 'ledger' ORDER BY name`).all();
     assert.deepEqual(triggers.map(row => row.name), ['ledger_no_delete', 'ledger_no_update']);
   } finally {
     after.close();
+  }
+});
+
+/* A schema 2 database like one Crumb 0.2 leaves behind: the version 1 database above with
+ * 002-spending.sql applied the way server/db.mjs applies it (foreign keys off) and recorded
+ * as version 2, plus a benefit with an icon, so a column 002 added carries data too. */
+function version2Database(path) {
+  version1Database(path);
+  const raw = new Database(path);
+  raw.pragma('foreign_keys = OFF');
+  raw.exec(readFileSync(new URL('../server/migrations/002-spending.sql', import.meta.url), 'utf8'));
+  raw.prepare('INSERT INTO schema_migrations (version, applied_at) VALUES (2, ?)').run(now());
+  raw.prepare(`INSERT INTO rewards (id, name, description, cost_units, active, icon_key, created_at, updated_at)
+               VALUES (?, 'Coffee', '', 450, 1, 'tart', ?, ?)`).run(randomUUID(), now(), now());
+  raw.close();
+}
+
+/* Every row a team owns, in a fixed order, for before-and-after comparisons. */
+const teamRows = db => ({
+  organization: db.prepare('SELECT * FROM organization').all(),
+  users: db.prepare('SELECT * FROM users ORDER BY id').all(),
+  ledger: ledgerRows(db),
+  rewards: db.prepare('SELECT * FROM rewards ORDER BY id').all(),
+  unlocks: db.prepare('SELECT * FROM collection_unlocks ORDER BY user_id, ordinal').all(),
+});
+
+test('migration 003 puts a 0.2 team on the default theme and leaves its data as it was', t => {
+  const path = tempDatabasePath(t);
+  version2Database(path);
+  const raw = new Database(path);
+  const before = teamRows(raw);
+  raw.close();
+
+  const db = openDatabase(path);
+  try {
+    assert.equal(schemaVersionOf(db), SCHEMA_VERSION);
+    assert.deepEqual(db.pragma('foreign_key_check'), []);
+    const after = teamRows(db);
+    assert.deepEqual(after.organization.map(row => row.theme), ['default']);
+    assert.deepEqual(after.organization.map(({ theme: _theme, ...row }) => row), before.organization);
+    assert.deepEqual({ ...after, organization: [] }, { ...before, organization: [] });
+  } finally {
+    db.close();
+  }
+});
+
+test('a team theme is 2 to 32 characters; which themes exist is up to the theme list files', t => {
+  const { db } = fixture(t);
+  assert.equal(db.prepare('SELECT theme FROM organization').get().theme, 'default', 'a team set up without one is on the default');
+  const set = theme => db.prepare('UPDATE organization SET theme = ? WHERE id = 1').run(theme);
+  // Any well-formed id is stored, shipped or not: openDatabase and restoreDatabase refuse an unknown one.
+  for (const theme of ['ab', 'a'.repeat(32), 'cafe']) set(theme);
+  assert.throws(() => set('a'), /CHECK/);
+  assert.throws(() => set('a'.repeat(33)), /CHECK/);
+  assert.throws(() => set(null), /NOT NULL/);
+});
+
+// The refusal's wording is pinned once, in tests/themes.test.mjs.
+const UNKNOWN_THEME = unknownThemeError('cafe').message;
+
+test('a database whose team uses a theme this version does not include refuses to open', t => {
+  const { db, path } = fixture(t);
+  db.prepare(`UPDATE organization SET theme = 'cafe' WHERE id = 1`).run();
+  db.close();
+  assert.throws(() => openDatabase(path), { code: 'THEME_UNKNOWN', message: UNKNOWN_THEME });
+  // Refused, not repaired: the team still has the theme it came with.
+  const raw = new Database(path);
+  try {
+    assert.equal(raw.prepare('SELECT theme FROM organization').get().theme, 'cafe');
+  } finally {
+    raw.close();
+  }
+});
+
+test('a new database with no team yet opens, and opens again', t => {
+  const path = tempDatabasePath(t);
+  for (const round of ['created', 'reopened']) {
+    const db = openDatabase(path);
+    try {
+      assert.equal(schemaVersionOf(db), SCHEMA_VERSION, round);
+      assert.equal(db.prepare('SELECT count(*) AS n FROM organization').get().n, 0, round);
+    } finally {
+      db.close();
+    }
   }
 });

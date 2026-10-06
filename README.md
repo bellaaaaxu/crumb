@@ -93,16 +93,33 @@ Crumb is for a small shop that wants to download it, fill in a few settings and 
 bakery, a café, a bubble tea place, or any small team. No code needed.
 
 Settings do the rest: your name and logo, the language, what you call the credit ("Café
-credit", "stars"), credit or points, the currency, how much earns a pastry, a welcome line,
-how people spend (they jot it down themselves, or an admin confirms), a contact link and a
-feedback link.
+credit", "stars"), credit or points, the currency, the collection theme (Pastry shop or
+Bakery), how much earns the next item on the shelf, a welcome line, how people spend (they
+jot it down themselves, or an admin confirms), a contact link and a feedback link.
 
-Want different pastries? That's one file: [docs/THEMES.md](docs/THEMES.md).
+Want a different shelf? [docs/THEMES.md](docs/THEMES.md) shows how to add a theme: draw and
+list it in one file, run one command, register its new keys in the tests and, if you like,
+give it its own wording.
 
 Why "Crumb"? Eat the bread and the crumbs stay. Spend the credit and the shelf keeps what it
 earned.
 
-## What is in version 0.2
+## What is in version 0.3
+
+New in 0.3:
+
+- **Collection themes**: a team picks one at setup, and the pictures on everyone's shelf, the
+  mascot, the tab and home-screen icons and a few sentences about the collection follow it.
+  Two come with Crumb: the **Pastry shop** (39 pastries; its mascot is the wife cake) and the
+  **Bakery** (24 breads and cakes; its mascot is a bitten slice of toast). An owner can change
+  the theme in Settings until the first treat; after that it is fixed, like the unlock step.
+  Teams upgrading from 0.2 are on the Pastry shop, and their shelves stay as they were.
+- **The demo** switches between the two themes.
+
+Upgrading from 0.2 updates the database once, on the first start: read
+[Upgrading from 0.2 to 0.3](docs/OPERATIONS.md#upgrading-from-02-to-03) and back up first.
+From 0.1, read [Upgrading from 0.1 to 0.2](docs/OPERATIONS.md#upgrading-from-01-to-02) too:
+the first start of 0.3 makes both updates at once.
 
 New in 0.2:
 
@@ -123,9 +140,6 @@ New in 0.2:
   people ask for less.
 - **New words**: a *treat* is what 0.1 called recognition, throughout the app.
 
-Upgrading from 0.1 updates the database once, on the first start: read
-[Upgrading from 0.1 to 0.2](docs/OPERATIONS.md#upgrading-from-01-to-02) and back up first.
-
 Still there from 0.1:
 
 - **Treats** with an amount and an optional message, in **credit** (CAD, USD or CNY, exact
@@ -135,8 +149,9 @@ Still there from 0.1:
   confirmed request can be refunded once.
 - **Corrections that stay on the record**: an admin takes back a treat or refunds a benefit,
   always with a reason; the original stays in the log, marked.
-- **A permanent collection** of 39 pixel pastries, unlocked by treats received. Spending
-  never removes one, and neither does correcting a mistaken treat.
+- **A permanent collection**, unlocked by treats received: 39 pixel pastries on the Pastry
+  shop theme, 24 breads and cakes on the Bakery. Spending never removes one, and neither does
+  correcting a mistaken treat.
 - **Roles**: owner, admin and member. Team members sign in with a personal link — no
   password to remember — and their phone stays signed in for up to 180 days; a new link
   signs a lost phone out. Owners and admins use a password. Every link is shown to an admin
@@ -195,21 +210,21 @@ stand in for each other.
 
 ## Status and limits
 
-Crumb is **early — version 0.2**. The money rules, permissions, concurrency and recovery
+Crumb is **early — version 0.3**. The money rules, permissions, concurrency and recovery
 are covered by automated tests, and [docs/VALIDATION.md](docs/VALIDATION.md) records exactly
 what was tested, where, and what has not been verified yet. It has not had an independent
 security audit.
 
-One instance serves one organization. There is no email, no single sign-on, one collection
-theme (the pastries), and it runs as a single server. Use it for a team's perks with regular
-backups; do not use it for pay or anything tax-related.
+One instance serves one organization. There is no email, no single sign-on, only a choice of
+two collection themes (one per team), and it runs as a single server. Use it for a team's
+perks with regular backups; do not use it for pay or anything tax-related.
 
 ## Contributing and feedback
 
 Bug reports, usage stories and ideas are all welcome — [open an issue](https://github.com/bellaaaaxu/crumb/issues/new/choose)
 (it needs a GitHub account; please use invented names, never real people's data). To change
 code, docs, translations or pixel art, read [CONTRIBUTING.md](CONTRIBUTING.md); new
-collectibles follow [docs/THEMES.md](docs/THEMES.md).
+collectibles and themes follow [docs/THEMES.md](docs/THEMES.md).
 
 ## The demo
 
@@ -220,7 +235,8 @@ repository is the real thing, with accounts, roles, benefits and a shared ledger
 
 ## The art
 
-All 39 pastries live in the source as character grids, 12×12 each, in
+The Pastry shop's 39 pastries and the Bakery's 24 breads and cakes (51 drawings, as the two
+themes share 12) live in the source as character grids, 12×12 each, in
 [`assets/sprites.js`](assets/sprites.js) — no icon library, no pixel font, no image files.
 The demo, the app and the link-preview card all draw from that one table.
 
@@ -241,7 +257,7 @@ Node's test runner and Playwright; deployment uses Docker Compose and Caddy.
 ```
 server/     the API, the ledger and the rules, one module each
 app/        the self-hosted interface, English and Simplified Chinese
-themes/     the collectible set, generated from assets/sprites.js
+themes/     the collectible lists, one per theme, generated from assets/sprites.js
 scripts/    setup code, backup, restore, owner recovery, screenshots
 tests/      unit, API, concurrency and browser tests
 docs/       deployment, operations, themes and validation

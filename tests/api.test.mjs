@@ -7,9 +7,10 @@ import { authenticatedClient, joinTeam, setupOrganization, startServer } from '.
 let keys = 0;
 const key = () => ({ 'idempotency-key': `api-test-request-${String(++keys).padStart(5, '0')}` });
 
-async function team(t, { mode = 'credit' } = {}) {
+async function team(t, { mode = 'credit', theme } = {}) {
   const server = await startServer(t);
-  const { api: owner, user: ownerUser } = await setupOrganization(server, { mode, org: { spending: 'confirm' } });
+  const org = theme === undefined ? { spending: 'confirm' } : { spending: 'confirm', theme };
+  const { api: owner, user: ownerUser } = await setupOrganization(server, { mode, org });
   const one = await joinTeam(server, owner, { username: 'mina', displayName: 'Mina' });
   const two = await joinTeam(server, owner, { username: 'moe', displayName: 'Moe' });
   return { server, owner, ownerUser, member: one.api, memberUser: one.user, member2: two.api, member2User: two.user };
@@ -62,6 +63,7 @@ test('a grant made by the owner shows up for that member and no one else', async
   assert.equal(item.ordinal, 0);
   assert.ok(item.names.en && item.names['zh-CN']);
   assert.equal(me.body.theme.size, 39);
+  assert.equal(me.body.theme.id, 'default');
   assert.equal(me.body.theme.complete, false);
   assert.ok(me.body.theme.next.spriteKey);
   assert.equal(me.body.org.mode, 'credit');
@@ -584,7 +586,8 @@ test('a member lists their own requests by status, and only a known status', asy
 
 test('managers get the theme\'s names in every language with the benefits', async t => {
   const { owner, member } = await team(t);
-  const { theme } = await import('../server/collections.mjs');
+  const { DEFAULT_THEME, themeById } = await import('../server/themes.mjs');
+  const theme = themeById(DEFAULT_THEME);
   const listed = await owner.request('GET', '/api/admin/rewards');
   assert.equal(listed.status, 200);
   assert.deepEqual(Object.keys(listed.body).sort(), ['items', 'theme']);
@@ -594,4 +597,106 @@ test('managers get the theme\'s names in every language with the benefits', asyn
     assert.ok(listed.body.theme.names[spriteKey]?.en && listed.body.theme.names[spriteKey]['zh-CN'], spriteKey);
   // The member's list of benefits stays as it was.
   assert.deepEqual(Object.keys((await member.request('GET', '/api/rewards')).body), ['items']);
+});
+
+test('a Bakery team reads its own theme on the member page and with the benefits', async t => {
+  const { themeById } = await import('../server/themes.mjs');
+  const { orderedKeys } = await import('../server/collections.mjs');
+  const bakery = themeById('bakery');
+  const { owner, member, memberUser } = await team(t, { theme: 'bakery' });
+  const granted = await owner.request('POST', '/api/admin/grants',
+    { userId: memberUser.id, amount: '50.00', mode: 'credit', reason: '' }, key());
+  assert.equal(granted.status, 201);
+  const order = orderedKeys(memberUser.id, bakery.keys);
+
+  const me = await member.request('GET', '/api/me');
+  assert.equal(me.status, 200);
+  assert.deepEqual(me.body.theme, {
+    id: 'bakery', version: bakery.version, size: 24, complete: false,
+    next: { spriteKey: order[1], names: bakery.names[order[1]] },
+  });
+  assert.deepEqual(granted.body.unlocked.map(item => item.spriteKey), [order[0]]);
+  assert.deepEqual(me.body.collection.map(item => [item.spriteKey, item.names]), [[order[0], bakery.names[order[0]]]]);
+
+  const listed = await owner.request('GET', '/api/admin/rewards');
+  assert.equal(listed.status, 200);
+  assert.deepEqual(listed.body, { items: [], theme: { keys: bakery.keys, names: bakery.names } });
+  assert.deepEqual(listed.body.theme.names.croissant, { en: 'Croissant', 'zh-Hant': '牛角包', 'zh-CN': '牛角包' });
+  assert.equal(listed.body.theme.keys.includes('tart'), false);
+});
+
+test('a benefit icon must be one of the team theme\'s collectibles', async t => {
+  const add = (api, iconKey) => api.request('POST', '/api/admin/rewards',
+    { name: 'Coffee', description: '', amount: '4.50', mode: 'credit', active: true, iconKey }, key());
+  const bakeryTeam = await team(t, { theme: 'bakery' });
+  const owner = bakeryTeam.owner;
+
+  // The egg tart is only in the Pastry shop.
+  const tart = await add(owner, 'tart');
+  assert.equal(tart.status, 422);
+  assert.deepEqual([tart.body.error.code, tart.body.error.field], ['INVALID_INPUT', 'iconKey']);
+  const croissant = await add(owner, 'croissant');
+  assert.deepEqual([croissant.status, croissant.body.iconKey], [201, 'croissant']);
+  // The pineapple bun is in both.
+  const bolo = await add(owner, 'bolo');
+  assert.deepEqual([bolo.status, bolo.body.iconKey], [201, 'bolo']);
+
+  // An edit is checked against the same theme.
+  const edited = await owner.request('PATCH', `/api/admin/rewards/${bolo.body.id}`, { iconKey: 'tart' });
+  assert.deepEqual([edited.status, edited.body.error.field], [422, 'iconKey']);
+  const swapped = await owner.request('PATCH', `/api/admin/rewards/${bolo.body.id}`, { iconKey: 'croissant' });
+  assert.deepEqual([swapped.status, swapped.body.iconKey], [200, 'croissant']);
+
+  // The shape is still checked where the request is read, before anything about the team: text
+  // of 2 to 32 characters. These are sent in points to this credit team, so one that got past
+  // the reader would be refused for the unit instead (409 RULES_CHANGED), not for its icon.
+  for (const bad of ['a', 'x'.repeat(33), 5, {}]) {
+    const refused = await owner.request('POST', '/api/admin/rewards',
+      { name: 'Coffee', description: '', amount: '450', mode: 'points', active: true, iconKey: bad }, key());
+    assert.deepEqual([refused.status, refused.body.error.field], [422, 'iconKey'], JSON.stringify(bad));
+  }
+  const unitRefused = await owner.request('POST', '/api/admin/rewards',
+    { name: 'Coffee', description: '', amount: '450', mode: 'points', active: true, iconKey: 'bolo' }, key());
+  assert.deepEqual([unitRefused.status, unitRefused.body.error.code], [409, 'RULES_CHANGED'], 'a good shape gets as far as the unit');
+  assert.equal(bakeryTeam.server.db.prepare('SELECT count(*) AS n FROM rewards').get().n, 2);
+
+  // A Pastry shop team is the other way round.
+  const pastryTeam = await team(t);
+  assert.equal((await add(pastryTeam.owner, 'croissant')).status, 422);
+  assert.equal((await add(pastryTeam.owner, 'tart')).body.iconKey, 'tart');
+});
+
+test('a retried add gets its stored answer after a theme change; a new add is checked against the new theme', async t => {
+  const { owner, server } = await team(t);
+  const count = table => server.db.prepare(`SELECT count(*) AS n FROM ${table}`).get().n;
+  const body = { name: 'Coffee', description: '', amount: '4.50', mode: 'credit', active: true, iconKey: 'tart' };
+  const addKey = key();
+  const first = await owner.request('POST', '/api/admin/rewards', body, addKey);
+  assert.deepEqual([first.status, first.body.iconKey], [201, 'tart']);
+
+  // Before the first treat the owner moves the team to Bakery, which has no egg tart.
+  const switched = await owner.request('PATCH', '/api/org', { theme: 'bakery' });
+  assert.deepEqual([switched.status, switched.body.theme, switched.body.iconsRemoved], [200, 'bakery', 1]);
+  assert.deepEqual((await owner.request('GET', '/api/admin/rewards')).body.items.map(item => item.iconKey), [null]);
+
+  // The first answer was lost on the way back. The same body with the same key gets that
+  // answer as it was stored: not a second benefit, and not a refusal.
+  const retry = await owner.request('POST', '/api/admin/rewards', body, addKey);
+  assert.equal(retry.status, 201);
+  assert.equal(retry.headers.get('idempotent-replayed'), 'true');
+  assert.deepEqual(retry.body, first.body);
+  assert.equal(count('rewards'), 1);
+
+  // A new add with the same icon is checked against the theme the team has now, and the
+  // refusal stores nothing under its key.
+  const freshKey = key();
+  const refused = await owner.request('POST', '/api/admin/rewards', body, freshKey);
+  assert.equal(refused.status, 422);
+  assert.deepEqual([refused.body.error.code, refused.body.error.field], ['INVALID_INPUT', 'iconKey']);
+  assert.equal(server.db.prepare('SELECT count(*) AS n FROM idempotency WHERE key = ?').get(freshKey['idempotency-key']).n, 0);
+  assert.equal(count('rewards'), 1);
+  // So the same key goes through once the icon is one of the theme's.
+  const fixed = await owner.request('POST', '/api/admin/rewards', { ...body, iconKey: 'croissant' }, freshKey);
+  assert.deepEqual([fixed.status, fixed.body.iconKey], [201, 'croissant']);
+  assert.equal(count('rewards'), 2);
 });

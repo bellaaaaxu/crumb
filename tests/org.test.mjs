@@ -4,8 +4,8 @@ import sharp from 'sharp';
 import { normalizeLogo, updateOrg } from '../server/org.mjs';
 import { grant } from '../server/ledger.mjs';
 import { updateMember } from '../server/members.mjs';
-import { saveReward } from '../server/rewards.mjs';
-import { client, fixture, joinTeam, setupOrganization, startServer } from './helpers.mjs';
+import { listRewards, saveReward } from '../server/rewards.mjs';
+import { PASSWORD, client, fixture, joinTeam, orgInput, setupOrganization, startServer } from './helpers.mjs';
 
 const code = expected => error => {
   assert.equal(error.code, expected);
@@ -32,7 +32,7 @@ test('reward rules can change until the first ledger entry, then they are fixed'
   });
   assert.deepEqual([shown.name, shown.unitLabel, shown.locale, shown.adminContact, shown.feedbackUrl],
     ['Corner Café', 'Café credit', 'zh-CN', 'mailto:manager@example.com', 'https://forms.example.com/crumb']);
-  assert.deepEqual(shown.locks, { mode: true, threshold: true });
+  assert.deepEqual(shown.locks, { mode: true, threshold: true, theme: true });
 });
 
 test('a priced catalog fixes the reward type and currency but not the threshold', t => {
@@ -42,7 +42,7 @@ test('a priced catalog fixes the reward type and currency but not the threshold'
   assert.throws(() => updateOrg(db, owner, { currency: 'CNY' }), code('RULES_LOCKED'));
   const org = updateOrg(db, owner, { threshold: '40.00' });
   assert.equal(org.thresholdUnits, 4000);
-  assert.deepEqual(org.locks, { mode: true, threshold: false });
+  assert.deepEqual(org.locks, { mode: true, threshold: false, theme: false });
 });
 
 test('the reward type, currency and threshold must agree', t => {
@@ -196,4 +196,140 @@ test('setup accepts a spending mode and the session reports it', async t => {
   const other = await startServer(t);
   const plain = await setupOrganization(other);
   assert.equal((await plain.api.request('GET', '/api/session')).body.org.spending, 'self');
+});
+
+test('setup takes a collection theme, Pastry shop when none is given, and records it', async t => {
+  const setupDetail = server => JSON.parse(server.db.prepare(`SELECT detail_json FROM audit WHERE action = 'org.setup'`).get().detail_json);
+  const storedTheme = server => server.db.prepare('SELECT theme FROM organization WHERE id = 1').get().theme;
+
+  const plain = await startServer(t);
+  await setupOrganization(plain);
+  assert.equal(storedTheme(plain), 'default');
+  assert.deepEqual(setupDetail(plain), { mode: 'credit', currency: 'CAD', thresholdUnits: 5000, theme: 'default' });
+
+  const bakery = await startServer(t);
+  await setupOrganization(bakery, { mode: 'points', org: { theme: 'bakery' } });
+  assert.equal(storedTheme(bakery), 'bakery');
+  assert.deepEqual(setupDetail(bakery), { mode: 'points', currency: null, thresholdUnits: 100, theme: 'bakery' });
+
+  const unknown = await startServer(t);
+  const api = client(unknown.base);
+  await api.bootstrap();
+  const refused = await api.request('POST', '/api/setup', {
+    setupToken: unknown.setupToken, username: 'owner', password: PASSWORD, displayName: 'Olive',
+    org: orgInput('credit', { theme: 'unicorn' }),
+  });
+  assert.deepEqual([refused.status, refused.body.error.code, refused.body.error.field], [422, 'INVALID_INPUT', 'org.theme']);
+  assert.equal(unknown.db.prepare('SELECT count(*) AS n FROM organization').get().n, 0);
+});
+
+test('the session carries the team theme signed in and signed out, and the first treat sets locks.theme', async t => {
+  const server = await startServer(t);
+  const { api: owner } = await setupOrganization(server, { org: { theme: 'bakery' } });
+  const { api: member, user: mina } = await joinTeam(server, owner, { username: 'mina' });
+  const org = async api => (await api.request('GET', '/api/session')).body.org;
+
+  const signedIn = await org(owner);
+  assert.deepEqual([signedIn.theme, signedIn.locks], ['bakery', { mode: false, threshold: false, theme: false }]);
+  assert.equal((await org(member)).theme, 'bakery');
+  const visitor = await client(server.base).bootstrap();
+  assert.deepEqual(visitor.body.org, { name: 'Test Team', locale: 'en', hasLogo: false, theme: 'bakery' });
+
+  const treat = await owner.request('POST', '/api/admin/grants',
+    { userId: mina.id, amount: '5.00', mode: 'credit', reason: 'Thanks' }, { 'idempotency-key': 'org-theme-session-grant-01' });
+  assert.equal(treat.status, 201);
+  assert.deepEqual((await org(owner)).locks, { mode: true, threshold: true, theme: true });
+});
+
+test('the collection theme is fixed with the unlock step: only an owner changes it, until the first treat', t => {
+  const { db, owner, member, member2 } = fixture(t);
+  db.prepare(`UPDATE users SET role = 'admin' WHERE id = ?`).run(member2.id);
+  assert.throws(() => updateOrg(db, { id: member2.id, role: 'admin' }, { theme: 'bakery' }), code('FORBIDDEN'));
+  assert.throws(() => updateOrg(db, member, { theme: 'bakery' }), code('FORBIDDEN'));
+  for (const theme of ['unicorn', '', 'Bakery', 5])
+    assert.throws(() => updateOrg(db, owner, { theme }), code('INVALID_INPUT'), JSON.stringify(theme));
+
+  // Priced benefits fix the unit, not the theme.
+  saveReward(db, owner, { name: 'Coffee', description: '', costUnits: 450, active: true });
+  const bakery = updateOrg(db, owner, { theme: 'bakery' });
+  assert.deepEqual([bakery.theme, bakery.locks], ['bakery', { mode: true, threshold: false, theme: false }]);
+
+  grant(db, owner, { userId: member.id, units: 500, reason: 'First one', key: 'theme-lock-grant-01' });
+  assert.throws(() => updateOrg(db, owner, { theme: 'default' }), code('RULES_LOCKED'));
+  assert.equal(db.prepare('SELECT theme FROM organization WHERE id = 1').get().theme, 'bakery');
+  // Restating the current theme is not a change, so a form that always sends it still saves.
+  const restated = updateOrg(db, owner, { theme: 'bakery', name: 'Corner Bakery' });
+  assert.deepEqual([restated.name, restated.theme, restated.iconsRemoved], ['Corner Bakery', 'bakery', 0]);
+  assert.deepEqual(restated.locks, { mode: true, threshold: true, theme: true });
+});
+
+test('changing the theme removes the benefit icons it does not draw, active or not, and keeps shared ones', t => {
+  const { db, owner } = fixture(t);
+  const tart = saveReward(db, owner, { name: 'Egg tart run', description: '', costUnits: 300, active: true, iconKey: 'tart' });
+  const bun = saveReward(db, owner, { name: 'Pineapple bun', description: '', costUnits: 400, active: true, iconKey: 'bolo' });
+  const lunch = saveReward(db, owner, { name: 'Lunch', description: '', costUnits: 1400, active: true });
+  const icons = () => Object.fromEntries(listRewards(db, { includeInactive: true }).map(reward => [reward.id, reward.iconKey]));
+  const lastUpdate = () => JSON.parse(db.prepare(
+    `SELECT detail_json FROM audit WHERE action = 'org.update' ORDER BY created_at DESC, rowid DESC LIMIT 1`).get().detail_json);
+
+  const toBakery = updateOrg(db, owner, { theme: 'bakery' });
+  assert.deepEqual([toBakery.theme, toBakery.iconsRemoved], ['bakery', 1]);
+  assert.deepEqual(icons(), { [tart.id]: null, [bun.id]: 'bolo', [lunch.id]: null });
+  assert.deepEqual(lastUpdate(), { changed: ['theme'], theme: { from: 'default', to: 'bakery' }, iconsRemoved: 1 });
+
+  // Back again with another change: the shared icon is in both themes, so nothing goes, and the row says 0.
+  const back = updateOrg(db, owner, { theme: 'default', name: 'Corner Café' });
+  assert.deepEqual([back.theme, back.name, back.iconsRemoved], ['default', 'Corner Café', 0]);
+  assert.deepEqual(lastUpdate(), { changed: ['name', 'theme'], theme: { from: 'bakery', to: 'default' }, iconsRemoved: 0 });
+
+  // A benefit that is switched off loses an icon the new theme lacks too.
+  const hidden = saveReward(db, owner, { name: 'Mooncake box', description: '', costUnits: 2000, active: false, iconKey: 'mooncake' });
+  assert.equal(updateOrg(db, owner, { theme: 'bakery' }).iconsRemoved, 1);
+  assert.deepEqual(icons(), { [tart.id]: null, [bun.id]: 'bolo', [lunch.id]: null, [hidden.id]: null });
+
+  // And the other way: an icon only Bakery draws goes when the team goes back to Pastry shop.
+  const croissant = saveReward(db, owner, { name: 'Croissant Friday', description: '', costUnits: 500, active: true, iconKey: 'croissant' });
+  assert.equal(updateOrg(db, owner, { theme: 'default' }).iconsRemoved, 1);
+  assert.deepEqual(icons(), { [tart.id]: null, [bun.id]: 'bolo', [lunch.id]: null, [hidden.id]: null, [croissant.id]: null });
+});
+
+test('a change that leaves the theme alone removes no icons and is audited as before', t => {
+  const { db, owner } = fixture(t);
+  const tart = saveReward(db, owner, { name: 'Egg tart run', description: '', costUnits: 300, active: true, iconKey: 'tart' });
+  const updates = () => db.prepare(`SELECT detail_json FROM audit WHERE action = 'org.update' ORDER BY created_at, rowid`).all()
+    .map(row => JSON.parse(row.detail_json));
+  const renamed = updateOrg(db, owner, { name: 'Renamed' });
+  assert.deepEqual([renamed.name, renamed.theme, renamed.iconsRemoved], ['Renamed', 'default', 0]);
+  assert.deepEqual(updates(), [{ changed: ['name'] }]);
+  assert.equal(updateOrg(db, owner, { theme: 'default' }).iconsRemoved, 0, 'the current theme again');
+  assert.deepEqual(updates(), [{ changed: ['name'] }], 'nothing changed, so nothing is written');
+  assert.equal(listRewards(db).find(reward => reward.id === tart.id).iconKey, 'tart');
+});
+
+test('over HTTP only an owner changes the theme, the answer counts the removed icons, and a treat fixes it', async t => {
+  const server = await startServer(t);
+  const { api: owner } = await setupOrganization(server);
+  const { api: admin } = await joinTeam(server, owner, { username: 'ada', role: 'admin' });
+  const { user: mina } = await joinTeam(server, owner, { username: 'mina' });
+  const added = await owner.request('POST', '/api/admin/rewards',
+    { name: 'Egg tart run', description: '', amount: '3.00', mode: 'credit', active: true, iconKey: 'tart' },
+    { 'idempotency-key': 'org-theme-benefit-000001' });
+  assert.equal(added.status, 201);
+
+  assert.equal((await admin.request('PATCH', '/api/org', { theme: 'bakery' })).status, 403);
+  const changed = await owner.request('PATCH', '/api/org', { theme: 'bakery' });
+  assert.deepEqual([changed.status, changed.body.theme, changed.body.iconsRemoved], [200, 'bakery', 1]);
+  assert.deepEqual((await owner.request('GET', '/api/admin/rewards')).body.items.map(item => item.iconKey), [null]);
+  const renamed = await owner.request('PATCH', '/api/org', { name: 'Corner Bakery' });
+  assert.deepEqual([renamed.status, renamed.body.name, renamed.body.iconsRemoved], [200, 'Corner Bakery', 0]);
+  const session = (await owner.request('GET', '/api/session')).body.org;
+  assert.equal(session.theme, 'bakery');
+  assert.equal(Object.hasOwn(session, 'iconsRemoved'), false, 'the count is only in the answer to the change');
+
+  const treat = await owner.request('POST', '/api/admin/grants',
+    { userId: mina.id, amount: '5.00', mode: 'credit', reason: 'Thanks' }, { 'idempotency-key': 'org-theme-grant-000001' });
+  assert.equal(treat.status, 201);
+  const locked = await owner.request('PATCH', '/api/org', { theme: 'default' });
+  assert.deepEqual([locked.status, locked.body.error.code], [409, 'RULES_LOCKED']);
+  assert.equal((await owner.request('GET', '/api/session')).body.org.theme, 'bakery');
 });

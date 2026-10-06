@@ -8,6 +8,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { verifyPassword } from '../server/passwords.mjs';
+import { unknownThemeError } from '../server/themes.mjs';
 import { fixture } from './helpers.mjs';
 
 const scripts = fileURLToPath(new URL('../scripts/', import.meta.url));
@@ -147,4 +148,31 @@ test('recover-owner does not give a password to an owner who never joined', t =>
   assert.equal(db.prepare('SELECT password_hash FROM users WHERE id = ?').get(pendingId).password_hash, null);
   assert.equal(db.prepare(`SELECT count(*) AS n FROM audit WHERE action = 'owner.recover'`).get().n, 0);
   assert.ok(owner.id);
+});
+
+// The refusal's wording is pinned once, in tests/themes.test.mjs.
+const UNKNOWN_THEME = unknownThemeError('cafe').message;
+
+test('recover-owner refuses a database whose team uses a theme this version does not include', t => {
+  const { db, owner, dir } = fixture(t);
+  db.prepare(`UPDATE organization SET theme = 'cafe' WHERE id = 1`).run();
+  const before = db.prepare('SELECT password_hash FROM users WHERE id = ?').get(owner.id).password_hash;
+  const result = run('recover-owner.mjs', ['--username', 'owner'], { env: { DATA_DIR: dir }, input: 'a completely new owner password\n' });
+  assert.equal(result.status, 1);
+  assert.ok(result.stderr.includes(`Error: ${UNKNOWN_THEME}`), `stderr was: ${result.stderr}`);
+  assert.equal(db.prepare('SELECT password_hash FROM users WHERE id = ?').get(owner.id).password_hash, before);
+  assert.equal(db.prepare(`SELECT count(*) AS n FROM audit WHERE action = 'owner.recover'`).get().n, 0);
+});
+
+test('the server will not start on a database whose team uses a theme this version does not include', t => {
+  const { db, dir } = fixture(t);
+  db.prepare(`UPDATE organization SET theme = 'cafe' WHERE id = 1`).run();
+  // It refuses before the port opens; the timeout only matters if it wrongly starts.
+  const server = spawnSync(process.execPath, [fileURLToPath(new URL('../server/main.mjs', import.meta.url))], {
+    encoding: 'utf8',
+    timeout: 15_000,
+    env: { ...process.env, PUBLIC_ORIGIN: 'http://127.0.0.1:3999', ALLOW_LOCAL_HTTP: 'true', PORT: '3999', HOST: '127.0.0.1', DATA_DIR: dir },
+  });
+  assert.equal(server.status, 1, `exit ${server.status} ${server.signal ?? ''}: ${server.stderr}`);
+  assert.ok(server.stderr.includes(`Crumb cannot start: ${UNKNOWN_THEME}`), `stderr was: ${server.stderr}`);
 });

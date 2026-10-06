@@ -1,13 +1,13 @@
 /* Organization settings, for owners. Names, language, links and how people spend can
- * change at any time; the reward rules lock once rewards are recorded (the server
- * enforces this — the disabled fields only explain it). The activity log sits at the
- * bottom. */
+ * change at any time; the reward rules and the collection theme lock once rewards are
+ * recorded (the server enforces this — the disabled fields only explain it). The activity
+ * log sits at the bottom. */
 
 import { request } from '../api.js';
 import { button, el, field, formError, radios, toast } from '../dom.js';
-import { LANGUAGES, t } from '../i18n.js';
+import { LANGUAGES, t, themed } from '../i18n.js';
 import { amountToUnits, unitsToInput } from '../format.js';
-import { loading, section } from './shared.js';
+import { loading, section, themeCards } from './shared.js';
 import { activitySection } from './activity.js';
 
 const CURRENCIES = ['CAD', 'USD', 'CNY'];
@@ -33,9 +33,16 @@ function settingsForm(ctx, org) {
     label: t('setup.currency'), name: 'currency', value: org.currency ?? 'CAD',
     options: CURRENCIES.map(value => ({ value, label: t(`currency.${value}`) })),
   });
+  // Fixed with the unlock step at the first treat. A chosen card takes effect on Save; until
+  // then only the unlock-step hint follows it, and the header keeps the saved theme's mascot.
+  const theme = themeCards(org.theme, { disabled: org.locks.theme });
+  // Each key is themed()'s first argument: tests/i18n.test.mjs counts them there. Without the
+  // pixel table there are no cards and no chosen one, and the hint follows the saved theme.
+  const hintTheme = () => theme.value ?? org.theme;
+  const thresholdHint = () => (mode.value === 'credit' ? themed('setup.thresholdCredit', hintTheme()) : themed('setup.thresholdPoints', hintTheme()));
   const threshold = field({
     label: t('setup.threshold'), name: 'threshold', value: unitsToInput(org.thresholdUnits, org.mode),
-    hint: t(org.mode === 'credit' ? 'setup.thresholdCredit' : 'setup.thresholdPoints'),
+    hint: thresholdHint(),
   });
   // Not one of the locked reward rules: an owner can switch at any time, and requests still
   // waiting are finished either way.
@@ -59,15 +66,17 @@ function settingsForm(ctx, org) {
   // back) until the owner types their own.
   let thresholdEdited = false;
   threshold.control.addEventListener('input', () => { thresholdEdited = true; });
+  const showHint = () => { threshold.wrapper.querySelector('.field-hint').textContent = thresholdHint(); };
   const applyMode = () => {
     const credit = mode.value === 'credit';
     currency.wrapper.hidden = !credit;
     threshold.control.setAttribute('inputmode', credit ? 'decimal' : 'numeric');
-    threshold.wrapper.querySelector('.field-hint').textContent = t(credit ? 'setup.thresholdCredit' : 'setup.thresholdPoints');
+    showHint();
     if (!thresholdEdited && !org.locks.threshold)
       threshold.control.value = mode.value === org.mode ? unitsToInput(org.thresholdUnits, org.mode) : (credit ? '50.00' : '100');
   };
   for (const input of mode.inputs) input.addEventListener('change', applyMode);
+  for (const input of theme.inputs) input.addEventListener('change', showHint);
   applyMode();
 
   const error = formError();
@@ -104,10 +113,16 @@ function settingsForm(ctx, org) {
           if (chosenMode === 'credit') body.currency = currency.control.value;
         }
         if (!org.locks.threshold) body.threshold = threshold.control.value.trim();
+        if (!org.locks.theme && theme.value) body.theme = theme.value;
         save.disabled = true;
         try {
-          await request('/api/org', { method: 'PATCH', body });
-          toast(t('settings.saved'));
+          const saved = await request('/api/org', { method: 'PATCH', body });
+          // A theme change took out, in the same write, the benefit icons the new theme lacks.
+          // Say how many instead of the usual words; read here, before the refresh redraws.
+          toast(saved.iconsRemoved > 0 ? t('settings.themeChanged', { count: saved.iconsRemoved }) : t('settings.saved'));
+          // The tab and home-screen icon links follow the saved theme without a reload, even if
+          // the refresh below fails; the refresh then points them at the same files again.
+          ctx.applyThemeIcons(saved.theme);
           await ctx.refresh();
         } catch (failure) {
           save.disabled = false;
@@ -119,10 +134,10 @@ function settingsForm(ctx, org) {
     el('h2', { text: t('settings.orgTitle'), attrs: { class: 'tile-title' } }),
     name.wrapper, welcome.wrapper, locale.wrapper,
     el('h2', { text: t('settings.rewardsTitle'), attrs: { class: 'tile-title' } }),
-    unitLabel.wrapper, mode.fieldset, currency.wrapper, threshold.wrapper,
-    // Benefits alone fix the unit; a recorded reward also fixes the threshold.
-    org.locks.threshold || org.locks.mode
-      ? el('p', { text: t(org.locks.threshold ? 'settings.locked' : 'settings.lockedByBenefits'), attrs: { class: 'notice' } })
+    unitLabel.wrapper, mode.fieldset, currency.wrapper, threshold.wrapper, theme.fieldset,
+    // Benefits alone fix the unit; a recorded reward also fixes the unlock step and the theme.
+    org.locks.threshold || org.locks.theme || org.locks.mode
+      ? el('p', { text: t(org.locks.threshold || org.locks.theme ? 'settings.locked' : 'settings.lockedByBenefits'), attrs: { class: 'notice' } })
       : null,
     el('h2', { text: t('settings.spendingTitle'), attrs: { class: 'tile-title' } }),
     spending.fieldset,

@@ -327,3 +327,60 @@ test('after moving to another page, focus is on the new content', async ({ brows
     await fx.close();
   }
 });
+
+/* The collection theme cards where they can still be chosen: on the setup page, and in an
+ * owner's Settings before the first treat. At both sizes they fit, every control is labelled,
+ * Tab reaches the chosen card and the arrow keys choose the other, and each card's focus ring
+ * shows whole. */
+async function themeCardsPass(page, label) {
+  const cards = page.getByRole('group', { name: 'Collection theme', exact: true });
+  const pastry = cards.getByRole('radio', { name: 'Pastry shop · 39 pastries', exact: true });
+  const bakery = cards.getByRole('radio', { name: 'Bakery · 24 breads and cakes', exact: true });
+  await expect(pastry).toBeChecked();
+  await expect(bakery).toBeEnabled();
+  await widthFits(page, label);
+  await everyControlIsLabelled(page, label);
+  await tabUntil(page, pastry);
+  expect(await ringCutBy(page), `${label}: Pastry shop card`).toBeNull();
+  await page.keyboard.press('ArrowDown');
+  await expect(bakery).toBeChecked();
+  await expect(bakery).toBeFocused();
+  expect(await ringCutBy(page), `${label}: Bakery card`).toBeNull();
+  await widthFits(page, `${label}, Bakery chosen`);
+}
+
+test('the collection theme cards on setup and in Settings fit a phone and a laptop and work from the keyboard', async ({ browser }) => {
+  // Made inside try, so whatever was started is closed even if a later step fails.
+  let crumb;
+  let fx;
+  let context;
+  try {
+    crumb = await startCrumb();
+    // An owner whose team has a priced benefit but no treat yet: the cards can still be chosen.
+    fx = await provision(browser, { mode: 'points' });
+    context = await browser.newContext({ reducedMotion: 'reduce' });
+    const setupPage = await context.newPage();
+    const setupProblems = await watch(setupPage);
+    const ownerProblems = await watch(fx.ownerPage);
+    for (const size of [{ width: 390, height: 844 }, { width: 1440, height: 900 }]) {
+      await setupPage.setViewportSize(size);
+      await setupPage.goto(crumb.origin);
+      await expect(setupPage.getByRole('heading', { name: 'Set up Crumb' })).toBeVisible();
+      await themeCardsPass(setupPage, `setup at ${size.width}`);
+
+      await fx.ownerPage.setViewportSize(size);
+      await fx.ownerPage.goto(`${fx.origin}/#/settings`);
+      // Drawn afresh, so the card chosen in the last round, never saved, is gone.
+      await fx.ownerPage.reload();
+      await expect(fx.ownerPage.getByRole('heading', { level: 1, name: 'Settings', exact: true })).toBeVisible();
+      await expect(fx.ownerPage.getByRole('heading', { name: 'Who did what' })).toBeVisible();
+      await themeCardsPass(fx.ownerPage, `settings at ${size.width}`);
+    }
+    expect(await setupProblems()).toEqual([]);
+    expect(await ownerProblems()).toEqual([]);
+  } finally {
+    await context?.close();
+    await fx?.close();
+    await crumb?.close();
+  }
+});
