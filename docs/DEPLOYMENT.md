@@ -7,7 +7,7 @@ This guide covers trying Crumb on your own computer, then running it for real on
 behind HTTPS. Day-to-day care — backups, restores, upgrades, locked-out owners — is in
 [OPERATIONS.md](OPERATIONS.md).
 
-> Crumb is early software (version 0.2). Read [what has and has not been tested](VALIDATION.md)
+> Crumb is early software (version 0.3). Read [what has and has not been tested](VALIDATION.md)
 > before you rely on it for your team's benefits.
 
 ## What you need
@@ -39,11 +39,15 @@ The first owner chooses how rewards are counted, once:
 You also choose the **unlock step**: each time someone's treats add up past another step of
 this size, a new pixel collectible joins their shelf.
 
+You pick a **collection theme** too: which collectibles fill the shelf, with the mascot and
+the app icons that go with them. Crumb comes with two, the **Pastry shop** (39 pastries, the
+default) and the **Bakery** (24 breads and cakes).
+
 The type and currency can change until the **first benefit gets a price** or the first
-treat is recorded; the unlock step until the first treat. After that they are fixed, so
-amounts already recorded keep their meaning. So settle credit or points, and the currency,
-before you add benefits. Names, the welcome message, the language and links can always
-change.
+treat is recorded; the unlock step and the collection theme until the first treat. After that
+they are fixed, so amounts already recorded keep their meaning. So settle credit or points,
+and the currency, before you add benefits. Names, the welcome message, the language and links
+can always change.
 
 And you choose **how people spend**, which an owner can change at any time:
 
@@ -91,8 +95,9 @@ docker compose up -d --build
 ```
 
 Open <http://localhost:3000>. Crumb shows **Set up Crumb**. Paste the setup code — print it
-with `cat .secrets/setup-token` — then name your organization, choose credit or points and how
-people spend, and create your owner account (a password of 12 to 128 characters).
+with `cat .secrets/setup-token` — then name your organization, choose credit or points, the
+collection theme and how people spend, and create your owner account (a password of 12 to 128
+characters).
 
 `docker compose ps` shows the container as `healthy` once it is ready. The app only listens
 on `127.0.0.1:3000`, so other devices on your network cannot reach this local copy.
@@ -141,20 +146,24 @@ and signing out.
   another (after asking) and signs the old phone out. Until a team member dismisses it in that
   browser, their page suggests putting Crumb on their home screen.
 - **Team → Benefits** (only when people spend the confirmed way): add what people can ask
-  for, with a price in your unit and, if you like, one of the pastries as its icon. (The first
-  price fixes credit or points and the currency.)
+  for, with a price in your unit and, if you like, one of your theme's collectibles as its
+  icon. (The first price fixes credit or points and the currency.)
 - **Treat someone** (at the top of the Team page): tick one person or several, an amount each
   and, if you like, a few words. Each of them sees it on their own page.
-- **Settings:** your logo, welcome message, default language, how people spend, and where
-  "Contact your admin" should lead (an `https://` page or a `mailto:` address).
+- **Settings:** your logo, welcome message, default language, the collection theme (until the
+  first treat), how people spend, and where "Contact your admin" should lead (an `https://`
+  page or a `mailto:` address).
 - Schedule backups now — see [OPERATIONS.md](OPERATIONS.md).
 
 ## Upgrading
 
-Upgrades, and going back, are in [OPERATIONS.md](OPERATIONS.md#upgrading). Coming from 0.1
-(its database is at schema 1), the first start of 0.2 updates the database once (it adds how
-people spend and rebuilds the ledger table): read
-[Upgrading from 0.1 to 0.2](OPERATIONS.md#upgrading-from-01-to-02) and back up first.
+Upgrades, and going back, are in [OPERATIONS.md](OPERATIONS.md#upgrading). Coming from 0.2
+(its database is at schema 2), the first start of 0.3 updates the database once (it adds the
+team's collection theme, and an existing team is on the Pastry shop): read
+[Upgrading from 0.2 to 0.3](OPERATIONS.md#upgrading-from-02-to-03) and back up first. Coming
+from 0.1 (schema 1), that first start also makes the update to 0.2 (it adds how people spend
+and rebuilds the ledger table): read
+[Upgrading from 0.1 to 0.2](OPERATIONS.md#upgrading-from-01-to-02) too.
 
 ## Running without Docker
 
@@ -237,7 +246,7 @@ lock everyone out for 15 minutes. Run Crumb as an unprivileged user that owns `D
   keys and the fingerprint of each unanswered change stay in this browser until an answer
   arrives, and are used for at most seven days: an older one is deleted the next time Crumb is
   opened in this browser. The fingerprint of a small change, such as an amount, could be
-  worked out by someone using the same browser before then. Second, the balance, pastry count and total received they last saw
+  worked out by someone using the same browser before then. Second, the balance, collectible count and total received they last saw
   (`crumb.seen.<user id>`, three numbers), so the page can roll the number on from there.
   Both go when the person signs out, and as soon as the page finds no one, or someone else,
   signed in there — someone else signing in, a new sign-in link, a deactivation or an expired

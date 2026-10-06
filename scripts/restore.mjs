@@ -2,9 +2,10 @@
  *
  *   node scripts/restore.mjs --from /backups/crumb-2026-09-27.sqlite --to /restore/crumb.sqlite
  *
- * Refuses to write over anything, rejects damaged files and backups from a
- * newer Crumb, and clears sessions and one-time links in the restored copy:
- * everyone signs in again and invitations or resets must be issued again.
+ * Refuses to write over anything, rejects damaged files, backups from a
+ * newer Crumb and backups whose team uses a collection theme this version
+ * does not include, and clears sessions and one-time links in the restored
+ * copy: everyone signs in again and invitations or resets must be issued again.
  * The restored file keeps the backup's schema version; Crumb updates it when
  * it starts, so this also works for rolling back to an earlier version.
  * Point Crumb's DATA_DIR at the new location only after this succeeds, and

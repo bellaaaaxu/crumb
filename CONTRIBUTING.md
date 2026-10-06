@@ -16,7 +16,7 @@ Start with the [README](README.md). Deployment and operations are in [docs/](doc
 - Translations. The app ships English and Simplified Chinese; `app/locales/*.js` must keep
   exactly the same keys (a test checks).
 - Documentation that made you stop and wonder.
-- Pixel art, following [docs/THEMES.md](docs/THEMES.md).
+- Pixel art and new themes, following [docs/THEMES.md](docs/THEMES.md).
 
 For larger changes, open an issue first describing the problem and your approach. Some
 things are out of scope on purpose: payroll or cash, buying rewards, performance reviews,
@@ -35,12 +35,16 @@ npm test                                   # unit, API, concurrency and operator
 npx playwright install chromium
 npm run test:e2e -- --project=chromium     # browser tests, each on its own throwaway server
 node scripts/ci/process-drill.mjs          # start, restart, back up, restore, recover, roll back
-node scripts/theme-manifest.mjs --check    # the collectible manifest matches assets/sprites.js
+node scripts/theme-manifest.mjs --check    # every theme list in themes/ matches assets/sprites.js
 ```
 
 With Docker available, `bash scripts/ci/container-drill.sh` runs the same drill against the
 real image and Compose files, on throwaway volumes. CI is set up to run all of the above on
 every pull request; [docs/VALIDATION.md](docs/VALIDATION.md) records what has actually run.
+
+After adding a theme, or changing a theme's items, names or mascot, run `npm run themes`: it
+rewrites the theme lists in `themes/` and the icons in `app/icons/`, and the tests fail until
+they match. [docs/THEMES.md](docs/THEMES.md) has the steps.
 
 To use the app locally:
 
@@ -71,8 +75,9 @@ There is no build step. Open `index.html` directly in a browser, or serve the fo
 
 The demo keeps its invented state in `localStorage`; **Reset the demo** puts it back. Check the
 tour, taking control, giving recognition, spending (the collection must not shrink),
-switching people and resetting, on narrow and wide screens, from the keyboard and with reduced
-motion. `npx playwright test tests/e2e/demo.spec.mjs` covers the main path.
+switching people, the **Pastry shop | Bakery** switch and resetting, on narrow and wide
+screens, from the keyboard and with reduced motion. `npx playwright test tests/e2e/demo.spec.mjs`
+covers the main path.
 
 If you change the preview artwork, run `node scripts/make-og.mjs` and look at
 `assets/og.png` before committing.
