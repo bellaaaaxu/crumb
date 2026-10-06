@@ -2,7 +2,7 @@
 
 *Translated from the Chinese original, [2026-10-03-crumb-themes-design.zh-CN.md](2026-10-03-crumb-themes-design.zh-CN.md).*
 
-Status: design approved (2026-10-03), not yet implemented.
+Status: design approved (2026-10-03), and implemented on branch `feature/themes` (the implementation and validation record is `docs/VALIDATION.md`).
 Baseline: 0.2.0 (`main`, merge commit `bbfda7f`).
 
 ## 1. Goals and Decisions

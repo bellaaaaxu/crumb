@@ -2,7 +2,7 @@
 
 *英文译本：[2026-10-03-crumb-themes-design.md](2026-10-03-crumb-themes-design.md)。*
 
-状态：设计已批准（2026-10-03），待实施。
+状态：设计已批准（2026-10-03），已在分支 `feature/themes` 实施（实施与验证记录见 `docs/VALIDATION.md`）。
 基线：0.2.0（`main`，合并提交 `bbfda7f`）。
 
 ## 1. 目标与已定决定
