@@ -2,7 +2,7 @@
 
 *Translated from the Chinese original, [2026-10-06-crumb-cafe-theme-design.zh-CN.md](2026-10-06-crumb-cafe-theme-design.zh-CN.md).*
 
-Status: design draft, awaiting the maintainer's review (2026-10-06).
+Status: reviewed by the maintainer (2026-10-09); to be implemented as written, with the assumptions in §15 as stated.
 Baseline: 0.3.0 (`main`, merge commit `5247e73`). The design of 0.3's collection themes is [2026-10-03-crumb-themes-design.md](2026-10-03-crumb-themes-design.md); this document follows its approach and wording, and calls it "the 0.3 design" below.
 
 ## 1. Goals and Decisions
@@ -385,15 +385,15 @@ The theme's name is in `label` in the `cafe` theme entry: English "Café", Simpl
 
 `me.complete` ("All {total} on the shelf. Treats still count, of course.") is not on the approved list; Café keeps using it (assumption 27).
 
-**New sentences needing approval this round** (in the demo only, §8):
+**The demo's three new sentences** (approved 2026-10-09; in the demo only, §8):
 
-| Where | Now (used by Pastry shop and Bakery) | Café candidate (needs approval) |
+| Where | Now (used by Pastry shop and Bakery, unchanged) | Café (approved) |
 | --- | --- | --- |
-| The demo's opening animation text | Today’s perks are out of the oven! | Today’s perks are served! |
-| The demo's notice after a treat that unlocked an item (the amount follows the button pressed) | $50.00 added — {name} came out of the oven! | $50.00 added — {name} came up at the counter! |
-| The demo tour's second line (`assets/app.js` line 1099, hard-coded today, not in `TEXT`) | `<b>{name}</b> comes out of the oven.` | `<b>{name}</b> comes up at the counter.` |
+| The demo's opening animation text | Today’s perks are out of the oven! | Today’s perks are hot and ready! |
+| The demo's notice after a treat that unlocked an item (the amount follows the button pressed) | $50.00 added — {name} came out of the oven! | $50.00 added — your {name} is ready! |
+| The demo tour's second line (`assets/app.js` line 1099, hard-coded today, not in `TEXT`) | `<b>{name}</b> comes out of the oven.` | `Here comes <b>{name}</b>.` |
 
-The third one moves into `TEXT` (a new key, e.g. `tourGrant`), with today's sentence, not a word changed, as Pastry shop's and Bakery's value; only then can it follow the shop. Until approval, Café uses the "Now" column (assumption 13). At which gate the three are approved, see assumption 33. New README and documentation sentences go through gate 2 separately (§13, §14).
+All three move into `TEXT` (new keys, e.g. `intro`, `unlocked`, `tourGrant`), with today's sentence, not a word changed, as Pastry shop's and Bakery's value; only then can they follow the shop. The amount in the unlock notice still follows the button pressed ($50.00 or $100.00), and `{name}` is the English name of the item unlocked. New README and documentation sentences go through gate 2 separately (§13, §14).
 
 ## 8. The Public Demo
 
@@ -456,7 +456,7 @@ The third one moves into `TEXT` (a new key, e.g. `tourGrant`), with today's sent
 | Second card's rule | `hideRule` | “Latte is coming right up” |
 | Cabinet heading | `cabinet` | The café counter |
 
-  The mascot's name is provisionally "热咖啡 / Hot Coffee" and is settled at the drawing gate; if the name changes, the accessible name changes with it (a new sentence needing approval, see assumption 33). For the tour's second line, see the third sentence awaiting approval in §7 (new key `tourGrant`).
+  The mascot's name is provisionally "热咖啡 / Hot Coffee" and is settled at the drawing gate; if the name changes, the accessible name changes with it (a new sentence needing approval, see assumption 33). For the tour's second line, see the demo's three new sentences in §7 (new key `tourGrant`).
 - **The small pictures on the three cards** (`CARD_ICONS.cafe`, assumption 3b): the first card `hotcoffee`, `latte`, `tiramisu` (the first three of the list, as for Bakery); the second `pourover` ("coming right up" paired with a pour-over mid-drip); the third `icedcoffee`, `madeleine`, `irishcoffee`, `dalgona`. In the café these pictures also sit on porcelain medallions (design choice, §2).
 - **Memory**: still `crumb_demo_theme`, remembered for all three shops; "Reset the demo" does not clear it; a page opened with Café remembered is dark from the first paint (§5) and draws Café straight away, with no shutter.
 - **Unchanged**: the summary at the top of the page ("unlocks a pixel pastry"), the "This is a demo" paragraph (which says "The bakery team"), the "🍞 Spend some credit" button, the daily lines `DAILY` and `DAILY_ZERO` (with their 🥐🍞🥖🍰🥯🧈) and the empty-log line "Nothing yet — tap the button when you take something 🍞" keep their text in the café (assumption 34); their colours still change with the page (for example, the "This is a demo" block uses `--paper` and `--line`). The origin story does not change. The link-preview image (`assets/og.png`) and its text (assumption 35), and the footer's signature image (it has its own cream ground and becomes a cream plaque on the dark page, assumption 36), also stay as they are.
@@ -552,13 +552,13 @@ Browser tests (Playwright):
 - **Pages that read the theme themselves**: after the team is switched to Café in another tab, loading the Settings page or the member page turns `<html data-theme>` and `crumb.theme` into `cafe` (§4.1).
 - **Steam**: tapping the café mascot spills no crumbs, and the canvas changes within about 1 second and then returns to the whole drawing; in the opening animation the steam moves; tapping the Pastry shop and Bakery mascots still spills crumbs in the outline colour (existing tests). With reduced motion, a tap leaves the canvas unchanged, and there is no opening animation.
 - **Theme cards**: on the setup page the café card is dark and the other two light, and selecting Café does not darken the page; on a café team's Settings page the Pastry shop and Bakery cards are light, and stay light once locked (assumption 37); keyboard use and phone and desktop widths all work (the existing accessibility checks, with the third card added).
-- **Demo**: three buttons; after switching to Café, the shelf, the mascot and its accessible name, the tab icon, the cabinet, the card pictures, the numbers (24, a single legend line) and §8's sentences are all Café's, and the console has no errors; the tour's second line comes from `TEXT` in all three shops; once §7's three sentences awaiting approval are approved, no visible text in the café contains "oven"; the colours change while the shutter is down, and the phone is already dark when it rolls up; the sign's text colour is the same in all three shops; with reduced motion, after a spend and after tapping the mascot in the café, the mascot canvas still equals the whole drawing; switching shops right after a bite starts in Pastry shop (or steam starts in the café), not one frame of the old shop's animation appears after the shutter rolls up (assumption 41); after a reload the shop is remembered, dark from the first paint, with no shutter; "Reset the demo" does not clear it; the tour starts from the beginning; with reduced motion the switch is instant and the colours change at the same moment; the three buttons stay within the page at phone width.
+- **Demo**: three buttons; after switching to Café, the shelf, the mascot and its accessible name, the tab icon, the cabinet, the card pictures, the numbers (24, a single legend line) and §8's sentences are all Café's, and the console has no errors; the tour's second line comes from `TEXT` in all three shops; no visible text in the café contains "oven" (§7's three new sentences are approved); the colours change while the shutter is down, and the phone is already dark when it rolls up; the sign's text colour is the same in all three shops; with reduced motion, after a spend and after tapping the mascot in the café, the mascot canvas still equals the whole drawing; switching shops right after a bite starts in Pastry shop (or steam starts in the café), not one frame of the old shop's animation appears after the shutter rolls up (assumption 41); after a reload the shop is remembered, dark from the first paint, with no shutter; "Reset the demo" does not clear it; the tour starts from the beginning; with reduced motion the switch is instant and the colours change at the same moment; the three buttons stay within the page at phone width.
 - **Security policy**: the existing "nothing triggers the CSP" check also runs on every café page.
 
 Acceptance (each gate needs the maintainer's yes):
 
 1. **Drawings**: the 15 new coffees plus the mascot, in two batches, each first shown to blind namers, with unrecognised ones fixed first; names are settled here (assumptions 29, 32). The first batch puts the mascot together with the items most easily confused: `hotcoffee`, `espresso`, `latte`, `cappuccino`, `icedcoffee`, `mocha`, `pourover`, `takeaway`; the second: `affogato`, `coldbrew`, `irishcoffee`, `macchiato`, `vietnamesedrip`, `frappe`, `espressotonic`, `dalgona`. The mascot is shown three ways: on a porcelain medallion (header size), on dark (opening animation size and tab icon size), plus the 8 steam steps in sequence. This gate also asks the maintainer to confirm each item's outline colour; the ")" shape check for `hotcoffee` (a unit test) must pass. Sentences that follow from the names are approved here too (assumption 33).
-2. **New or changed README and documentation sentences**, together with §7's three demo sentences awaiting approval, as a PDF annotated in Chinese (for example "only two themes" becoming three; assumption 33).
+2. **New or changed README and documentation sentences**, as a PDF annotated in Chinese (for example "only two themes" becoming three; assumption 33).
 3. **Screenshots**: the café member page, Team page, Settings page, sign-in page and keypad, with `node scripts/screenshots.mjs --theme cafe --all`. `--all` already captures the home-screen tip (`member-home-tip`) and the Settings lock notice today; `scripts/screenshots.mjs` must also capture (§10):
    - a fresh server with no team yet: the setup page with the café card selected (a dark card on a light page);
    - a second café team that has not sent a treat: the Settings page with all three cards selectable (light cards on a dark page); the sample team has sent treats, so its Settings page shows the locked look (assumption 37);
@@ -602,7 +602,7 @@ These are points the decisions do not cover, which this document settles provisi
 10. **The demo's "bite" after a spend becomes steam in the café**. Alternative: bite and spill crumbs as before.
 11. **The app icon at the top of the demo's list has a dark ground in the café**, like the home-screen icon. Alternative: a porcelain ground, like the collection slots.
 12. **The demo's "next item" line uses the app's approved "{name} is coming right up"**. Alternative: keep "is in the oven" for now, pending a separate approval.
-13. **The demo's three sentences awaiting approval** (opening animation, notice after a treat, the tour's second line) **use the current sentences until they are approved**. Alternative: no merge until they are approved.
+13. (Withdrawn: the demo's three new sentences were approved on 2026-10-09, see §7.)
 14. **The demo's confetti colours do not change** (the golds read on dark as well). Alternative: a separate set for Café.
 15. **Signing out does not delete the theme remembered on the device** (it belongs to the team, not to a person). Alternative: delete it on sign-out (the next open would flash light first).
 16. **A new device opening for the first time, or a device that remembers a light theme while the team has switched to Café on another device, shows a light "Loading" moment**. Alternative: have the server answer that small script according to the team's theme, so these two cases do not flash either (one more address answered by team theme, as the icons are).
@@ -622,7 +622,7 @@ These are points the decisions do not cover, which this document settles provisi
 30. **The left wisp goes first**: when the animation starts, the left wisp is at step 0 and the right one at step 4. Alternative: the right wisp goes first.
 31. **Steam is marked only on a mascot, with exactly two wisps**: the rule checks report an error for `steam` that is not exactly 2 wisps, or that is on a drawing that is no theme's mascot. When the same drawing is an ordinary item in another theme, its steam shows in full and does not move. Alternative: go by the number of wisps n, wisp k starting at step k×8/n; `steam` on a drawing that is not a mascot is just ignored, with no error.
 32. **The blind-naming pass mark**: at least two independent namers per drawing, not told beforehand what this round is drawing; recognised = saying the item's name or a clear synonym (just "coffee" for Cold Brew does not count); if any one namer fails to recognise it, the drawing is fixed first. Alternative: recognition by a majority passes; or a different number of namers.
-33. **At which gate sentences awaiting approval are approved**: the demo's three sentences go into gate 2's PDF with the documentation sentences; sentences that follow from names (the mascot's accessible name "Mascot: …", the card's "“Latte is coming right up”") are approved at gate 1 together with the names. Alternative: these sentences get a separate approval of their own.
+33. **At which gate sentences awaiting approval are approved**: documentation sentences go into gate 2's PDF; sentences that follow from names (the mascot's accessible name "Mascot: …", the card's "“Latte is coming right up”") are approved at gate 1 together with the names. Alternative: these sentences get a separate approval of their own.
 34. **Fixed text in the demo that mentions pastries stays as is in the café**: the summary at the top ("unlocks a pixel pastry"), the "This is a demo" paragraph (which says "The bakery team"), the "🍞 Spend some credit" button, the daily lines `DAILY` and `DAILY_ZERO` (with their 🥐🍞🥖🍰🥯🧈), and the empty-log line ("…when you take something 🍞"). Their colours still change with the page. Alternative: write café versions, each needing approval.
 35. **The link-preview image `assets/og.png` and its text do not change** (the og and twitter image descriptions say "twelve pixel pastries"): there is only one link preview, and it does not follow the shop a visitor picks. Alternative: make a preview image that includes Café, with its text changed to match (needs approval).
 36. **The footer's signature image stays as it is** (it has its own cream ground) and is a cream plaque on the dark page. Alternative: make a separate one for dark pages, or give it a frame.
