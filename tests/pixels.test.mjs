@@ -18,7 +18,7 @@ const bare = await import('../app/pixels.js?without-sprites');
 const committed = id => JSON.parse(readFileSync(new URL(`../themes/${id}.json`, import.meta.url), 'utf8'));
 const shipped = path => existsSync(new URL(`../app/${path}`, import.meta.url));
 // Missing, empty, a theme from a newer Crumb, names every JavaScript object answers to, not a string.
-const ODD_IDS = [undefined, null, '', 'cafe', 'constructor', '__proto__', 'toString', 42, {}];
+const ODD_IDS = [undefined, null, '', 'nosuchtheme', 'constructor', '__proto__', 'toString', 42, {}];
 
 test('every theme in sprites.js is offered, Pastry shop first', () => {
   assert.deepEqual(pixels.themeIds(), Object.keys(Pixel.THEMES));
@@ -97,7 +97,7 @@ test('a link that has left index.html\'s icon addresses comes back to Pastry sho
   // Coming from Bakery's, and from then on: Pastry shop's own folder, whose picture never changes.
   for (const current of ['icons/bakery/favicon.svg', 'icons/default/favicon.svg']) {
     assert.equal(pixels.iconHref('default', current), 'icons/default/favicon.svg', current);
-    assert.equal(pixels.iconHref('cafe', current), 'icons/default/favicon.svg', current);
+    assert.equal(pixels.iconHref('nosuchtheme', current), 'icons/default/favicon.svg', current);
   }
   for (const current of ['icons/bakery/icon-180.png', 'icons/default/icon-180.png'])
     assert.equal(pixels.touchIconHref('default', current), 'icons/default/icon-180.png', current);

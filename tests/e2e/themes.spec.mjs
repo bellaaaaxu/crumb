@@ -200,7 +200,7 @@ test('a theme id the page does not know, or none at all, draws the wife cake and
       else session.org.theme = replacement;
       await route.fulfill({ response, json: session });
     });
-    for (const theme of [undefined, 'constructor', 'cafe']) {
+    for (const theme of [undefined, 'constructor', 'nosuchtheme']) {
       replacement = theme;
       await page.reload();
       await expect(nameMenu(page)).toBeVisible();
