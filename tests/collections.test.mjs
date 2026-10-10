@@ -187,6 +187,10 @@ test('every theme rule of the design is checked', () => {
   refused('"zh-CN": "饼店 · {count} 款点心"', '"zh-CN": "饼店 · {count} 款点心（３９）"', /THEMES\.default\.card\.zh-CN must not type a number/);
   refused('const THEMES = {', 'const THEMES = {\n    Pastry: { mascot: "laopo", rotation: ["laopo"], limited: [], version: 1, label: { en: "x", "zh-CN": "x" }, card: { en: "{count}", "zh-CN": "{count}" } },',
     /theme id "Pastry" must be 2 to 32 lowercase letters and digits/);
+  // The tests' stand-in for a theme this version does not ship. The entry is otherwise sound, so
+  // the id alone is what is refused.
+  refused('const THEMES = {', 'const THEMES = {\n    nosuchtheme: { mascot: "laopo", rotation: ["laopo"], limited: [], version: 1, label: { en: "x", "zh-CN": "x" }, card: { en: "{count}", "zh-CN": "{count}" } },',
+    /theme id "nosuchtheme" is kept for tests: it names a theme that never ships/);
   refused('const THEMES = {', 'const THEMES = {\n    gone: null,', /THEMES\.gone\.rotation and \.limited must be lists of keys/);
   const stray = `stray: { palette: { X: "#7A4A1E" }, rows: [${Array(12).fill('"XXXXXXXXXXXX"').join(', ')}] },`;
   refused('  const SPRITES = {', `  const SPRITES = {\n    ${stray}`, /stray is drawn but is in no theme's rotation or limited/);

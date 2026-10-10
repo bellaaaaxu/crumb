@@ -21,6 +21,9 @@ const THEMES_DIR = join(root, 'themes');
 const GRID = 12;
 /* Sprite keys and theme ids alike: they end up in members' rows, file names and URLs. */
 const ID = /^[a-z][a-z0-9]{1,31}$/;
+/* The id every test uses for "a theme this version does not ship" (a database or a page from a
+ * newer Crumb). No theme may ever take it, or those tests would quietly test a real theme. */
+const NEVER_SHIPS = 'nosuchtheme';
 /* The languages a theme's name and card text come in. */
 const LOCALES = ['en', 'zh-CN'];
 
@@ -63,6 +66,7 @@ export function evaluateSprites(source) {
 function manifestOf(Pixel, themeId) {
   if (!Object.hasOwn(Pixel.THEMES, themeId)) fail(`no theme "${themeId}" in THEMES`);
   if (!ID.test(themeId)) fail(`theme id "${themeId}" must be 2 to 32 lowercase letters and digits, starting with a letter`);
+  if (themeId === NEVER_SHIPS) fail(`theme id "${themeId}" is kept for tests: it names a theme that never ships`);
   const where = `THEMES.${themeId}`;
   // A missing entry has no lists, so the first check below names it.
   const { mascot, rotation, limited, version, label, card } = Pixel.THEMES[themeId] ?? {};
