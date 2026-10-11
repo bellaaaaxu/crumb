@@ -293,6 +293,25 @@ test('changing the theme removes the benefit icons it does not draw, active or n
   assert.deepEqual(icons(), { [tart.id]: null, [bun.id]: 'bolo', [lunch.id]: null, [hidden.id]: null, [croissant.id]: null });
 });
 
+test('changing from Pastry shop to Café keeps the icons both draw, Portuguese Egg Tart, Swiss Roll and Black Forest Cake, and removes the rest', t => {
+  const { db, owner } = fixture(t);
+  const porttart = saveReward(db, owner, { name: 'Egg tart Friday', description: '', costUnits: 300, active: true, iconKey: 'porttart' });
+  const swissroll = saveReward(db, owner, { name: 'Cake slice', description: '', costUnits: 400, active: true, iconKey: 'swissroll' });
+  const blackforest = saveReward(db, owner, { name: 'Birthday cake', description: '', costUnits: 2500, active: false, iconKey: 'blackforest' });
+  const tart = saveReward(db, owner, { name: 'Egg tart run', description: '', costUnits: 300, active: true, iconKey: 'tart' });
+  const mooncake = saveReward(db, owner, { name: 'Mooncake box', description: '', costUnits: 2000, active: false, iconKey: 'mooncake' });
+  const icons = () => Object.fromEntries(listRewards(db, { includeInactive: true }).map(reward => [reward.id, reward.iconKey]));
+  const lastUpdate = () => JSON.parse(db.prepare(
+    `SELECT detail_json FROM audit WHERE action = 'org.update' ORDER BY created_at DESC, rowid DESC LIMIT 1`).get().detail_json);
+
+  const toCafe = updateOrg(db, owner, { theme: 'cafe' });
+  assert.deepEqual([toCafe.theme, toCafe.iconsRemoved], ['cafe', 2]);
+  assert.deepEqual(icons(), {
+    [porttart.id]: 'porttart', [swissroll.id]: 'swissroll', [blackforest.id]: 'blackforest', [tart.id]: null, [mooncake.id]: null,
+  });
+  assert.deepEqual(lastUpdate(), { changed: ['theme'], theme: { from: 'default', to: 'cafe' }, iconsRemoved: 2 });
+});
+
 test('a change that leaves the theme alone removes no icons and is audited as before', t => {
   const { db, owner } = fixture(t);
   const tart = saveReward(db, owner, { name: 'Egg tart run', description: '', costUnits: 300, active: true, iconKey: 'tart' });

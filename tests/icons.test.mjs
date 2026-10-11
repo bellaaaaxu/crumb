@@ -130,6 +130,32 @@ test('Pastry shop keeps its 0.2 icons: PNGs drawn from its mascot and the hand-d
   assert.notEqual(svgText(join(APP, 'favicon.svg')), faviconSvg(Pixel, mascot));
 });
 
+test('Café\'s icons are Hot Coffee straight on the café page colour, #160F0A, with all of its steam', async () => {
+  assert.equal(Pixel.THEMES.cafe.mascot, 'hotcoffee');
+  assert.equal(Pixel.THEMES.cafe.background, '#160F0A');
+  const dir = join(APP, 'icons', 'cafe');
+  const svg = svgText(join(dir, 'favicon.svg'));
+  assert.equal(svg, faviconSvg(Pixel, 'hotcoffee', '#160F0A'), `app/icons/cafe/favicon.svg is not Hot Coffee on #160F0A. ${RERUN}`);
+  assert.match(svg, /<rect width="14" height="14" fill="#160F0A"\/>/);
+  // Icons stand still: every steam cell of the drawing is in the tab icon, at its own place
+  // (the 12x12 grid sits at (1, 1) of the 14x14 box, centred by the whole drawing's offset).
+  // Found by position, not by counting a colour: another part of the cup may share the steam's colour.
+  const hotcoffee = Pixel.SPRITES.hotcoffee;
+  const { dx, dy } = Pixel.offset(hotcoffee);
+  const steamCells = Pixel.steamWisps(hotcoffee).flat();
+  assert.equal(steamCells.length, 8, 'two wisps of four cells');
+  for (const { x, y } of steamCells) {
+    assert.ok(svg.includes(`<rect x="${1 + x + dx}" y="${1 + y + dy}" width="1" height="1" fill="${hotcoffee.palette[hotcoffee.steam]}"/>`),
+      `the tab icon has the steam cell at column ${x}, row ${y}`);
+  }
+  for (const size of ICON_SIZES) {
+    const path = join(dir, `icon-${size}.png`);
+    await assertDrawnFrom(path, 'hotcoffee', size, '#160F0A', `app/icons/cafe/icon-${size}.png`);
+    const { data } = await sharp(path).removeAlpha().raw().toBuffer({ resolveWithObject: true });
+    assert.deepEqual([...data.subarray(0, 3)], [0x16, 0x0F, 0x0A], `app/icons/cafe/icon-${size}.png: the corner is the café page colour`);
+  }
+});
+
 test('importing scripts/make-icons.mjs writes no file', async () => {
   const files = [join(APP, 'favicon.svg'), ...ICON_SIZES.map(size => join(APP, 'icons', `icon-${size}.png`))];
   const before = files.map(file => statSync(file).mtimeMs);
@@ -153,5 +179,18 @@ test('each team gets the icons of its own theme at the same addresses', async t 
   assert.ok(!readFileSync(fileFor('bakery', '/favicon.svg')).equals(readFileSync(fileFor('default', '/favicon.svg'))),
     'the Bakery tab icon differs from the Pastry shop one, so the check below can tell them apart');
   await assertServes(server.base, 'bakery');
+  await assertOwnAddresses(server.base);
+});
+
+test('a team set up on Café gets the café icons at the fixed addresses', async t => {
+  const server = await startServer(t);
+  // Through the real setup: the server takes "cafe" because themes/cafe.json exists (design section 9).
+  await setupOrganization(server, { org: { theme: 'cafe' } });
+  assert.equal(server.db.prepare('SELECT theme FROM organization').get().theme, 'cafe');
+  for (const other of ['default', 'bakery']) {
+    assert.ok(!readFileSync(fileFor('cafe', '/favicon.svg')).equals(readFileSync(fileFor(other, '/favicon.svg'))),
+      `the café tab icon differs from the ${other} one, so the check below can tell them apart`);
+  }
+  await assertServes(server.base, 'cafe');
   await assertOwnAddresses(server.base);
 });

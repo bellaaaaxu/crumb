@@ -23,7 +23,7 @@ test('the server reads every theme list file in themes/, the default theme first
   assert.deepEqual([...THEME_IDS].sort(), files.map(name => name.slice(0, -'.json'.length)));
   assert.equal(DEFAULT_THEME, 'default');
   assert.equal(THEME_IDS[0], DEFAULT_THEME);
-  assert.ok(THEME_IDS.includes('bakery'), 'Bakery ships');
+  assert.deepEqual(THEME_IDS, ['default', 'bakery', 'cafe'], 'Pastry shop first, then the others by id, the order of the cards (design section 9)');
   assert.deepEqual([...THEMES.keys()], THEME_IDS);
   for (const id of THEME_IDS) {
     // What the server loads is the committed file, as it is (spec §9).
@@ -35,11 +35,14 @@ test('the server reads every theme list file in themes/, the default theme first
   }
   assert.equal(THEMES.get('default').mascot, 'laopo');
   assert.equal(THEMES.get('bakery').mascot, 'toastbite');
+  assert.equal(THEMES.get('cafe').mascot, 'hotcoffee');
 });
 
 test('only the shipped themes are known', () => {
   assert.equal(themeById('default'), THEMES.get('default'));
   assert.equal(themeById('bakery'), THEMES.get('bakery'));
+  assert.equal(themeById('cafe'), THEMES.get('cafe'));
+  assert.equal(themeById('cafe')?.themeId, 'cafe', 'Café ships');
   for (const id of ['nosuchtheme', 'Default', '', undefined, null, '__proto__', 'constructor', 'toString'])
     assert.equal(themeById(id), undefined, String(id));
 });

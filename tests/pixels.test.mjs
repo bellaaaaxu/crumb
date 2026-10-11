@@ -23,7 +23,7 @@ const ODD_IDS = [undefined, null, '', 'nosuchtheme', 'constructor', '__proto__',
 test('every theme in sprites.js is offered, Pastry shop first', () => {
   assert.deepEqual(pixels.themeIds(), Object.keys(Pixel.THEMES));
   assert.equal(pixels.themeIds()[0], 'default');
-  assert.ok(pixels.themeIds().includes('bakery'));
+  assert.deepEqual(pixels.themeIds(), ['default', 'bakery', 'cafe'], 'Café last: the cards come in the order the server lists the themes');
 });
 
 test('each theme\'s mascot and keys are its list file\'s, so a card counts what the server unlocks', () => {
@@ -35,8 +35,10 @@ test('each theme\'s mascot and keys are its list file\'s, so a card counts what 
   }
   assert.equal(pixels.mascotKey('default'), 'laopo');
   assert.equal(pixels.mascotKey('bakery'), 'toastbite');
+  assert.equal(pixels.mascotKey('cafe'), 'hotcoffee');
   assert.deepEqual(pixels.themeKeysOf('default'), [...Pixel.CYCLE, ...Pixel.LIMITED]);
   assert.equal(pixels.themeKeysOf('bakery').length, 24);
+  assert.equal(pixels.themeKeysOf('cafe').length, 24);
   // A copy: whoever holds it cannot change the theme.
   pixels.themeKeysOf('bakery').push('unicorn');
   assert.equal(pixels.themeKeysOf('bakery').length, 24);
@@ -71,6 +73,10 @@ test('a theme\'s name and card text come in both languages, the count worked out
   assert.equal(pixels.themeCard('default', 'zh-CN'), '饼店 · 39 款点心');
   assert.equal(pixels.themeCard('bakery', 'en'), 'Bakery · 24 breads and cakes');
   assert.equal(pixels.themeCard('bakery', 'zh-CN'), '面包店 · 24 款面包和蛋糕');
+  assert.equal(pixels.themeLabel('cafe', 'en'), 'Café');
+  assert.equal(pixels.themeLabel('cafe', 'zh-CN'), '咖啡店');
+  assert.equal(pixels.themeCard('cafe', 'en'), 'Café · 24 coffees and sweets');
+  assert.equal(pixels.themeCard('cafe', 'zh-CN'), '咖啡店 · 24 款咖啡和甜点');
   // A language the theme has no text in reads English.
   for (const locale of [undefined, 'fr', 'constructor']) {
     assert.equal(pixels.themeLabel('bakery', locale), 'Bakery', String(locale));
@@ -83,6 +89,8 @@ test('Pastry shop keeps the icon addresses index.html names; other themes use th
   assert.equal(pixels.touchIconHref('default'), 'icons/icon-180.png');
   assert.equal(pixels.iconHref('bakery'), 'icons/bakery/favicon.svg');
   assert.equal(pixels.touchIconHref('bakery'), 'icons/bakery/icon-180.png');
+  assert.equal(pixels.iconHref('cafe'), 'icons/cafe/favicon.svg');
+  assert.equal(pixels.touchIconHref('cafe'), 'icons/cafe/icon-180.png');
   for (const id of pixels.themeIds()) {
     assert.ok(shipped(pixels.iconHref(id)), pixels.iconHref(id));
     assert.ok(shipped(pixels.touchIconHref(id)), pixels.touchIconHref(id));

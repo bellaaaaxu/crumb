@@ -19,6 +19,8 @@ const nextKey = () => `collect-request-${String(++keys).padStart(4, '0')}`;
 const count = (db, userId) => db.prepare('SELECT count(*) AS n FROM collection_unlocks WHERE user_id = ?').get(userId).n;
 const pastry = themeById(DEFAULT_THEME);
 const bakery = themeById('bakery');
+// Undefined until themes/cafe.json exists: the café test below says so instead of throwing here.
+const cafe = themeById('cafe');
 
 /* Setup and Settings choose the theme through the API; these tests set it on the row. */
 const onTheme = (db, themeId) => db.prepare('UPDATE organization SET theme = ? WHERE id = 1').run(themeId);
@@ -60,6 +62,11 @@ const RELEASED_KEYS = {
     'toastbite', 'croissant', 'bolo', 'strawberrycake', 'baguette', 'gaimei', 'cupcake', 'loaf', 'caketriangle',
     'bagel', 'sausage', 'donut', 'cinnamonroll', 'swissroll', 'pretzel', 'creambun', 'tiramisu', 'boloyau',
     'madeleine', 'blackforest', 'cheesehotdog', 'mango', 'papercake', 'chestnut',
+  ],
+  cafe: [
+    'hotcoffee', 'latte', 'tiramisu', 'icedcoffee', 'cappuccino', 'croissant', 'mocha', 'pourover', 'madeleine',
+    'takeaway', 'dalgona', 'cinnamonroll', 'espresso', 'coldbrew', 'porttart', 'irishcoffee', 'frappe', 'swissroll',
+    'vietnamesedrip', 'macchiato', 'blackforest', 'espressotonic', 'affogato', 'strawberrycake',
   ],
 };
 
@@ -143,6 +150,67 @@ test('Bakery is the 24 of the design, Bitten Toast first, sharing 12 drawings wi
   };
   for (const [key, [en, hant, hans]] of Object.entries(expected)) {
     assert.deepEqual(names[key], { en, 'zh-Hant': hant, 'zh-CN': hans }, key);
+  }
+});
+
+test('Café is the 24 of the design, Hot Coffee first, sharing 3 drawings with Pastry shop and 7 with Bakery', () => {
+  const Pixel = loadPixel(spritesSource());
+  assert.ok(Object.hasOwn(Pixel.THEMES, 'cafe'), 'THEMES has no cafe');
+  // Last, so the setup and Settings cards come in the order the server lists the themes (design section 9).
+  assert.deepEqual(Object.keys(Pixel.THEMES), ['default', 'bakery', 'cafe']);
+  const cafe = Pixel.THEMES.cafe;
+  assert.equal(cafe.mascot, 'hotcoffee');
+  assert.deepEqual([...cafe.rotation], [
+    'hotcoffee', 'latte', 'tiramisu', 'icedcoffee', 'cappuccino', 'croissant', 'mocha', 'pourover', 'madeleine',
+    'takeaway', 'dalgona', 'cinnamonroll', 'espresso', 'coldbrew', 'porttart', 'irishcoffee', 'frappe', 'swissroll',
+    'vietnamesedrip', 'macchiato', 'blackforest', 'espressotonic', 'affogato', 'strawberrycake',
+  ], 'the order of design section 2, which is also the demo rotation');
+  assert.deepEqual([...cafe.limited], []);
+  assert.equal(cafe.version, 1);
+  assert.deepEqual({ ...cafe.label }, { en: 'Café', 'zh-CN': '咖啡店' });
+  assert.deepEqual({ ...cafe.card }, { en: 'Café · {count} coffees and sweets', 'zh-CN': '咖啡店 · {count} 款咖啡和甜点' });
+  // The page colour of a theme with colours of its own: its icons are drawn on it. Only Café has one.
+  assert.equal(cafe.background, '#160F0A');
+  for (const themeId of ['default', 'bakery']) assert.equal(Object.hasOwn(Pixel.THEMES[themeId], 'background'), false, themeId);
+
+  const pastry = Pixel.themeKeys('default');
+  const bakery = Pixel.themeKeys('bakery');
+  assert.deepEqual([...cafe.rotation].filter(key => pastry.includes(key)).sort(), ['blackforest', 'porttart', 'swissroll']);
+  assert.deepEqual([...cafe.rotation].filter(key => bakery.includes(key)).sort(), [
+    'blackforest', 'cinnamonroll', 'croissant', 'madeleine', 'strawberrycake', 'swissroll', 'tiramisu',
+  ]);
+  // The 16 coffees are Café's own drawings; with them the sketchbook holds 67 (design section 11).
+  assert.deepEqual([...cafe.rotation].filter(key => !pastry.includes(key) && !bakery.includes(key)).sort(), [
+    'hotcoffee', 'espresso', 'latte', 'cappuccino', 'mocha', 'macchiato', 'icedcoffee', 'coldbrew', 'affogato',
+    'irishcoffee', 'vietnamesedrip', 'pourover', 'takeaway', 'espressotonic', 'dalgona', 'frappe',
+  ].sort());
+  assert.equal(Object.keys(Pixel.SPRITES).length, 67);
+
+  // The list file keeps 0.3's six fields (background is not one of them), the mascot first.
+  const list = listFile('cafe');
+  assert.deepEqual(Object.keys(list), ['themeId', 'version', 'source', 'mascot', 'keys', 'names']);
+  assert.equal(list.mascot, 'hotcoffee');
+  assert.equal(list.keys[0], 'hotcoffee');
+  const expected = {
+    hotcoffee: ['Hot Coffee', '熱咖啡', '热咖啡'],
+    espresso: ['Espresso', '意式濃縮', '意式浓缩'],
+    latte: ['Latte', '拿鐵', '拿铁'],
+    cappuccino: ['Cappuccino', '卡布奇諾', '卡布奇诺'],
+    mocha: ['Mocha', '摩卡', '摩卡'],
+    macchiato: ['Caramel Macchiato', '焦糖瑪奇朵', '焦糖玛奇朵'],
+    icedcoffee: ['Iced Coffee', '冰咖啡', '冰咖啡'],
+    coldbrew: ['Cold Brew', '冷萃', '冷萃'],
+    affogato: ['Affogato', '阿芙佳朵', '阿芙佳朵'],
+    irishcoffee: ['Irish Coffee', '愛爾蘭咖啡', '爱尔兰咖啡'],
+    vietnamesedrip: ['Vietnamese Drip', '越南滴漏', '越南滴漏'],
+    pourover: ['Pour-over', '手沖', '手冲'],
+    takeaway: ['Takeaway Coffee', '外帶咖啡', '外带咖啡'],
+    espressotonic: ['Espresso Tonic', '咖啡湯力', '咖啡汤力'],
+    dalgona: ['Dalgona', '400 次咖啡', '400 次咖啡'],
+    frappe: ['Coffee Frappé', '咖啡冰沙', '咖啡冰沙'],
+  };
+  for (const [key, [en, hant, hans]] of Object.entries(expected)) {
+    assert.deepEqual(list.names[key], { en, 'zh-Hant': hant, 'zh-CN': hans }, key);
   }
 });
 
@@ -354,6 +422,30 @@ test('a Bakery team unlocks only Bakery keys, in hash order, up to all 24', t =>
   assert.deepEqual(rest.collection.map(item => item.spriteKey), expected);
   assert.deepEqual(rest.collection.map(item => item.ordinal), Array.from({ length: 24 }, (_, index) => index));
   assert.equal(nextSpriteKey(db, member.id, bakery.keys), null);
+  const after = grant(db, owner, { userId: member.id, units: 10, reason: 'Still counts', key: nextKey() });
+  assert.deepEqual(after.unlocked, []);
+  assert.equal(after.collection.length, 24);
+  assert.equal(balanceOf(db, member.id).postedUnits, 520);
+});
+
+test('a café team unlocks only café keys, in hash order, up to all 24', t => {
+  assert.ok(cafe, 'the server has no themes/cafe.json');
+  const { db, owner, member } = fixture(t, { mode: 'points', thresholdUnits: 1 });
+  onTheme(db, 'cafe');
+  assert.equal(cafe.keys.length, 24);
+  const expected = byHash(member.id, cafe.keys);
+
+  // One step is 1 point, so 10 points is the first 10 of this member's café order.
+  const first = grant(db, owner, { userId: member.id, units: 10, reason: 'Ten', key: nextKey() });
+  assert.deepEqual(first.collection.map(item => item.spriteKey), expected.slice(0, 10));
+  assert.equal(nextSpriteKey(db, member.id, cafe.keys), expected[10]);
+
+  // Far more than 24 steps: the shelf stops at Café's 24, every one of them, in order.
+  const rest = grant(db, owner, { userId: member.id, units: 500, reason: 'All of them', key: nextKey() });
+  assert.equal(rest.unlocked.length, 14);
+  assert.deepEqual(rest.collection.map(item => item.spriteKey), expected);
+  assert.deepEqual(rest.collection.map(item => item.ordinal), Array.from({ length: 24 }, (_, index) => index));
+  assert.equal(nextSpriteKey(db, member.id, cafe.keys), null);
   const after = grant(db, owner, { userId: member.id, units: 10, reason: 'Still counts', key: nextKey() });
   assert.deepEqual(after.unlocked, []);
   assert.equal(after.collection.length, 24);

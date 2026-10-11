@@ -209,3 +209,25 @@ test('the rule checks refuse steam the design does not allow', () => {
 
   refused({ mascot: 'laopo' }, /steamy has steam but is no theme's mascot/);
 });
+
+/* Hot Coffee, Café's mascot (design section 3). The tests above are on drawings made for
+ * them; these pin Hot Coffee's own steam. The offsets test is one of gate 1's checks: passing
+ * on the approved drawing closes that gate. */
+test('Hot Coffee is Café\'s mascot and the only drawing that carries steam', () => {
+  assert.equal(Pixel.THEMES.cafe?.mascot, 'hotcoffee');
+  assert.deepEqual(Object.keys(Pixel.SPRITES).filter(key => Pixel.SPRITES[key].steam !== undefined), ['hotcoffee']);
+  assert.equal(Pixel.SPRITES.hotcoffee.steam, 's');
+});
+
+test('each wisp of Hot Coffee\'s steam is a ")" bulging right: offsets 0, 1, 1, 0, in grid rows 0 to 3', () => {
+  const wisps = Pixel.steamWisps(Pixel.SPRITES.hotcoffee);
+  assert.equal(wisps.length, 2, 'two wisps');
+  for (const [index, wisp] of wisps.entries()) {
+    const label = index === 0 ? 'the left wisp' : 'the right wisp';
+    // One cell in each of the four rows right above the rim, which are rows 0 to 3 of the grid.
+    assert.deepEqual(wisp.map(cell => cell.y), [0, 1, 2, 3], `${label}: one cell in each of rows 0 to 3`);
+    // How far each row's cell sits right of the wisp's leftmost cell, top to bottom.
+    const left = Math.min(...wisp.map(cell => cell.x));
+    assert.deepEqual(wisp.map(cell => cell.x - left), [0, 1, 1, 0], label);
+  }
+});
