@@ -941,18 +941,69 @@ const Pixel = (function () {
     };
   }
 
-  /* bite: 0 = whole. Towards 1 it carves a growing circle out of the top-right. */
-  function drawSprite(canvas, sprite, pixelSize, bite) {
+  /* A mascot's steam: the rows of a wisp shown at each step of its cycle, numbered 0-3 from the
+   * top of the steam (the top row of all its cells). A wisp rises from its bottom row up, then
+   * clears from the bottom up; it never moves sideways. The app and the demo read the table
+   * and the step's length from here. */
+  const STEAM_STEPS = [[3], [2, 3], [1, 2, 3], [0, 1, 2, 3], [0, 1, 2], [0, 1], [0], []];
+  const STEAM_STEP_MS = 120;
+
+  /* The cells drawn with a sprite's steam symbol, as wisps: cells touching by an edge or a
+   * corner are one wisp. Wisps left to right by their leftmost column; each wisp's cells as
+   * { x, y } in the grid, top to bottom, then left to right. None without steam. */
+  function steamWisps(sprite) {
+    if (!sprite || !sprite.steam || !sprite.palette[sprite.steam]) return [];
+    const loose = [];
+    for (let y = 0; y < sprite.rows.length; y += 1) {
+      for (let x = 0; x < sprite.rows[y].length; x += 1) {
+        if (sprite.rows[y][x] === sprite.steam) loose.push({ x, y });
+      }
+    }
+    const wisps = [];
+    while (loose.length > 0) {
+      const wisp = [loose.shift()];
+      for (let i = 0; i < wisp.length; i += 1) {
+        for (let j = loose.length - 1; j >= 0; j -= 1) {
+          if (Math.abs(loose[j].x - wisp[i].x) <= 1 && Math.abs(loose[j].y - wisp[i].y) <= 1) wisp.push(loose.splice(j, 1)[0]);
+        }
+      }
+      wisps.push(wisp.sort((a, b) => a.y - b.y || a.x - b.x));
+    }
+    const leftmost = wisp => Math.min(...wisp.map(cell => cell.x));
+    return wisps.sort((a, b) => leftmost(a) - leftmost(b) || a[0].y - b[0].y);
+  }
+
+  /* The steam cells a whole-number step hides, as "x,y". 8 steps make a cycle and wisp k shows
+   * the rows of step + 4k: the left wisp leads and the right one is half a cycle from it. */
+  function hiddenSteam(sprite, step) {
+    const hidden = new Set();
+    if (!Number.isInteger(step)) return hidden;
+    const wisps = steamWisps(sprite);
+    let top = Infinity;
+    for (const wisp of wisps) for (const cell of wisp) top = Math.min(top, cell.y);
+    wisps.forEach((wisp, k) => {
+      const shown = STEAM_STEPS[(((step + 4 * k) % 8) + 8) % 8];
+      for (const cell of wisp) if (!shown.includes(cell.y - top)) hidden.add(cell.x + ',' + cell.y);
+    });
+    return hidden;
+  }
+
+  /* bite: 0 = whole. Towards 1 it carves a growing circle out of the top-right.
+   * step: left out, the whole drawing, as before steam existed. A whole number (any, it goes
+   * round the cycle) hides the steam STEAM_STEPS hides at that step; a drawing without steam is
+   * whole at every step. It stays centred on the whole drawing, so the cup never moves. */
+  function drawSprite(canvas, sprite, pixelSize, bite, step) {
     const width = sprite.rows[0].length * pixelSize;
     const height = sprite.rows.length * pixelSize;
     const ctx = setupCanvas(canvas, width, height);
     if (!ctx) return;
     const { dx, dy } = offset(sprite);
+    const hidden = hiddenSteam(sprite, step);
     for (let y = 0; y < sprite.rows.length; y += 1) {
       const row = sprite.rows[y];
       for (let x = 0; x < row.length; x += 1) {
         const color = sprite.palette[row[x]];
-        if (!color) continue;
+        if (!color || hidden.has(x + ',' + y)) continue;
         ctx.fillStyle = color;
         ctx.fillRect((x + dx) * pixelSize, (y + dy) * pixelSize, pixelSize, pixelSize);
       }
@@ -1007,5 +1058,5 @@ const Pixel = (function () {
     return THEMES[themeId].rotation.concat(THEMES[themeId].limited);
   }
 
-  return { SPRITES, CYCLE, LIMITED, NAMES, THEMES, DIGITS, LETTERS, offset, drawSprite, drawText, drawNumber, forSlot, themeKeys };
+  return { SPRITES, CYCLE, LIMITED, NAMES, THEMES, DIGITS, LETTERS, STEAM_STEPS, STEAM_STEP_MS, offset, drawSprite, drawText, drawNumber, forSlot, themeKeys, steamWisps };
 })();
