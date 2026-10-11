@@ -114,6 +114,41 @@ const APP_ADDITIONS = [
   },
 ];
 
+/* Declarations today's assets/style.css adds that also apply in light, written as the light
+ * set resolves them, each with the reason it changes nothing there. */
+const DEMO_ADDITIONS = [
+  {
+    selectors: ['[data-theme]'],
+    declarations: { 'color-scheme': 'light' },
+    why: 'the light set also sits on any element with data-theme; in a light page such an element inherits light anyway',
+  },
+  {
+    selectors: ['.pastry-egg canvas', '.person canvas', '.card .icons canvas', '.oven-caption canvas'],
+    declarations: { background: 'none', 'box-shadow': 'none', padding: '0', 'box-sizing': 'border-box', 'border-radius': '0' },
+    why: 'the ground under a single picture; in light it is what the canvas has today: no background, shadow or rounding, and * gives it border-box and no padding',
+  },
+  {
+    selectors: ['.slot'],
+    declarations: { 'box-shadow': 'none' },
+    why: 'a slot\'s own shadow; none in light, as today',
+  },
+  {
+    selectors: ['.slots > .slot:not(.filled)'],
+    declarations: { background: '#efdcb6', 'border-color': '#a9793f', 'box-shadow': 'none' },
+    why: 'an empty place on the shelf; in light the same ground and border colour .slot gives it, and no shadow',
+  },
+  {
+    selectors: ['.phone'],
+    declarations: { 'background-image': 'none' },
+    why: 'the art over the phone screen\'s ground; none in light, which the background shorthand just before it already gives',
+  },
+  {
+    selectors: ['.toast.error'],
+    declarations: { color: '#fff8e6' },
+    why: 'an error toast is also a .toast, whose text is this same colour',
+  },
+];
+
 /* The stylesheets checked: today's, 0.3.0's copy, the variables a script sets on an element
  * (the stylesheet only reads them), and what is new in light. */
 const SHEETS = [
@@ -122,6 +157,12 @@ const SHEETS = [
     then: 'tests/fixtures/0.3.0/app.css',
     scriptVariables: ['--header-height'], // set by toast() in app/dom.js
     additions: APP_ADDITIONS,
+  },
+  {
+    now: 'assets/style.css',
+    then: 'tests/fixtures/0.3.0/style.css',
+    scriptVariables: [], // assets/app.js reads variables, and sets none
+    additions: DEMO_ADDITIONS,
   },
 ];
 
@@ -197,3 +238,23 @@ for (const sheet of SHEETS) {
     assert.deepEqual(moved, []);
   });
 }
+
+test('the reader sees the whole of 0.3.0\'s demo stylesheet', () => {
+  const rules = parseCss(read('tests/fixtures/0.3.0/style.css'));
+  assert.equal(rules.length, 235);
+  const variables = lightVariables(rules);
+  assert.equal(variables.size, 19);
+  assert.equal(variables.get('--gold-deep'), '#c98f1f');
+  const light = inLight(rules);
+  // Every selector of every rule, each inside its at-rules: a reader that lost a block would count fewer.
+  assert.equal(light.size, 244);
+  assert.equal(light.get('@media (max-width: 900px) / .phone-frame').get('width'), '100%');
+  assert.equal(light.get('@keyframes crack / 55%').get('transform'), 'rotate(7deg)');
+  assert.equal(light.get('@media (prefers-reduced-motion: reduce) / *::after').get('transition-duration'), '0.01ms !important');
+  assert.equal(light.get('body').get('background-image'),
+    'repeating-linear-gradient(0deg, rgba(122, 74, 38, 0.025) 0 2px, transparent 2px 24px), '
+    + 'repeating-linear-gradient(90deg, rgba(122, 74, 38, 0.025) 0 2px, transparent 2px 24px)');
+  assert.equal(light.get('.shutter').get('background'), 'repeating-linear-gradient(#7a4a26 0 10px, #5c3a1d 10px 12px)');
+  assert.equal(light.get('.person[aria-pressed=\'true\']').get('background'), '#fff8e6');
+  assert.equal(light.get('.phone').get('height'), '700px');
+});

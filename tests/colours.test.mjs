@@ -129,6 +129,12 @@ const STYLESHEETS = [
       { selector: '[data-theme="cafe"] .dialog::backdrop', property: 'background', value: 'rgba(0, 0, 0, 0.6)' },
     ],
   },
+  {
+    file: 'assets/style.css',
+    // None: the demo has no QR code and no dialog. Its confetti and the crumbs' fallback colour
+    // are in assets/app.js, not in the stylesheet.
+    allowed: [],
+  },
 ];
 
 test('the colour scan reads values only, whole tokens, and knows every way to write a colour', () => {
@@ -204,3 +210,111 @@ for (const { file, allowed } of STYLESHEETS) {
     assert.deepEqual(found, []);
   });
 }
+
+/* ------------------------------------------------------------------ the demo's stylesheet */
+
+/* Every variable of the demo's light set: spec §8's table, plus the app's slot-shadow,
+ * empty-slot, medallion and row-line variables (spec §2's table puts the demo's mascot, person
+ * buttons, cards and empty slots on the app's porcelain; assumptions 21 and 22). A shop with
+ * colours of its own gives each of them a value of its own. */
+const DEMO_VARIABLES = [
+  '--bg', '--page-art', '--phone-art', '--tile', '--paper', '--chosen',
+  '--ink', '--ink-soft', '--accent', '--plus', '--minus',
+  '--digit', '--wordmark', '--chevron',
+  '--select',
+  '--get-bg', '--get-ink', '--get-ledge', '--switch-on-bg', '--switch-on-ink',
+  '--grant-bg', '--grant-ledge', '--grant-ink', '--confirm-bg', '--confirm-border', '--confirm-ink',
+  '--frame', '--highlight',
+  '--app-icon-bg', '--app-icon-border', '--app-icon-shadow', '--bezel', '--bezel-shadow', '--dot-on', '--bar-dot',
+  '--slot-bg', '--slot-border', '--slot-shadow', '--slot-empty-bg', '--slot-empty-border', '--slot-empty-shadow',
+  '--limited-bg', '--rule-bg', '--rule-ink',
+  '--face-bg', '--face-ring', '--face-pad', '--face-box', '--face-radius',
+  '--bubble-bg', '--bubble-ink', '--sheet-scrim', '--toast-bg', '--toast-ink', '--toast-error-bg', '--toast-error-ink',
+  '--line', '--row-line', '--rule-style',
+];
+
+/* The demo's layout constants, the same in every shop. */
+const DEMO_CONSTANTS = [['--radius-tile', '20px'], ['--radius-btn', '16px'], ['--phone-screen', '700px'], ['--phone-bezel', '12px']];
+
+/* The shutter and its sign: 0.3's wood, seam, cream and dark brown in every shop (spec §8,
+ * assumption 9a), so in a :root group of their own and never in a [data-theme] set. */
+const DEMO_SHUTTER = [
+  ['--shutter-slat', '#7a4a26'], ['--shutter-seam', '#5c3a1d'],
+  ['--sign-bg', '#fffdf6'], ['--sign-border', '#5c3a1d'], ['--sign-ink', '#4a2f1b'],
+];
+
+test('assets/style.css opens with its light set, its layout constants and the shutter\'s own group', () => {
+  const rules = parseCss(read('assets/style.css'));
+  assert.deepEqual(rules.slice(0, 3).map(rule => rule.selector), [':root, [data-theme]', ':root', ':root']);
+  const [light, constants, shutter] = rules;
+  const plain = light.declarations.filter(({ property }) => !property.startsWith('--'));
+  assert.deepEqual(plain.map(({ property, value }) => `${property}: ${value}`), ['color-scheme: light']);
+  const names = light.declarations.filter(({ property }) => property.startsWith('--')).map(({ property }) => property);
+  assert.equal(new Set(names).size, names.length, 'no variable given twice');
+  assert.deepEqual([...names].sort(), [...DEMO_VARIABLES].sort());
+  assert.deepEqual(constants.declarations.map(({ property, value }) => [property, value]), DEMO_CONSTANTS);
+  assert.deepEqual(shutter.declarations.map(({ property, value }) => [property, value]), DEMO_SHUTTER);
+  // And nowhere else: one light set, and no third :root group.
+  assert.equal(topLevel(rules, ':root, [data-theme]').length, 1, 'one light set');
+  assert.equal(topLevel(rules, ':root').length, 2, 'two :root groups');
+});
+
+test('assets/style.css: --wood, --wood-deep, --gold and --gold-deep are split by use and gone', () => {
+  const found = [];
+  for (const rule of parseCss(read('assets/style.css'))) {
+    for (const { property, value } of rule.declarations) {
+      const reads = SPLIT.filter(name => new RegExp(`var\\(\\s*${name}\\s*[,)]`).test(value));
+      if (SPLIT.includes(property) || reads.length) found.push(`${where(rule)} { ${property}: ${value} }`);
+    }
+  }
+  assert.deepEqual(found, []);
+});
+
+test('the colour scan finds what 0.3.0\'s demo wrote out: every place the design lists', () => {
+  const places = writtenOut(parseCss(read('tests/fixtures/0.3.0/style.css'))).map(({ rule, property }) => `${where(rule)} { ${property} }`);
+  assert.deepEqual(places, [
+    'body { background-image }',
+    '.app-icon { box-shadow }',
+    '.get { color }',
+    '.person.pressed { background }',
+    '.person[aria-pressed=\'true\'] { background }',
+    '.phone-frame { box-shadow }',
+    '.pastry-name { color }',
+    '.sheet-scrim { background }',
+    '.toast { color }',
+    '.case .slot.limited { background }',
+    '.legend i.limited { background }',
+  ]);
+});
+
+test('assets/style.css: what scripts read and every text colour are one plain colour, in every set', () => {
+  const rules = parseCss(read('assets/style.css'));
+  // Every variable some rule writes text in (`color: var(--x)`).
+  const textColours = new Set();
+  for (const rule of rules) {
+    for (const { property, value } of rule.declarations) {
+      const match = property === 'color' && /^var\((--[\w-]+)\)$/.exec(value);
+      if (match) textColours.add(match[1]);
+    }
+  }
+  // All of these are text colours, so finding them proves the search finds what it looks for.
+  const known = ['--ink', '--ink-soft', '--accent', '--plus', '--minus', '--get-ink', '--switch-on-ink', '--grant-ink',
+    '--confirm-ink', '--rule-ink', '--bubble-ink', '--toast-ink', '--toast-error-ink'];
+  assert.deepEqual(known.filter(name => !textColours.has(name)), []);
+  // --bg goes into the tab icon's SVG; the other four are read to draw on canvases (spec §8).
+  const plain = new Set(['--bg', '--digit', '--wordmark', '--chevron', '--sign-ink', ...textColours]);
+  // The light set, the two :root groups and any [data-theme="<id>"] set, at the top level.
+  const sets = rules.filter(rule => rule.context.length === 0 && (rule.selector === ':root, [data-theme]'
+    || rule.selector === ':root' || /^\[data-theme=(["'])[^"']*\1\]$/.test(rule.selector)));
+  const seen = new Set();
+  const mixed = [];
+  for (const rule of sets) {
+    for (const { property, value } of rule.declarations) {
+      if (!plain.has(property)) continue;
+      seen.add(property);
+      if (!/^#[0-9a-f]{6}$/i.test(value)) mixed.push(`${rule.selector} { ${property}: ${value} }`);
+    }
+  }
+  assert.deepEqual(mixed, []);
+  assert.deepEqual([...plain].filter(name => !seen.has(name)), [], 'every one of them is given a value');
+});
