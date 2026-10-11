@@ -19,11 +19,13 @@ const ADDRESSES = ['/favicon.svg', ...ICON_SIZES.map(size => `/icons/icon-${size
 
 /* git may check text files out with CRLF on Windows; the drawing is what is compared. */
 const svgText = path => readFileSync(path, 'utf8').replace(/\r\n/g, '\n');
+/* What scripts/make-icons.mjs draws a theme's icons on: its own background, or the cream. */
+const backgroundOf = themeId => Pixel.THEMES[themeId].background ?? '#F2E7CE';
 
-async function assertDrawnFrom(path, mascot, size, label) {
+async function assertDrawnFrom(path, mascot, size, background, label) {
   const { data, info } = await sharp(path).removeAlpha().raw().toBuffer({ resolveWithObject: true });
   assert.deepEqual([info.width, info.height, info.channels], [size, size, 3], label);
-  assert.ok(data.equals(iconPixels(Pixel, mascot, size)), `${label} is not the current ${mascot} drawing. ${RERUN}`);
+  assert.ok(data.equals(iconPixels(Pixel, mascot, size, background)), `${label} is not the current ${mascot} drawing on ${background}. ${RERUN}`);
 }
 
 /* A square tab icon whose first rect is the background over the whole box, and whose every
@@ -78,11 +80,11 @@ test('every theme but Pastry shop has its four icon files, drawn from its curren
     const dir = join(APP, 'icons', themeId);
     for (const file of ['favicon.svg', ...ICON_SIZES.map(size => `icon-${size}.png`)])
       assert.ok(existsSync(join(dir, file)), `app/icons/${themeId}/${file} is missing. ${RERUN}`);
-    assert.equal(svgText(join(dir, 'favicon.svg')), faviconSvg(Pixel, mascot),
-      `app/icons/${themeId}/favicon.svg is not the current ${mascot} drawing. ${RERUN}`);
-    assertMargin(faviconSvg(Pixel, mascot), `app/icons/${themeId}/favicon.svg`);
+    assert.equal(svgText(join(dir, 'favicon.svg')), faviconSvg(Pixel, mascot, backgroundOf(themeId)),
+      `app/icons/${themeId}/favicon.svg is not the current ${mascot} drawing on ${backgroundOf(themeId)}. ${RERUN}`);
+    assertMargin(faviconSvg(Pixel, mascot, backgroundOf(themeId)), `app/icons/${themeId}/favicon.svg`);
     for (const size of ICON_SIZES)
-      await assertDrawnFrom(join(dir, `icon-${size}.png`), mascot, size, `app/icons/${themeId}/icon-${size}.png`);
+      await assertDrawnFrom(join(dir, `icon-${size}.png`), mascot, size, backgroundOf(themeId), `app/icons/${themeId}/icon-${size}.png`);
   }
   const folders = readdirSync(join(APP, 'icons'), { withFileTypes: true })
     .filter(entry => entry.isDirectory()).map(entry => entry.name).sort();
@@ -93,14 +95,36 @@ test('every theme but Pastry shop has its four icon files, drawn from its curren
 test('a generated tab icon keeps a margin of background one cell wide, like the hand-drawn one', () => {
   // Bitten Toast fills every edge of its grid, so it is the case that needs the margin.
   assert.ok(Pixel.SPRITES.toastbite.rows.some(row => row[0] !== '.' && row.at(-1) !== '.'), 'toastbite reaches both side edges');
-  for (const themeId of Object.keys(Pixel.THEMES)) assertMargin(faviconSvg(Pixel, Pixel.THEMES[themeId].mascot), themeId);
+  for (const themeId of Object.keys(Pixel.THEMES)) {
+    assertMargin(faviconSvg(Pixel, Pixel.THEMES[themeId].mascot, backgroundOf(themeId)), themeId);
+  }
   assertMargin(svgText(join(APP, 'favicon.svg')), 'app/favicon.svg');
+});
+
+test('an icon is drawn on the background it is given, and on Pastry shop\'s cream without one', () => {
+  const { mascot } = Pixel.THEMES.default;
+  const cream = iconPixels(Pixel, mascot, 192);
+  assert.deepEqual([...cream.subarray(0, 3)], [0xF2, 0xE7, 0xCE], 'the corner is cream');
+  // On #160F0A only the ground changes: every cell of the drawing keeps its place and colour.
+  const expected = Buffer.from(cream);
+  let ground = 0;
+  for (let at = 0; at < expected.length; at += 3) {
+    if (cream[at] !== 0xF2 || cream[at + 1] !== 0xE7 || cream[at + 2] !== 0xCE) continue;
+    expected.set([0x16, 0x0F, 0x0A], at);
+    ground += 1;
+  }
+  assert.ok(ground > 0 && ground < 192 * 192, 'the icon has both ground and drawing');
+  assert.ok(iconPixels(Pixel, mascot, 192, '#160F0A').equals(expected), 'the home-screen icon is the same drawing on #160F0A');
+  const svg = faviconSvg(Pixel, mascot, '#160F0A');
+  assert.match(svg, /<rect width="14" height="14" fill="#160F0A"\/>/);
+  assert.equal(svg.replace('fill="#160F0A"', 'fill="#F2E7CE"'), faviconSvg(Pixel, mascot), 'the tab icon is the same drawing on #160F0A');
+  assertMargin(svg, 'a tab icon on #160F0A');
 });
 
 test('Pastry shop keeps its 0.2 icons: PNGs drawn from its mascot and the hand-drawn favicon.svg', async () => {
   const { mascot } = Pixel.THEMES.default;
   for (const size of ICON_SIZES)
-    await assertDrawnFrom(join(APP, 'icons', `icon-${size}.png`), mascot, size, `app/icons/icon-${size}.png`);
+    await assertDrawnFrom(join(APP, 'icons', `icon-${size}.png`), mascot, size, backgroundOf('default'), `app/icons/icon-${size}.png`);
   // make-icons never writes app/favicon.svg, so it is not the generated drawing of the mascot.
   assert.match(svgText(join(APP, 'favicon.svg')), /^<svg /);
   assert.notEqual(svgText(join(APP, 'favicon.svg')), faviconSvg(Pixel, mascot));
