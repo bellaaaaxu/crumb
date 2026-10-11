@@ -662,3 +662,94 @@ test('switching while the tour plays: the shutter runs, the tour starts again fr
   expect(await page.evaluate(() => window.__added)).toEqual({ ovens: 0, shutters: 1 });
   expect(errors).toEqual([]);
 });
+
+/* ---------------------------------------------------------------- canvas colours (spec §8) */
+
+/* Four things outside the shelf are drawn on canvases in a colour the stylesheet gives, read
+ * when they are drawn: the balance (--digit), CRUMB (--wordmark), the chevron under the phone
+ * (--chevron) and the name on the shutter's sign (--sign-ink). A colour set on <html> here
+ * stands in for a shop with colours of its own: a canvas that takes it up reads its variable,
+ * and one that takes it up after a switch is drawn again at every switch. The light colours
+ * are pinned against 0.3.0 in canvas-colours.spec.mjs. */
+
+const CHEVRON_ROWS = ['X.....X', 'XX...XX', '.XX.XX.', '..XXX..'];
+const LIGHT_COLOURS = { '--digit': '#4a2f1b', '--wordmark': '#4a2f1b', '--chevron': '#8a6a4c' };
+const OTHER_COLOURS = { '--digit': '#123456', '--wordmark': '#234567', '--chevron': '#345678' };
+
+/* Sets colours on <html>, where the page reads them; null takes one off again. */
+const setColours = (page, colours) => page.evaluate(colours => {
+  for (const [name, value] of Object.entries(colours)) {
+    if (value === null) document.documentElement.style.removeProperty(name);
+    else document.documentElement.style.setProperty(name, value);
+  }
+}, colours);
+
+/* The balance, CRUMB and the chevron as the page shows them, and as its own pixel table draws
+ * them in the given colours (the balance being the amount #balance-text holds). */
+const canvasesShown = page => page.evaluate(() => ({
+  balance: document.getElementById('balance').toDataURL(),
+  wordmark: document.getElementById('wordmark').toDataURL(),
+  chevron: document.getElementById('more-arrow').toDataURL(),
+}));
+const canvasesDrawn = (page, colours) => page.evaluate(([colours, rows]) => {
+  const draw = paint => {
+    const canvas = document.createElement('canvas');
+    paint(canvas);
+    return canvas.toDataURL();
+  };
+  const amount = document.getElementById('balance-text').textContent.replace('$', '');
+  return {
+    balance: draw(canvas => Pixel.drawNumber(canvas, amount, 9, colours['--digit'])),
+    wordmark: draw(canvas => Pixel.drawText(canvas, 'CRUMB', 7, colours['--wordmark'])),
+    chevron: draw(canvas => Pixel.drawSprite(canvas, { palette: { X: colours['--chevron'] }, rows }, 3, 0)),
+  };
+}, [colours, CHEVRON_ROWS]);
+
+test('the balance, CRUMB and the chevron are drawn in the stylesheet\'s colours, and drawn again at every switch', async ({ browser }) => {
+  // Less motion: no tour, no shutter, and the balance drawn in one go.
+  const context = await browser.newContext({ reducedMotion: 'reduce' });
+  try {
+    const page = await context.newPage();
+    const errors = errorsOf(page);
+    await page.goto(DEMO);
+    expect(await canvasesShown(page)).toEqual(await canvasesDrawn(page, LIGHT_COLOURS));
+
+    await setColours(page, OTHER_COLOURS);
+    await shopButton(page, 'Bakery').click();
+    await expect(shopButton(page, 'Bakery')).toHaveAttribute('aria-pressed', 'true');
+    expect(await canvasesShown(page)).toEqual(await canvasesDrawn(page, OTHER_COLOURS));
+
+    await setColours(page, { '--digit': null, '--wordmark': null, '--chevron': null });
+    await shopButton(page, 'Pastry shop').click();
+    await expect(shopButton(page, 'Pastry shop')).toHaveAttribute('aria-pressed', 'true');
+    expect(await canvasesShown(page)).toEqual(await canvasesDrawn(page, LIGHT_COLOURS));
+    expect(errors).toEqual([]);
+  } finally {
+    await context.close();
+  }
+});
+
+/* Presses a shop button and reads the sign in the same instant: the shutter is down by then, its
+ * sign showing the name of the shop still on show. */
+const signAtPress = (page, shop) => page.evaluate(shop => {
+  document.querySelector(`#shop-switch [data-shop="${shop}"]`).click();
+  return document.querySelector('#phone .shutter-sign canvas').toDataURL();
+}, shop);
+const signDrawn = (page, name, colour) => page.evaluate(([name, colour]) => {
+  const canvas = document.createElement('canvas');
+  Pixel.drawText(canvas, name, 4, colour);
+  return canvas.toDataURL();
+}, [name, colour]);
+const shutterGone = page => page.waitForFunction(() => document.querySelector('#phone .shutter') === null, null, { timeout: 3000 });
+
+test('the shutter\'s sign is drawn in the sign\'s own colour, 0.3\'s dark brown, whatever the page\'s text colour', async ({ page }) => {
+  const errors = errorsOf(page);
+  await takeControl(page);
+  expect(await signAtPress(page, 'bakery')).toBe(await signDrawn(page, 'PASTRY SHOP', '#4a2f1b'));
+  await shutterGone(page);
+  // The page's text colour may change with the shop; the sign's never does (spec §8, assumption 9a).
+  await setColours(page, { '--ink': '#0a0b0c', '--sign-ink': '#456789' });
+  expect(await signAtPress(page, 'default')).toBe(await signDrawn(page, 'BAKERY', '#456789'));
+  await shutterGone(page);
+  expect(errors).toEqual([]);
+});

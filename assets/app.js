@@ -341,15 +341,17 @@
 
     if (rollFrame !== null) { cancelAnimationFrame(rollFrame); rollFrame = null; }
 
+    /* Read once: every frame of a roll is drawn in the colour the page had when it began. */
+    var digit = token('--digit');
     if (reduced() || from === cents) {
-      Pixel.drawNumber(canvas, money(cents), 9, '#4a2f1b');
+      Pixel.drawNumber(canvas, money(cents), 9, digit);
     } else {
       var startedAt = null;
       var step = function (ts) {
         if (startedAt === null) startedAt = ts;
         var p = Math.min((ts - startedAt) / 600, 1);
         var eased = 1 - Math.pow(1 - p, 3);
-        Pixel.drawNumber(canvas, ((from + (cents - from) * eased) / 100).toFixed(2), 9, '#4a2f1b');
+        Pixel.drawNumber(canvas, ((from + (cents - from) * eased) / 100).toFixed(2), 9, digit);
         rollFrame = p < 1 ? requestAnimationFrame(step) : null;
       };
       rollFrame = requestAnimationFrame(step);
@@ -624,9 +626,10 @@
   var shuttering = false;
 
   /* The shop's name in the page's pixel letters, which are capitals only: "Pastry shop"
-   * is written PASTRY SHOP, "Bakery" BAKERY. */
+   * is written PASTRY SHOP, "Bakery" BAKERY. In the sign's own colour (--sign-ink in
+   * style.css), the same in every shop: the new name is drawn before the shop changes. */
   function drawSign(canvas, id) {
-    Pixel.drawText(canvas, Pixel.THEMES[id].label.en.toUpperCase(), SIGN_PIXEL, token('--ink'));
+    Pixel.drawText(canvas, Pixel.THEMES[id].label.en.toUpperCase(), SIGN_PIXEL, token('--sign-ink'));
   }
 
   /* From the narrowest point until the restock, the shelf stays out of sight
@@ -916,11 +919,13 @@
 
   /* Drawn rather than typed: an arrow glyph would come from whatever font the
    * browser had, and be the one shape on the page that isn't on the grid. */
-  var CHEVRON = { palette: { X: '#8a6a4c' }, rows: ['X.....X', 'XX...XX', '.XX.XX.', '..XXX..'] };
+  var CHEVRON_ROWS = ['X.....X', 'XX...XX', '.XX.XX.', '..XXX..'];
 
+  /* CRUMB and the chevron, in the colours the stylesheet has when they are drawn
+   * (--wordmark, --chevron). renderTheme() draws them, so they follow every switch. */
   function renderWordmark() {
-    Pixel.drawText($('wordmark'), 'CRUMB', 7, '#4a2f1b');
-    Pixel.drawSprite($('more-arrow'), CHEVRON, 3, 0);
+    Pixel.drawText($('wordmark'), 'CRUMB', 7, token('--wordmark'));
+    Pixel.drawSprite($('more-arrow'), { palette: { X: token('--chevron') }, rows: CHEVRON_ROWS }, 3, 0);
   }
 
   function renderCardIcons() {
@@ -986,9 +991,9 @@
   }
 
   /* Everything outside the person on screen that depends on the shop: the
-   * switch, the mascot in the header and on the app icon, its accessible name,
-   * the tab icon, the counts, the words that name the goods, the cards and the
-   * cabinet. The counts come from the theme's list, never typed in. */
+   * switch, CRUMB and the chevron, the mascot in the header and on the app icon,
+   * its accessible name, the tab icon, the counts, the words that name the goods,
+   * the cards and the cabinet. The counts come from the theme's list, never typed in. */
   function renderTheme() {
     var words = TEXT[themeId];
     var keys = Pixel.themeKeys(themeId);
@@ -999,6 +1004,7 @@
       btn.setAttribute('aria-pressed', String(btn.dataset.shop === themeId));
     });
 
+    renderWordmark();
     Pixel.drawSprite($('mascot-canvas'), mascotSprite(), 3, 0);
     Pixel.drawSprite($('app-icon'), mascotSprite(), 7, 0);
     $('mascot').setAttribute('aria-label', words.mascot);
@@ -1278,7 +1284,6 @@
 
   /* ---------------------------------------------------------------- wiring */
 
-  renderWordmark();
   renderTheme();
 
   renderAll({ dropFrom: 0 });
