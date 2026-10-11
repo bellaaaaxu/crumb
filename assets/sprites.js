@@ -835,13 +835,21 @@ const Pixel = (function () {
   };
 
   /* Collection themes: one sketchbook (SPRITES), several lists. A team picks one.
-   *   mascot    one of its rotation's keys, drawn in the header, the intro and the icons
-   *   rotation  the public demo's order; a theme's card draws its first three
-   *   limited   collectible only in the self-hosted app
-   *   version   raise it by one when the theme's keys change
+   *   mascot      one of its rotation's keys, drawn in the header, the intro and the icons
+   *   rotation    the public demo's order; a theme's card draws its first three
+   *   limited     collectible only in the self-hosted app
+   *   version     raise it by one when the theme's keys change
+   *   background  optional, #RRGGBB: the page colour of a theme with colours of its own, equal
+   *               to its --bg in app/app.css and assets/style.css. Its icons are drawn on it
+   *               and the browser bar takes it. Not written into the list file.
    * A theme's keys (themes/<id>.json) are rotation followed by limited. Once released, a
    * key stays in its theme for good (docs/THEMES.md). label is the theme's name and card
-   * the line under its card; {count} is filled in from the number of keys, never typed. */
+   * the line under its card; {count} is filled in from the number of keys, never typed.
+   * A mascot may have steam: steam: "s" on its sprite names the palette symbol its steam is
+   * drawn with, exactly 2 wisps over 4 rows. A tap on the mascot, the intro and, in the public
+   * demo, a spend move it by STEAM_STEPS, unless motion is reduced; everywhere else it stands
+   * still, shown in full, and so it does in a theme where the drawing is an ordinary item. Only
+   * a theme's mascot may have steam. */
   const THEMES = {
     default: {
       mascot: "laopo",

@@ -1,10 +1,12 @@
-/* A mascot's steam (design section 3): the step table and its 120 ms, and how drawSprite shows
- * the steam at each step while the rest of the drawing stays where it is. They are tested on
- * STEAMY, a drawing made for these tests, and on LOWER, the same drawing one row lower: a
- * wisp's rows count from the top of the steam, wherever in the grid the steam starts. */
+/* A mascot's steam (design section 3): the step table and its 120 ms, how drawSprite shows the
+ * steam at each step while the rest of the drawing stays where it is, and the rule checks of
+ * scripts/theme-manifest.mjs. The drawing is tested on STEAMY, a drawing made for these tests,
+ * and on LOWER, the same drawing one row lower (a wisp's rows count from the top of the steam,
+ * wherever in the grid the steam starts); the rule checks on STEAMY and edited copies of it. */
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { buildAll } from '../scripts/theme-manifest.mjs';
 
 // sprites.js touches no browser API at load time. new Function keeps it in this realm, so the
 // arrays and objects it returns compare equal to the ones written here.
@@ -160,4 +162,50 @@ test('a drawing without steam is whole at every step', t => {
   lendWindow(t);
   const laopo = Pixel.SPRITES.laopo;
   for (let step = 0; step < 8; step += 1) assert.deepEqual(paint(laopo, step), cellsOf(laopo), `step ${step}`);
+});
+
+/* The real sprite table with STEAMY, or a variant of it, added as "steamy", and a theme
+ * "steamtest" whose rotation is steamy then laopo. Its mascot is steamy unless said. */
+function edit(text, from, to) {
+  assert.ok(text.includes(from), `assets/sprites.js no longer contains ${from}`);
+  return text.replace(from, to);
+}
+function withSteamy({ rows = STEAMY.rows, steam = STEAMY.steam, mascot = 'steamy' } = {}) {
+  const drawing = `steamy: { palette: ${JSON.stringify(STEAMY.palette)}, steam: ${JSON.stringify(steam)}, rows: ${JSON.stringify(rows)} },`;
+  const theme = `steamtest: { mascot: "${mascot}", rotation: ["steamy", "laopo"], limited: [], version: 1, `
+    + 'label: { en: "Steam test", "zh-CN": "Steam test" }, card: { en: "{count}", "zh-CN": "{count}" } },';
+  let text = edit(source, '  const SPRITES = {', `  const SPRITES = {\n    ${drawing}`);
+  text = edit(text, '  const NAMES = {', '  const NAMES = {\n    steamy: { zh: "Steamy", en: "Steamy", cn: "Steamy" },');
+  return edit(text, '  const THEMES = {', `  const THEMES = {\n    ${theme}`);
+}
+
+test('the rule checks accept a mascot with two wisps over 4 rows, also as an ordinary item of another theme', () => {
+  const built = buildAll(withSteamy());
+  assert.deepEqual(built.steamtest.keys, ['steamy', 'laopo']);
+  assert.deepEqual(Object.keys(built.steamtest), ['themeId', 'version', 'source', 'mascot', 'keys', 'names'],
+    'steam is not written into the list file');
+  // In Pastry shop it is an ordinary item, whose steam stands still there.
+  assert.doesNotThrow(() => buildAll(edit(withSteamy(), 'rotation: CYCLE,', 'rotation: CYCLE.concat(["steamy"]),')));
+});
+
+test('the rule checks refuse steam the design does not allow', () => {
+  const refused = (options, message) => assert.throws(() => buildAll(withSteamy(options)), message);
+  refused({ steam: 'q' }, /steamy\.steam must be one of its palette symbols/);
+  refused({ steam: '.' }, /steamy\.steam must be one of its palette symbols/);
+
+  const threeRows = ['s.....s.....', '.s.....s....', 's.....s.....', '............', ...CUP];
+  refused({ rows: threeRows }, /steamy: the steam must fill exactly 4 consecutive rows/);
+  refused({ rows: [...threeRows.slice(0, 11), 's...........'] }, /steamy: the steam must fill exactly 4 consecutive rows/);
+  refused({ rows: [...STEAMY.rows.slice(0, 11), 's...........'] }, /steamy: the steam must fill exactly 4 consecutive rows/);
+  refused({ rows: STEAMY.rows.map(row => row.replaceAll('s', '.')) }, /steamy: the steam must fill exactly 4 consecutive rows/);
+
+  const shortLeft = ['s.....s.....', '.s.....s....', '.s.....s....', '......s.....', ...CUP];
+  refused({ rows: shortLeft }, /steamy: each wisp of steam needs a cell in each of its 4 rows/);
+
+  const oneWisp = ['s...........', '.s..........', '.s..........', 's...........', ...CUP];
+  refused({ rows: oneWisp }, /steamy: the steam must be exactly 2 wisps, not 1/);
+  const threeWisps = ['s.....s...s.', '.s.....s...s', '.s.....s...s', 's.....s...s.', ...CUP];
+  refused({ rows: threeWisps }, /steamy: the steam must be exactly 2 wisps, not 3/);
+
+  refused({ mascot: 'laopo' }, /steamy has steam but is no theme's mascot/);
 });

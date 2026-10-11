@@ -180,6 +180,11 @@ test('every theme rule of the design is checked', () => {
   refused(', cn: "蛋挞" },', ' },', /tart needs English \(en\), Traditional \(zh\) and Simplified \(cn\) names/);
   refused('version: 1,', 'version: 0,', /THEMES\.default\.version must be a positive whole number/);
   refused('version: 1,', 'version: 1.5,', /THEMES\.default\.version must be a positive whole number/);
+  refused('version: 1,', 'version: 1,\n      background: "#160F0",', /THEMES\.default\.background "#160F0" must look like #A1B2C3/);
+  refused('version: 1,', 'version: 1,\n      background: "dark brown",', /THEMES\.default\.background "dark brown" must look like #A1B2C3/);
+  refused('version: 1,', 'version: 1,\n      background: null,', /THEMES\.default\.background "null" must look like #A1B2C3/);
+  assert.deepEqual(Object.keys(buildAll(edit(source, 'version: 1,', 'version: 1,\n      background: "#160F0A",')).default),
+    ['themeId', 'version', 'source', 'mascot', 'keys', 'names'], 'a background like #A1B2C3 is accepted and is not written into the list file');
   refused('label: { en: "Pastry shop", "zh-CN": "饼店" }', 'label: { en: "Pastry shop" }', /THEMES\.default\.label needs "zh-CN" text/);
   refused('card: { en: "Pastry shop · {count} pastries",', 'card: {', /THEMES\.default\.card needs "en" text/);
   refused('en: "Pastry shop · {count} pastries"', 'en: "Pastry shop · 39 pastries"', /THEMES\.default\.card\.en must contain \{count\}/);
