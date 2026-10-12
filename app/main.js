@@ -88,7 +88,8 @@ function applyTheme(themeId) {
     // storage blocked: nothing is remembered, and the next load starts light
   }
   applyThemeIcons(themeId);
-  const colour = themeBackground(themeId);
+  // By the checked id: a malformed value is no theme at all, so it never colours the bar.
+  const colour = themeBackground(id);
   let bar = document.head.querySelector('meta[name="theme-color"]');
   if (colour === null) {
     bar?.remove();
