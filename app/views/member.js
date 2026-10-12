@@ -471,6 +471,9 @@ export async function renderMember(main, ctx) {
     return;
   }
   if (!ctx.isCurrent()) return;
+  // This page reads the team's theme in /api/me, not through main.js, and is drawn again when
+  // the team's settings change: it may be the first to learn of a theme changed elsewhere.
+  ctx.applyTheme(me.theme.id);
   const money = units => formatUnits(units, me.org, getLocale());
   const seen = lastSeen(me.user.id);
   const tileParts = mainTile(me, money, seen);

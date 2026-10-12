@@ -41,8 +41,10 @@ export function themed(key, themeId, params) {
 }
 
 /* A person's own choice wins; otherwise the organization's default.
- * The browser keeps this choice and, for this device only, three other things: that the
- * home-screen tip was dismissed (views/member.js); and, for the person signed in here now,
+ * The browser keeps this choice and, for this device only, four other things: the team's
+ * collection theme (crumb.theme, a theme id, so the page opens in its colours: main.js writes
+ * it, early-theme.js reads it; it is the team's, not a person's, and stays after signing out);
+ * that the home-screen tip was dismissed (views/member.js); and, for the person signed in here now,
  * the keys of their requests still waiting for an answer with a fingerprint of each change,
  * used for seven days at most (pending.js), and the balance, pastry count and total received
  * they last saw, which the page animates from (motion.js). The fingerprint of a small change,

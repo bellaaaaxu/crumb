@@ -120,9 +120,10 @@ function settingsForm(ctx, org) {
           // A theme change took out, in the same write, the benefit icons the new theme lacks.
           // Say how many instead of the usual words; read here, before the refresh redraws.
           toast(saved.iconsRemoved > 0 ? t('settings.themeChanged', { count: saved.iconsRemoved }) : t('settings.saved'));
-          // The tab and home-screen icon links follow the saved theme without a reload, even if
-          // the refresh below fails; the refresh then points them at the same files again.
-          ctx.applyThemeIcons(saved.theme);
+          // The page's colours, the tab and home-screen icons and the browser bar follow the saved
+          // theme without a reload, even if the refresh below fails; the refresh then puts the
+          // same theme on again.
+          ctx.applyTheme(saved.theme);
           await ctx.refresh();
         } catch (failure) {
           save.disabled = false;
@@ -213,6 +214,9 @@ export async function renderSettings(main, ctx) {
   }
   if (!ctx.isCurrent()) return;
   const { org } = session;
+  // This page reads the session itself, not through main.js, so it may be the first to learn of
+  // a theme changed on another device: the page takes it on now.
+  ctx.applyTheme(session.org.theme);
   const grid = el('div', { attrs: { class: 'team-grid' } }, [settingsForm(ctx, org), el('div', { attrs: { class: 'stack' } }, [logoCard(ctx, org), dataCard()])]);
   main.replaceChildren(el('h1', { text: t('nav.settings'), attrs: { class: 'page-title' } }), grid);
   // The settings are usable before the log has loaded; it joins the grid, across both columns.

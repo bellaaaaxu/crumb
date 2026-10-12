@@ -51,3 +51,34 @@ test('the app folder on a static site says it needs its own server, with the way
     await site.close();
   }
 });
+
+test('the static copy is always light: a team theme this browser remembers is taken off the page and left in storage as it was', async ({ page }) => {
+  const site = await pagesSite();
+  try {
+    await page.goto(`${site.base}/crumb/app/`);
+    await expect(page.getByRole('heading', { name: 'Crumb runs on a server of your own' })).toBeVisible();
+    // Remembered from a Crumb server once served at this address (the demo keeps its shop under
+    // another key). early-theme.js knows nothing of servers and puts it on the page; the page
+    // takes it off once it finds no server.
+    await page.evaluate(() => window.localStorage.setItem('crumb.theme', 'cafe'));
+    let release;
+    const released = new Promise(resolve => { release = resolve; });
+    let arrived;
+    const asked = new Promise(resolve => { arrived = resolve; });
+    await page.route('**/api/session', async route => {
+      arrived();
+      await released;
+      await route.continue();
+    }, { times: 1 });
+    await page.reload();
+    await asked;
+    expect(await page.evaluate(() => document.documentElement.getAttribute('data-theme'))).toBe('cafe');
+    release();
+    await expect(page.getByRole('heading', { name: 'Crumb runs on a server of your own' })).toBeVisible();
+    await expect(page.locator('html')).not.toHaveAttribute('data-theme');
+    // Nothing at this address writes the theme, and nothing here removes it either.
+    expect(await page.evaluate(() => window.localStorage.getItem('crumb.theme'))).toBe('cafe');
+  } finally {
+    await site.close();
+  }
+});
