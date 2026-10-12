@@ -294,3 +294,63 @@ test('after the team switches to Café on another device, the Settings page and 
     await fx.close();
   }
 });
+
+/* ---------------------------------------------------------------- canvases */
+
+/* The colour 0.3 drew the balance and CRUMB in: Pastry shop's --digit and --wordmark. */
+const BROWN = 'rgb(74, 47, 27)';
+/* A colour no theme uses, to see a canvas follow its variable. */
+const PROBE = '#123456';
+const PROBE_RGB = 'rgb(18, 52, 86)';
+
+/* The colours of a canvas's fully drawn pixels, written the way the browser writes a colour. */
+const inkOf = locator => locator.evaluate(canvas => {
+  const { data } = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
+  const colours = new Set();
+  for (let at = 0; at < data.length; at += 4) {
+    if (data[at + 3] === 255) colours.add(`rgb(${data[at]}, ${data[at + 1]}, ${data[at + 2]})`);
+  }
+  return [...colours];
+});
+
+/* Gives a colour variable another value on the page root, through the CSSOM, as a script may
+ * under the Content Security Policy. */
+const setVariable = (page, name, value) => page.evaluate(([variable, colour]) => {
+  document.documentElement.style.setProperty(variable, colour);
+}, [name, value]);
+
+test('the balance digits and the CRUMB wordmark are drawn in the page’s --digit and --wordmark, read when they are drawn', async ({ browser }) => {
+  const fx = await provision(browser);
+  let context;
+  try {
+    const page = fx.ownerPage;
+    const errors = pageErrors(page);
+    const balance = page.locator('.big-number canvas');
+    await goTo(page, 'me');
+    await expect(page.getByTestId('available-balance')).toBeVisible();
+    await expect.poll(() => inkOf(balance)).toEqual([BROWN]);
+    // Another value on the page root: the next drawing is in it.
+    await setVariable(page, '--digit', PROBE);
+    await goTo(page, 'team');
+    await expect(page.getByRole('button', { name: 'Treat someone', exact: true })).toBeVisible();
+    await goTo(page, 'me');
+    await expect.poll(() => inkOf(balance)).toEqual([PROBE_RGB]);
+
+    // The sign-in page, drawn again in the other language once the variable has another value.
+    context = await browser.newContext({ reducedMotion: 'reduce' });
+    const signedOut = await context.newPage();
+    const signedOutErrors = pageErrors(signedOut);
+    await signedOut.goto(fx.origin);
+    await expect(signedOut.getByRole('heading', { name: `Sign in to ${TEAM}` })).toBeVisible();
+    const wordmark = signedOut.locator('.auth-brand canvas').last();
+    await expect.poll(() => inkOf(wordmark)).toEqual([BROWN]);
+    await setVariable(signedOut, '--wordmark', PROBE);
+    await signedOut.getByLabel('Language', { exact: true }).selectOption('zh-CN');
+    await expect.poll(() => inkOf(wordmark)).toEqual([PROBE_RGB]);
+    expect(errors).toEqual([]);
+    expect(signedOutErrors).toEqual([]);
+  } finally {
+    await context?.close();
+    await fx.close();
+  }
+});
