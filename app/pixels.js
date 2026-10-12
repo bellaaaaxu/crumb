@@ -54,6 +54,13 @@ export function pixelNumber(target, text, size, color) {
   else target.hidden = true;
 }
 
+/* A colour the stylesheet gives as a variable (--digit, --wordmark in app.css), for what is
+ * drawn on a canvas. Read from the page root, where the theme's variables are: a canvas not yet
+ * in the page reads every variable as '', which would draw black. Read it once per drawing. */
+export function colourToken(name) {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+
 /* ---------------------------------------------------------------- collection themes */
 
 /* The id itself when the table has a theme by that name, otherwise Pastry shop's. Only the
@@ -68,8 +75,9 @@ export function themeIds() {
   return table?.THEMES ? Object.keys(table.THEMES) : [];
 }
 
-/* The theme's entry, { mascot, rotation, limited, version, label, card }: Pastry shop's for an
- * unknown or missing id, null only without the table. */
+/* The theme's entry, { mascot, rotation, limited, version, label, card }, with a background for
+ * a theme with colours of its own: Pastry shop's for an unknown or missing id, null only without
+ * the table. */
 export function themeEntry(id) {
   return table?.THEMES?.[knownTheme(id)] ?? null;
 }
@@ -79,6 +87,13 @@ export function themeEntry(id) {
 export function themeKeysOf(id) {
   const entry = themeEntry(id);
   return entry ? entry.rotation.concat(entry.limited) : [];
+}
+
+/* The page colour of a theme with colours of its own (Café's dark ground), which main.js gives
+ * the browser bar. Null for a theme without (Pastry shop, Bakery), for an id this page does not
+ * know (Pastry shop's), and without the table. */
+export function themeBackground(id) {
+  return themeEntry(id)?.background ?? null;
 }
 
 /* The sprite key of the theme's mascot. Null without the table: spriteCanvas then hides. */

@@ -125,3 +125,35 @@ test('with no pixel table nothing is drawn, the icons are Pastry shop\'s and not
   assert.equal(bare.iconHref('bakery'), 'favicon.svg');
   assert.equal(bare.touchIconHref('bakery'), 'icons/icon-180.png');
 });
+
+test('only a theme with colours of its own names a page colour: Café; Pastry shop, Bakery, an id this page does not know and a page without the table have none', () => {
+  assert.equal(pixels.themeBackground('cafe'), '#160F0A');
+  assert.equal(pixels.themeBackground('cafe'), Pixel.THEMES.cafe.background);
+  assert.deepEqual(pixels.themeIds().filter(id => pixels.themeBackground(id) !== null), ['cafe']);
+  for (const id of ['default', 'bakery', ...ODD_IDS]) assert.equal(pixels.themeBackground(id), null, String(id));
+  assert.equal(bare.themeBackground('cafe'), null);
+});
+
+test('a colour for a canvas is read from the page root\'s style variables on each call, without the spaces around it', t => {
+  // Only what colourToken reads, and gone again afterwards, so the other tests see Node as it is.
+  const root = { nodeName: 'HTML' };
+  const values = { '--digit': ' #4a2f1b', '--wordmark': '#ecbc7c  ' };
+  const asked = [];
+  globalThis.document = { documentElement: root };
+  globalThis.getComputedStyle = node => ({
+    getPropertyValue: name => {
+      asked.push({ node, name });
+      return values[name] ?? '';
+    },
+  });
+  t.after(() => {
+    delete globalThis.document;
+    delete globalThis.getComputedStyle;
+  });
+  assert.equal(pixels.colourToken('--digit'), '#4a2f1b');
+  assert.equal(pixels.colourToken('--wordmark'), '#ecbc7c');
+  // A variable the stylesheet does not set reads as nothing.
+  assert.equal(pixels.colourToken('--nosuch'), '');
+  assert.deepEqual(asked.map(each => each.name), ['--digit', '--wordmark', '--nosuch']);
+  assert.ok(asked.every(each => each.node === root), 'always the page root, never a canvas');
+});
