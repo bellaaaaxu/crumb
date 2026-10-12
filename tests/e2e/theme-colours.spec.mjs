@@ -183,6 +183,50 @@ test('a café team’s page opened again is in its theme before the session answ
   }
 });
 
+test('the browser reads the page no further than early-theme.js until it has run, so the remembered theme is on <html> before the stylesheet and the body exist', async ({ browser }) => {
+  // The test above sees the theme while the session is held back, which a deferred or async
+  // early-theme.js would also pass: main.js asks for the session only after such a script has
+  // run. Only a script that stops the parser (in <head>, before the stylesheet, no defer or
+  // async) puts the theme on before anything below it is read, and so before the first paint.
+  const fx = await provision(browser, { theme: 'cafe' });
+  try {
+    const page = fx.ownerPage;
+    const errors = pageErrors(page);
+    let release;
+    const released = new Promise(resolve => { release = resolve; });
+    let arrived;
+    const asked = new Promise(resolve => { arrived = resolve; });
+    await page.route('**/early-theme.js', async route => {
+      arrived();
+      await released;
+      await route.continue();
+    }, { times: 1 });
+    /* How far the browser has read index.html: the tag right before the script, the script
+     * itself, the stylesheet's tag after it, the body; and the theme on <html>. */
+    const readSoFar = () => page.evaluate(() => ({
+      touchIcon: document.querySelector('link[rel="apple-touch-icon"]') !== null,
+      script: document.querySelector('script[src="early-theme.js"]') !== null,
+      stylesheet: document.querySelector('link[rel="stylesheet"]') !== null,
+      body: document.body !== null,
+      attribute: document.documentElement.getAttribute('data-theme'),
+    }));
+    const stopped = { touchIcon: true, script: true, stylesheet: false, body: false, attribute: null };
+    await page.reload({ waitUntil: 'commit' });
+    await asked;
+    // Read up to the script and no further while it is held back...
+    await expect.poll(readSoFar).toEqual(stopped);
+    // ...and still no further a moment later: stopped there, not merely slow.
+    await page.waitForTimeout(500);
+    expect(await readSoFar()).toEqual(stopped);
+    release();
+    await expect(nameMenu(page)).toBeVisible();
+    await expect.poll(() => onPage(page)).toEqual({ attribute: 'cafe', remembered: 'cafe', bar: [CAFE_BAR], loading: false });
+    expect(errors).toEqual([]);
+  } finally {
+    await fx.close();
+  }
+});
+
 test('signing out keeps a café team’s theme on the page and on the device, also when who is here now gets no answer', async ({ browser }) => {
   const fx = await provision(browser, { theme: 'cafe' });
   try {
