@@ -3,7 +3,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { normalise, parseCss, topLevel, variablesOf } from './css.mjs';
+import { blend, contrast, parseColour, stops } from './contrast.mjs';
+import { normalise, parseCss, splitSelectors, substitute, topLevel, variablesOf } from './css.mjs';
 
 const read = path => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
 const where = rule => [...rule.context, rule.selector].join(' / ');
@@ -317,4 +318,208 @@ test('assets/style.css: what scripts read and every text colour are one plain co
   }
   assert.deepEqual(mixed, []);
   assert.deepEqual([...plain].filter(name => !seen.has(name)), [], 'every one of them is given a value');
+});
+
+/* ------------------------------------------------------------------ themes with colours of their own */
+
+/* A theme's own colour set: a top-level rule [data-theme="<id>"] { … }. */
+const THEME_SET = /^\[data-theme="([a-z][a-z0-9]{1,31})"\]$/;
+
+/* The sprite table: each theme's page colour (THEMES.<id>.background) and its mascot. */
+const Pixel = new Function(`${read('assets/sprites.js')}\nreturn Pixel;`)();
+
+/* Text and the grounds it sits on in the app, by variable name and the same for every theme:
+ * spec §4.6 (b)'s "Used for" column in full, as spec §13 asks (its list, and the prices on a
+ * tile). Every text colour reaches 4.5:1 against every stop of each of its grounds. */
+const APP_TEXT = [
+  ['--ink', ['--bg', '--page-art', '--tile', '--lamp-bg', '--paper', '--chosen', '--field-bg', '--key-bg', '--warn-bg', '--toast-bg']],
+  ['--holder-ink', ['--lamp-bg']],
+  ['--card-soft', ['--lamp-bg']],
+  ['--tile-label', ['--lamp-bg']],
+  ['--digit', ['--lamp-bg']],
+  ['--ink-soft', ['--bg', '--page-art', '--tile', '--paper', '--chosen']],
+  ['--accent', ['--bg', '--page-art', '--tile', '--paper', '--chosen', '--warn-bg']],
+  ['--price', ['--tile']],
+  ['--plus', ['--tile', '--lamp-bg']],
+  ['--minus', ['--tile', '--paper', '--chosen']],
+  ['--bar-ink', ['--bar-bg']],
+  ['--primary-ink', ['--primary-bg']],
+  ['--confirm-ink', ['--confirm-bg']],
+  ['--pill-ink', ['--pill-bg']],
+  ['--skip-ink', ['--skip-bg']],
+  ['--bubble-ink', ['--bubble-bg']],
+  ['--warn-ink', ['--warn-bg']],
+  ['--ok-ink', ['--ok-bg']],
+  ['--bad-ink', ['--bad-bg']],
+  ['--toast-ink', ['--toast-bg']],
+  ['--toast-error-ink', ['--toast-error-bg']],
+  ['--slot-ink', ['--slot-bg']],
+  ['--amount-zero', ['--tile']],
+  ['--wordmark', ['--tile']],
+];
+
+/* What must be seen without being text, against what it sits on or next to: 3:1. */
+const APP_NON_TEXT = [
+  ['--focus', ['--bg', '--page-art', '--tile', '--lamp-bg', '--paper', '--chosen', '--field-bg', '--warn-bg', '--bar-bg']],
+  ['--field-border', ['--tile', '--field-bg', '--paper', '--chosen']],
+  ['--frame', ['--tile', '--chosen', '--bg']],
+  ['--slot-border', ['--tile', '--lamp-bg']],
+];
+
+/* A stylesheet's light set and each theme's own set, with every value worked out: the theme's
+ * variables stand in for the light ones, and var() is put in. */
+function colourSets(file) {
+  const rules = parseCss(read(file));
+  const [light] = topLevel(rules, ':root, [data-theme]');
+  const themes = rules.filter(rule => rule.context.length === 0 && THEME_SET.test(rule.selector)).map(rule => {
+    const variables = new Map([...variablesOf([light]), ...variablesOf([rule])]);
+    const values = new Map([...variables].map(([name, value]) => [name, substitute(value, variables)]));
+    return { id: THEME_SET.exec(rule.selector)[1], rule, values };
+  });
+  return { light, themes };
+}
+
+const asRgb = ({ r, g, b }) => `rgb(${r}, ${g}, ${b})`;
+
+/* The pairs of one theme's set that fall below `least`, each as "--ink on --tile: 3.20 < 4.5 at
+ * rgb(34, 25, 18)". A text or line colour must be one opaque colour, a ground opaque colours. */
+function belowRatio(values, pairs, least) {
+  const short = [];
+  for (const [ink, grounds] of pairs) {
+    const [colour, ...more] = stops(values.get(ink));
+    if (!colour || more.length || colour.a !== 1) {
+      short.push(`${ink} is not one opaque colour: ${values.get(ink)}`);
+      continue;
+    }
+    for (const ground of grounds) {
+      const under = stops(values.get(ground));
+      if (!under.length || under.some(stop => stop.a !== 1)) {
+        short.push(`${ground} is not opaque colours only: ${values.get(ground)}`);
+        continue;
+      }
+      for (const stop of under) {
+        const ratio = contrast(colour, stop);
+        if (ratio < least) short.push(`${ink} on ${ground}: ${ratio.toFixed(2)} < ${least} at ${asRgb(stop)}`);
+      }
+    }
+  }
+  return short;
+}
+
+/* The tests every stylesheet with colour sets gets: `text` and `nonText` are its pairs. */
+function colourSetTests({ file, text, nonText }) {
+  test(`${file}: each theme's colour set gives every variable of the light set again, and its color-scheme`, () => {
+    const { light, themes } = colourSets(file);
+    const names = [...variablesOf([light]).keys()].sort();
+    for (const [ink, grounds] of [...text, ...nonText]) {
+      for (const name of [ink, ...grounds]) assert.ok(names.includes(name), `${name} is a variable of the light set`);
+    }
+    assert.ok(themes.length > 0, 'a theme has colours of its own');
+    for (const { id, rule } of themes) {
+      assert.ok(Object.hasOwn(Pixel.THEMES, id), `${id} is a theme of assets/sprites.js`);
+      const own = rule.declarations.filter(({ property }) => property.startsWith('--')).map(({ property }) => property);
+      assert.equal(new Set(own).size, own.length, `${id}: no variable given twice`);
+      assert.deepEqual([...own].sort(), names, `${id}: every variable of the light set`);
+      const plain = rule.declarations.filter(({ property }) => !property.startsWith('--')).map(({ property }) => property);
+      assert.deepEqual(plain, ['color-scheme'], `${id}: its color-scheme, and nothing else that is not a variable`);
+    }
+  });
+
+  test(`${file}: in each theme's colour set every text reaches 4.5:1 against every stop of its grounds`, () => {
+    const { themes } = colourSets(file);
+    assert.ok(themes.length > 0, 'a theme has colours of its own');
+    assert.deepEqual(themes.flatMap(({ id, values }) => belowRatio(values, text, 4.5).map(line => `${id}: ${line}`)), []);
+  });
+
+  test(`${file}: in each theme's colour set the focus ring, input borders, frames and slot rings reach 3:1`, () => {
+    const { themes } = colourSets(file);
+    assert.ok(themes.length > 0, 'a theme has colours of its own');
+    assert.deepEqual(themes.flatMap(({ id, values }) => belowRatio(values, nonText, 3).map(line => `${id}: ${line}`)), []);
+  });
+
+  test(`${file}: a theme with a page colour of its own has a colour set, whose --bg is that colour`, () => {
+    const { themes } = colourSets(file);
+    const withBackground = Object.keys(Pixel.THEMES).filter(id => Pixel.THEMES[id].background !== undefined);
+    assert.deepEqual(themes.map(({ id }) => id).sort(), withBackground.sort());
+    for (const { id, values } of themes) {
+      // As colours, not as text: THEMES writes #160F0A, the stylesheet #160f0a.
+      assert.deepEqual(parseColour(values.get('--bg')), parseColour(Pixel.THEMES[id].background), id);
+    }
+  });
+}
+
+test('the colour arithmetic gives the figures WCAG contrast checkers give', () => {
+  assert.equal(contrast(parseColour('#000'), parseColour('#ffffff')), 21);
+  assert.equal(contrast(parseColour('#767676'), parseColour('#fff')).toFixed(2), '4.54');
+  assert.equal(contrast(parseColour('#fff'), parseColour('#777777')).toFixed(2), '4.48');
+  assert.deepEqual(parseColour('rgba(255, 214, 160, .10)'), { r: 255, g: 214, b: 160, a: 0.1 });
+  assert.deepEqual(parseColour('rgb(22 15 10 / 50%)'), { r: 22, g: 15, b: 10, a: 0.5 });
+  assert.deepEqual(parseColour('transparent'), { r: 0, g: 0, b: 0, a: 0 });
+  assert.deepEqual(stops('radial-gradient(120% 600px at 50% 0%, #251910 0%, #160f0a 55%, #0f0a07 100%)').map(asRgb),
+    ['rgb(37, 25, 16)', 'rgb(22, 15, 10)', 'rgb(15, 10, 7)']);
+  assert.deepEqual(stops('linear-gradient(rgb(34, 25, 18) 0%, rgb(27, 20, 15) 100%)').map(asRgb), ['rgb(34, 25, 18)', 'rgb(27, 20, 15)']);
+  assert.deepEqual(stops('none'), []);
+  assert.deepEqual(blend(parseColour('#000'), parseColour('#fff'), 0.5), { r: 127.5, g: 127.5, b: 127.5, a: 1 });
+  assert.throws(() => contrast(parseColour('rgba(0, 0, 0, 0.5)'), parseColour('#fff')), /see-through/);
+  assert.throws(() => parseColour('white'), /Not a colour/);
+});
+
+colourSetTests({ file: 'app/app.css', text: APP_TEXT, nonText: APP_NON_TEXT });
+
+test('no stylesheet follows the system’s light or dark setting: the colours are the team’s theme', () => {
+  for (const file of ['app/app.css', 'assets/style.css']) {
+    const following = parseCss(read(file)).filter(rule => rule.context.some(at => at.includes('prefers-color-scheme')));
+    assert.deepEqual(following.map(where), [], file);
+  }
+});
+
+test('app/app.css: the café is always dark, and its own rules are only the dialog scrim, the locked card and the forced-colours override', () => {
+  const rules = parseCss(read('app/app.css'));
+  const [cafe] = topLevel(rules, '[data-theme="cafe"]');
+  assert.ok(cafe, 'the café has a colour set');
+  assert.equal(cafe.declarations.find(({ property }) => property === 'color-scheme')?.value, 'dark');
+  // A rule that starts from a data-theme matches everything inside such a page, the theme cards
+  // of other themes included: only these, where a variable cannot do it.
+  const own = rules
+    .filter(rule => !(rule.context.length === 0 && (rule.selector === ':root, [data-theme]' || THEME_SET.test(rule.selector))))
+    .filter(rule => splitSelectors(rule.selector).some(selector => selector.startsWith('[data-theme')))
+    .map(rule => `${where(rule)} { ${rule.declarations.map(({ property, value }) => `${property}: ${value}`).join('; ')} }`);
+  assert.deepEqual(own, [
+    '[data-theme="cafe"] .dialog::backdrop { background: rgba(0, 0, 0, 0.6) }',
+    '[data-theme="cafe"] .theme-card:has(input:disabled) { opacity: 1 }',
+    '[data-theme="cafe"] .theme-card:has(input:disabled) > * { opacity: 0.65 }',
+    '@media (forced-colors: active) / [data-theme="cafe"] { --digit: CanvasText; --wordmark: CanvasText }',
+  ]);
+});
+
+/* The cells of a drawing that a round medallion would cut off. A canvas with a border-radius
+ * shows its drawing only inside the curve of its content box (the radius less the padding), so
+ * at 50% only inside the circle inscribed in the drawing itself, whatever the padding. Each cell
+ * is where drawSprite puts it, centred by Pixel.offset; "column,row" as in the drawing. */
+function cutByCircle(sprite) {
+  const { dx, dy } = Pixel.offset(sprite);
+  const rows = sprite.rows.length;
+  const cols = sprite.rows[0].length;
+  const radius = Math.min(rows, cols) / 2;
+  const cut = [];
+  sprite.rows.forEach((row, y) => [...row].forEach((symbol, x) => {
+    if (!sprite.palette[symbol]) return;
+    const across = Math.max(Math.abs(x + dx - cols / 2), Math.abs(x + dx + 1 - cols / 2));
+    const down = Math.max(Math.abs(y + dy - rows / 2), Math.abs(y + dy + 1 - rows / 2));
+    if (Math.hypot(across, down) > radius) cut.push(`${x},${y}`);
+  }));
+  return cut;
+}
+
+test('app/app.css: the café’s medallions are round only when its mascot fits inside the circle, and rounded squares like the slots otherwise', t => {
+  const mascot = Pixel.THEMES.cafe.mascot;
+  const cut = cutByCircle(Pixel.SPRITES[mascot]);
+  t.diagnostic(cut.length
+    ? `${mascot}: a circle would cut ${cut.length} cells (column,row): ${cut.join(' ')}`
+    : `${mascot} fits inside the circle`);
+  const shape = cut.length ? '10px' : '50%';
+  const cafe = variablesOf(topLevel(parseCss(read('app/app.css')), '[data-theme="cafe"]'));
+  // Every medallion and the header button's corners (and so its focus ring) go together.
+  assert.equal(cafe.get('--face-radius'), shape);
+  assert.equal(cafe.get('--mascot-radius'), shape);
 });

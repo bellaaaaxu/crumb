@@ -123,3 +123,63 @@ for (const [name, theme] of THEMES) {
     }
   });
 }
+
+/* ---------------------------------------------------------------- Café: the app */
+
+/* In a café team the same canvases equal references drawn on the same page with the same
+ * function and size, in the colours the page computes for --digit and --wordmark. Those are
+ * checked to be the café's own first (spec §4.6 (b)), so a page that stayed light cannot pass.
+ * This part brings in what it needs itself and keeps its helpers inside, so it does not depend
+ * on the names above. */
+test.describe('Café: the app', () => {
+  const fixtures = () => import('./fixtures.mjs');
+
+  /* A colour variable as the page computes it on <html>, where app/pixels.js reads it. */
+  const variableOf = (page, name) => page.evaluate(variable => getComputedStyle(document.documentElement).getPropertyValue(variable).trim(), name);
+
+  /* True when the canvas holds exactly what the page's pixel table draws for `text` in `colour`
+   * at the canvas's own cell size (the glyphs are 5 cells high): drawNumber for a number,
+   * drawText for a word. page.evaluate runs at the page's global scope, where sprites.js's
+   * `const Pixel` is visible by its name. */
+  const drawnAs = (canvas, text, colour) => canvas.evaluate((node, [word, ink]) => {
+    const size = Number.parseFloat(node.style.height) / 5;
+    const reference = document.createElement('canvas');
+    if (/^[0-9.-]+$/.test(word)) Pixel.drawNumber(reference, word, size, ink); // eslint-disable-line no-undef
+    else Pixel.drawText(reference, word, size, ink); // eslint-disable-line no-undef
+    return reference.toDataURL() === node.toDataURL();
+  }, [text, colour]);
+
+  test('a café member’s balance is drawn in the café’s --digit', async ({ browser }) => {
+    const { provision } = await fixtures();
+    const fx = await provision(browser, { theme: 'cafe' });
+    try {
+      const treat = await fx.api.request('POST', '/api/admin/grants',
+        { userId: fx.memberId, amount: '250', mode: 'points', reason: '' }, { 'idempotency-key': 'e2e-cafe-balance-canvas' });
+      expect(treat.status).toBe(201);
+      const page = fx.memberPage;
+      await page.reload();
+      await expect(page.getByTestId('available-balance')).toHaveText('250 points');
+      expect(await variableOf(page, '--digit')).toBe('#f9e0b4');
+      await expect.poll(() => drawnAs(page.locator('.big-number canvas'), '250', '#f9e0b4')).toBe(true);
+    } finally {
+      await fx.close();
+    }
+  });
+
+  test('a café team’s sign-in page draws CRUMB in the café’s --wordmark', async ({ browser }) => {
+    const { provision } = await fixtures();
+    const fx = await provision(browser, { theme: 'cafe' });
+    let context;
+    try {
+      context = await browser.newContext({ reducedMotion: 'reduce' });
+      const page = await context.newPage();
+      await page.goto(fx.origin);
+      await expect(page.getByRole('heading', { name: 'Sign in to Northside Coffee Co.' })).toBeVisible();
+      expect(await variableOf(page, '--wordmark')).toBe('#ecbc7c');
+      await expect.poll(() => drawnAs(page.locator('.auth-brand canvas').last(), 'CRUMB', '#ecbc7c')).toBe(true);
+    } finally {
+      await context?.close();
+      await fx.close();
+    }
+  });
+});

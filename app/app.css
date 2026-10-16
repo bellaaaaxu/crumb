@@ -498,3 +498,137 @@ fieldset.group > legend { font-size: 0.8rem; letter-spacing: 0.12em; text-transf
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
 }
+
+/* ------------------------------------------------------------------ Café: candlelight
+
+   A café after dark with its lamps lit: always dark, whatever the phone or computer is set to.
+   Every variable of the light set, given again; color-scheme makes the controls the browser
+   draws itself (dropdowns, the file button, scrollbars, radios, checkboxes) dark too. A theme
+   card carries its own data-theme, so the café card is dark on a light page and the other cards
+   light on this one. The drawings sit on cream porcelain, so their dark outlines read as
+   usual. */
+[data-theme="cafe"] {
+  color-scheme: dark;
+  /* page and grounds */
+  --bg: #160f0a;
+  --page-art: radial-gradient(120% 600px at 50% 0%, #251910 0%, #160f0a 55%, #0f0a07 100%);
+  --tile: linear-gradient(180deg, #221912 0%, #1b140f 100%);
+  --lift: inset 0 0 0 1px rgba(255, 214, 160, 0.10), inset 0 1px 0 rgba(255, 228, 186, 0.05), 0 6px 16px rgba(0, 0, 0, 0.4);
+  --lamp-bg: radial-gradient(72% 52% at 50% 44%, #4b3019 0%, #36251a 48%, #211812 100%);
+  --lamp-shadow: inset 0 1px 0 rgba(255, 228, 186, 0.08), 0 0 28px rgba(255, 150, 60, 0.10), 0 8px 18px rgba(0, 0, 0, 0.4);
+  --paper: #2a2017;
+  --chosen: #2e2318;
+  /* text */
+  --ink: #f4e7d0;
+  --holder-ink: #f6ead6;
+  --ink-soft: #b9a68b;
+  --card-soft: #cdb898;
+  --tile-label: #ebbd84;
+  --accent: #ecbc7c;
+  --price: #ecbc7c;
+  --plus: #9fd8a8;
+  --minus: #f4a58e;
+  /* read by scripts that draw on a canvas: plain colours only */
+  --digit: #f9e0b4;
+  --wordmark: #ecbc7c;
+  /* buttons and controls: the primary button is honey, and the keypad's confirm key is the same */
+  --primary-bg: radial-gradient(120% 150% at 50% 0%, #f6cd88 0%, #e6ac62 55%, #d6964c 100%);
+  --primary-ink: #2b1708;
+  --primary-shadow: inset 0 1px 0 rgba(255, 244, 220, 0.4), inset 0 -3px 4px rgba(150, 80, 20, 0.16), 0 3px 1px #84522a, 0 8px 22px rgba(240, 150, 60, 0.26);
+  --primary-shadow-active: inset 0 1px 0 rgba(255, 244, 220, 0.4), inset 0 -3px 4px rgba(150, 80, 20, 0.16), 0 1px 0 #84522a, 0 3px 10px rgba(240, 150, 60, 0.2);
+  --confirm-bg: var(--primary-bg);
+  --confirm-ink: var(--primary-ink);
+  --confirm-shadow: var(--primary-shadow);
+  --confirm-shadow-active: var(--primary-shadow-active);
+  --btn-ledge: #0f0a07;
+  --control-accent: #e6ac62;
+  --focus: #7fd3dc;
+  /* frames, bars, pills: the caramel ring colour #b98c58, caramel #ecbc7c */
+  --frame: #b98c58;
+  --intro-ledge: #0f0a07;
+  --link-panel-border: #b98c58;
+  --bar-bg: linear-gradient(180deg, #2c2118, #251c15);
+  --bar-ink: #ecbc7c;
+  --bar-shadow: inset 0 -1px 0 rgba(255, 214, 160, 0.07);
+  --bar-dot: #e6ac62;
+  --pill-bg: #ecbc7c;
+  --pill-ink: #2b1708;
+  --skip-bg: #ecbc7c;
+  --skip-ink: #2b1708;
+  --bubble-bg: #ecbc7c;
+  --bubble-ink: #2b1708;
+  /* lines: dividers between sections stay dashed, the rows of a list are solid */
+  --line: #3a2b1f;
+  --row-line: #2e2219;
+  --rule-style: solid;
+  /* slots, and porcelain under a single drawing: the canvas keeps its drawing size and the
+     padding goes outside it (content-box). A rounded canvas shows its drawing only inside its
+     rounded corners, so the medallions are round only if the mascot fits inside the circle, and
+     otherwise rounded squares like the slots (tests/colours.test.mjs) */
+  --slot-bg: radial-gradient(circle at 50% 40%, #fdf3e1 0%, #f1dfc0 70%, #e7cfa4 100%);
+  --slot-border: #b98c58;
+  --slot-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+  --slot-empty-bg: radial-gradient(circle at 50% 35%, #1d150f, #130d0a);
+  --slot-empty-border: #5e4632;
+  --slot-empty-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.55);
+  --slot-ink: #4a2f1b;
+  --face-bg: radial-gradient(circle at 50% 42%, #fff4de 0%, #f3dcb3 65%, #e6c793 100%);
+  --face-ring: 0 0 0 1px rgba(255, 214, 160, 0.22), 0 2px 4px rgba(0, 0, 0, 0.45);
+  --face-pad: 3px;
+  --face-box: content-box;
+  --face-radius: 10px;
+  --mascot-radius: 10px;
+  --row-icon-size: 42px;
+  --pic-bg: var(--slot-bg);
+  --pic-ring: 0 0 0 2.5px var(--slot-border);
+  --pic-pad: 3px;
+  --pic-box: content-box;
+  --pic-radius: 10px;
+  /* logos: today's rounded squares, on porcelain */
+  --brand-logo-bg: var(--face-bg);
+  --brand-logo-pad: 3px;
+  --auth-logo-bg: var(--face-bg);
+  --auth-logo-pad: 6px;
+  --auth-logo-radius: 18px;
+  --logo-preview-bg: var(--face-bg);
+  /* fields and keypad */
+  --field-bg: #140e0a;
+  --field-border: #8a705c;
+  --key-bg: #2c2118;
+  --key-border: #3d2e22;
+  --key-ledge: #0f0a07;
+  --amount-zero: #b9a68b;
+  /* notices and badges */
+  --warn-bg: #3a2a12;
+  --warn-border: #8a6a2a;
+  --warn-ink: #f5d48a;
+  --ok-bg: #1c2a1e;
+  --ok-border: #3f6b48;
+  --ok-ink: #9fd8a8;
+  --bad-bg: #3a1c17;
+  --bad-border: #7a3a2e;
+  --bad-ink: #f4a58e;
+  /* toasts */
+  --toast-bg: #2c2118;
+  --toast-border: #5e4632;
+  --toast-ink: #f4e7d0;
+  --toast-shadow: 0 4px 0 #0f0a07, 0 10px 26px rgba(0, 0, 0, 0.5);
+  --toast-error-bg: #5a271d;
+  --toast-error-border: #8e3f30;
+  --toast-error-ink: #fbe3da;
+  --toast-error-shadow: 0 4px 0 #3a1c17, 0 10px 26px rgba(0, 0, 0, 0.5);
+}
+
+/* The café's own rules: only where a variable cannot do it. Each matches everything inside a
+   café page, light theme cards included. */
+/* The dialog scrim, written out for the reason .dialog::backdrop is (above). */
+[data-theme="cafe"] .dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
+/* A locked theme card keeps its own ground, so the Pastry shop and Bakery cards stay light on
+   this dark page; only what is on it fades. */
+[data-theme="cafe"] .theme-card:has(input:disabled) { opacity: 1; }
+[data-theme="cafe"] .theme-card:has(input:disabled) > * { opacity: 0.65; }
+/* Forced colours put a system colour behind the canvases: the balance and CRUMB take the
+   system's text colour rather than stay cream. */
+@media (forced-colors: active) {
+  [data-theme="cafe"] { --digit: CanvasText; --wordmark: CanvasText; }
+}

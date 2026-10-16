@@ -398,3 +398,38 @@ test('the balance digits and the CRUMB wordmark are drawn in the page’s --digi
     await fx.close();
   }
 });
+
+/* ---------------------------------------------------------------- forced colours */
+
+test('under forced colours, light or dark, a café team’s balance and CRUMB are drawn in the system’s text colour, and a Pastry shop team’s stay brown', async ({ browser }) => {
+  const teams = [];
+  const contexts = [];
+  try {
+    teams.push(await provision(browser, { theme: 'cafe' }), await provision(browser));
+    for (const [fx, cafe] of [[teams[0], true], [teams[1], false]]) {
+      for (const colorScheme of ['light', 'dark']) {
+        const which = `${cafe ? 'café' : 'Pastry shop'}, ${colorScheme}`;
+        const context = await browser.newContext({ forcedColors: 'active', colorScheme, reducedMotion: 'reduce' });
+        contexts.push(context);
+        const page = await context.newPage();
+        const errors = pageErrors(page);
+        await signIn(page, fx.origin, 'olive');
+        expect(await page.evaluate(() => window.matchMedia('(forced-colors: active)').matches), which).toBe(true);
+        // The colour forced colours give the page's text, the system's text colour: black on white
+        // in the light palette, white on black in the dark one.
+        const systemText = await page.evaluate(() => getComputedStyle(document.body).color);
+        expect(systemText, which).not.toBe(BROWN);
+        const drawn = cafe ? systemText : BROWN;
+        await goTo(page, 'me');
+        await expect(page.getByTestId('available-balance')).toBeVisible();
+        await expect.poll(() => inkOf(page.locator('.big-number canvas')), `${which}: the balance`).toEqual([drawn]);
+        await signOut(page);
+        await expect.poll(() => inkOf(page.locator('.auth-brand canvas').last()), `${which}: CRUMB`).toEqual([drawn]);
+        expect(errors, which).toEqual([]);
+      }
+    }
+  } finally {
+    for (const context of contexts) await context.close();
+    for (const fx of teams) await fx.close();
+  }
+});
