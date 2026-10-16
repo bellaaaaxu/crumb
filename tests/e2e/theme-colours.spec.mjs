@@ -5,7 +5,10 @@
  * file tests that the right theme is on the page at the right moments. Every person and team
  * here is invented. */
 import { test, expect } from '@playwright/test';
+import { readFileSync } from 'node:fs';
 import { nameMenu, provision, signIn, signOut, startCrumb } from './fixtures.mjs';
+import { stops } from '../contrast.mjs';
+import { parseCss, substitute, topLevel, variablesOf } from '../css.mjs';
 
 const TEAM = 'Northside Coffee Co.';
 const PASTRY_CARD = 'Pastry shop · 39 pastries';
@@ -431,5 +434,158 @@ test('under forced colours, light or dark, a café team’s balance and CRUMB ar
   } finally {
     for (const context of contexts) await context.close();
     for (const fx of teams) await fx.close();
+  }
+});
+
+/* ---------------------------------------------------------------- theme cards */
+
+const BAKERY_CARD = 'Bakery · 24 breads and cakes';
+
+/* A colour set of app/app.css with every value worked out: the light set (Pastry shop's and
+ * Bakery's) or a theme's own, whose variables stand in for the light ones. */
+function colourSet(selector) {
+  const rules = parseCss(readFileSync(new URL('../../app/app.css', import.meta.url), 'utf8'));
+  const variables = new Map([...variablesOf(topLevel(rules, ':root, [data-theme]')), ...variablesOf(topLevel(rules, selector))]);
+  return name => substitute(variables.get(name), variables);
+}
+const LIGHT = colourSet(':root, [data-theme]');
+const CAFE = colourSet('[data-theme="cafe"]');
+
+/* The colours a value shows, as the browser writes them: a plain colour, or each stop of a
+ * gradient; none and fully transparent ones left out. */
+const colours = value => stops(value).filter(({ a }) => a > 0)
+  .map(({ r, g, b, a }) => (a === 1 ? `rgb(${r}, ${g}, ${b})` : `rgba(${r}, ${g}, ${b}, ${a})`));
+
+/* The page behind the cards: <html>'s data-theme, and the colours of body's ground and text. */
+const pageLook = page => page.evaluate(() => {
+  const body = getComputedStyle(document.body);
+  return { theme: document.documentElement.getAttribute('data-theme'), ground: body.backgroundColor, ink: body.color };
+}).then(look => ({ theme: look.theme, ground: colours(look.ground), ink: colours(look.ink) }));
+const pageOf = (set, theme) => ({ theme, ground: colours(set('--bg')), ink: colours(set('--ink')) });
+
+/* The theme each card carries, in page order. */
+const cardThemes = page => page.locator('.theme-card').evaluateAll(cards => cards.map(card => card.getAttribute('data-theme')));
+
+/* What the card of a theme shows: the colours of its ground (each stop of a gradient), its text
+ * and its border; its color-scheme; its own opacity and that of what is on it (the radio and
+ * the label); and the ground, ring and padding of its first picture. */
+async function cardLook(page, id) {
+  const look = await page.locator(`.theme-card[data-theme="${id}"]`).evaluate(card => {
+    const style = getComputedStyle(card);
+    const picture = getComputedStyle(card.querySelector('.theme-card-pics canvas'));
+    return {
+      ground: [style.backgroundColor, style.backgroundImage],
+      ink: style.color,
+      border: style.borderTopColor,
+      scheme: style.colorScheme,
+      opacity: [style.opacity, ...[...card.children].map(child => getComputedStyle(child).opacity)],
+      picture: [picture.backgroundImage, picture.boxShadow, picture.paddingTop],
+    };
+  });
+  return {
+    ground: look.ground.flatMap(colours),
+    ink: colours(look.ink),
+    border: colours(look.border),
+    scheme: look.scheme,
+    opacity: look.opacity,
+    picture: { ground: colours(look.picture[0]), ring: colours(look.picture[1]), padding: look.picture[2] },
+  };
+}
+
+/* What a card should show, from its own theme's colour set: chosen, it is on --chosen inside
+ * --frame; otherwise on --tile inside --line. */
+const cardOf = (set, scheme, { chosen = false, opacity = ['1', '1', '1'] } = {}) => ({
+  ground: colours(set(chosen ? '--chosen' : '--tile')),
+  ink: colours(set('--ink')),
+  border: colours(set(chosen ? '--frame' : '--line')),
+  scheme,
+  opacity,
+  picture: { ground: colours(set('--pic-bg')), ring: colours(set('--pic-ring')), padding: `${Number.parseFloat(set('--pic-pad'))}px` },
+});
+
+/* A first treat, which fixes the team's theme from then on. */
+const firstTreat = fx => fx.api.request('POST', '/api/admin/grants',
+  { userId: fx.memberId, amount: '100', mode: 'points', reason: '' }, { 'idempotency-key': 'e2e-theme-cards-first-treat' });
+
+test('on the setup page each card shows its own theme’s colours: the café card dark, the other two light, and choosing Café leaves the page light', async ({ browser }) => {
+  let crumb;
+  let context;
+  try {
+    crumb = await startCrumb();
+    context = await browser.newContext({ reducedMotion: 'reduce' });
+    const page = await context.newPage();
+    const errors = pageErrors(page);
+    await page.goto(crumb.origin);
+    await expect(page.getByRole('heading', { name: 'Set up Crumb' })).toBeVisible();
+    expect(await cardThemes(page)).toEqual(['default', 'bakery', 'cafe']);
+    expect(await pageLook(page)).toEqual(pageOf(LIGHT, null));
+    expect(await cardLook(page, 'default')).toEqual(cardOf(LIGHT, 'light', { chosen: true }));
+    expect(await cardLook(page, 'bakery')).toEqual(cardOf(LIGHT, 'light'));
+    expect(await cardLook(page, 'cafe')).toEqual(cardOf(CAFE, 'dark'));
+
+    // Chosen, the café card is on its own chosen ground (read once the 0.01 ms transition that
+    // reduced motion leaves has run); the page stays light, and nothing is put on <html> or
+    // remembered: there is no team yet.
+    await themeCard(page, CAFE_CARD).check();
+    await expect.poll(() => cardLook(page, 'cafe')).toEqual(cardOf(CAFE, 'dark', { chosen: true }));
+    await expect.poll(() => cardLook(page, 'default')).toEqual(cardOf(LIGHT, 'light'));
+    expect(await pageLook(page)).toEqual(pageOf(LIGHT, null));
+    expect(await onPage(page)).toEqual({ attribute: null, remembered: null, bar: [], loading: false });
+    expect(errors).toEqual([]);
+  } finally {
+    await context?.close();
+    await crumb?.close();
+  }
+});
+
+test('on a café team’s Settings page the Pastry shop and Bakery cards stay light, selectable and locked; a locked card keeps its ground and only what is on it fades', async ({ browser }) => {
+  const fx = await provision(browser, { theme: 'cafe' });
+  try {
+    const page = fx.ownerPage;
+    const errors = pageErrors(page);
+    await goTo(page, 'settings');
+    await expect(page.getByRole('heading', { level: 1, name: 'Settings', exact: true })).toBeVisible();
+    await expect.poll(() => pageLook(page)).toEqual(pageOf(CAFE, 'cafe'));
+    expect(await cardThemes(page)).toEqual(['default', 'bakery', 'cafe']);
+    for (const name of [PASTRY_CARD, BAKERY_CARD, CAFE_CARD]) await expect(themeCard(page, name)).toBeEnabled();
+    expect(await cardLook(page, 'default')).toEqual(cardOf(LIGHT, 'light'));
+    expect(await cardLook(page, 'bakery')).toEqual(cardOf(LIGHT, 'light'));
+    expect(await cardLook(page, 'cafe')).toEqual(cardOf(CAFE, 'dark', { chosen: true }));
+
+    // After the first treat every card is locked. On this dark page a card keeps its own ground,
+    // and only the radio and the label fade.
+    expect((await firstTreat(fx)).status).toBe(201);
+    await page.reload();
+    await expect(page.getByRole('heading', { level: 1, name: 'Settings', exact: true })).toBeVisible();
+    for (const name of [PASTRY_CARD, BAKERY_CARD, CAFE_CARD]) await expect(themeCard(page, name)).toBeDisabled();
+    const contentsFade = ['1', '0.65', '0.65'];
+    expect(await cardLook(page, 'default')).toEqual(cardOf(LIGHT, 'light', { opacity: contentsFade }));
+    expect(await cardLook(page, 'bakery')).toEqual(cardOf(LIGHT, 'light', { opacity: contentsFade }));
+    expect(await cardLook(page, 'cafe')).toEqual(cardOf(CAFE, 'dark', { chosen: true, opacity: contentsFade }));
+    expect(await pageLook(page)).toEqual(pageOf(CAFE, 'cafe'));
+    expect(errors).toEqual([]);
+  } finally {
+    await fx.close();
+  }
+});
+
+test('on a Pastry shop team’s locked Settings page every card fades whole, as in 0.3, and the café card stays dark', async ({ browser }) => {
+  const fx = await provision(browser);
+  try {
+    const page = fx.ownerPage;
+    const errors = pageErrors(page);
+    expect((await firstTreat(fx)).status).toBe(201);
+    await goTo(page, 'settings');
+    await expect(page.getByRole('heading', { level: 1, name: 'Settings', exact: true })).toBeVisible();
+    expect(await cardThemes(page)).toEqual(['default', 'bakery', 'cafe']);
+    for (const name of [PASTRY_CARD, BAKERY_CARD, CAFE_CARD]) await expect(themeCard(page, name)).toBeDisabled();
+    expect(await pageLook(page)).toEqual(pageOf(LIGHT, 'default'));
+    const wholeFades = ['0.65', '1', '1'];
+    expect(await cardLook(page, 'default')).toEqual(cardOf(LIGHT, 'light', { chosen: true, opacity: wholeFades }));
+    expect(await cardLook(page, 'bakery')).toEqual(cardOf(LIGHT, 'light', { opacity: wholeFades }));
+    expect(await cardLook(page, 'cafe')).toEqual(cardOf(CAFE, 'dark', { opacity: wholeFades }));
+    expect(errors).toEqual([]);
+  } finally {
+    await fx.close();
   }
 });

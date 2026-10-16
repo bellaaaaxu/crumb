@@ -169,7 +169,9 @@ export function themeCards(selectedId, { disabled = false } = {}) {
     const inputId = uid(`radio-${name}`);
     const input = el('input', { attrs: { type: 'radio', id: inputId, name, value: id, checked: id === selectedId, disabled } });
     inputs.push(input);
-    return el('div', { attrs: { class: 'radio theme-card' } }, [
+    // Each card carries its own theme, so it shows that theme's colours on any page: the café
+    // card is dark on the light setup page, the others light on a café team's dark Settings.
+    return el('div', { attrs: { class: 'radio theme-card', 'data-theme': id } }, [
       input,
       el('label', { attrs: { for: inputId } }, [
         el('span', { attrs: { class: 'theme-card-pics' } }, themeKeysOf(id).slice(0, 3).map(key => spriteCanvas(key, 3))),
