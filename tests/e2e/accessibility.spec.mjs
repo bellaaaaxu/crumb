@@ -137,10 +137,14 @@ test('tabbing out of the name menu closes it and leaves the keyboard where it we
   }
 });
 
-test('no page scrolls sideways on a phone or a laptop, and nothing trips the CSP', async ({ browser }) => {
+/* Every signed-in page at a phone's width and a laptop's: nothing scrolls sideways, every control
+ * is labelled, and nothing trips the Content Security Policy or logs an error. `theme` is the
+ * team's collection theme (left out: Pastry shop). */
+async function pagesFitAndTripNothing(browser, theme) {
   const memberName = 'Maximiliana Featherstonehaugh-Worthington';
-  const fx = await provision(browser, { mode: 'credit', memberName });
+  const fx = await provision(browser, { mode: 'credit', memberName, theme });
   try {
+    if (theme) await expect(fx.ownerPage.locator('html')).toHaveAttribute('data-theme', theme);
     const long = `Thank you for ${'staying-late-again-'.repeat(12)}`;
     await fx.api.request('POST', '/api/admin/grants', { userId: fx.memberId, amount: '123456.78', mode: fx.mode, reason: long }, key());
     // A batch too, so the Team log has a line that opens to its people.
@@ -205,7 +209,13 @@ test('no page scrolls sideways on a phone or a laptop, and nothing trips the CSP
   } finally {
     await fx.close();
   }
-});
+}
+
+test('no page scrolls sideways on a phone or a laptop, and nothing trips the CSP', ({ browser }) => pagesFitAndTripNothing(browser));
+
+/* The café's pages carry its own colours, drawings and sentences: they must fit and trip nothing
+ * too (spec §13, "Security policy"). */
+test('no page scrolls sideways on a phone or a laptop, and nothing trips the CSP, also on a café team', ({ browser }) => pagesFitAndTripNothing(browser, 'cafe'));
 
 test('signed-out pages fit a phone too', async ({ browser }) => {
   const crumb = await startCrumb();
@@ -329,15 +339,18 @@ test('after moving to another page, focus is on the new content', async ({ brows
 });
 
 /* The collection theme cards where they can still be chosen: on the setup page, and in an
- * owner's Settings before the first treat. At both sizes they fit, every control is labelled,
- * Tab reaches the chosen card and the arrow keys choose the other, and each card's focus ring
- * shows whole. */
+ * owner's Settings before the first treat. At both sizes the three cards fit, every control is
+ * labelled, Tab reaches the chosen card and the arrow keys choose each of the others in turn,
+ * and each card's focus ring shows whole. */
 async function themeCardsPass(page, label) {
   const cards = page.getByRole('group', { name: 'Collection theme', exact: true });
   const pastry = cards.getByRole('radio', { name: 'Pastry shop · 39 pastries', exact: true });
   const bakery = cards.getByRole('radio', { name: 'Bakery · 24 breads and cakes', exact: true });
+  const cafe = cards.getByRole('radio', { name: 'Café · 24 coffees and sweets', exact: true });
+  await expect(cards.getByRole('radio')).toHaveCount(3);
   await expect(pastry).toBeChecked();
   await expect(bakery).toBeEnabled();
+  await expect(cafe).toBeEnabled();
   await widthFits(page, label);
   await everyControlIsLabelled(page, label);
   await tabUntil(page, pastry);
@@ -347,6 +360,11 @@ async function themeCardsPass(page, label) {
   await expect(bakery).toBeFocused();
   expect(await ringCutBy(page), `${label}: Bakery card`).toBeNull();
   await widthFits(page, `${label}, Bakery chosen`);
+  await page.keyboard.press('ArrowDown');
+  await expect(cafe).toBeChecked();
+  await expect(cafe).toBeFocused();
+  expect(await ringCutBy(page), `${label}: Café card`).toBeNull();
+  await widthFits(page, `${label}, Café chosen`);
 }
 
 test('the collection theme cards on setup and in Settings fit a phone and a laptop and work from the keyboard', async ({ browser }) => {
