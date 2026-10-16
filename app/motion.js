@@ -1,8 +1,9 @@
-/* The five animations, ported from the public demo. Every one of them is skipped when the
- * person has asked for less motion, and none of them changes what the page says. */
+/* The animations: five ported from the public demo, and the steam of a mascot drawn with it.
+ * Every one of them is skipped when the person has asked for less motion, and none of them
+ * changes what the page says. */
 
 import { el } from './dom.js';
-import { outlineColour, spriteCanvas } from './pixels.js';
+import { drawCollection, hasSteam, outlineColour, spriteCanvas, steamCycle } from './pixels.js';
 
 export const reducedMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
 
@@ -49,13 +50,62 @@ export function crumbs(x, y, color = outlineColour(), count = 9) {
   spawn(x, y, count, color, 5, { from: Math.PI * 0.15, arc: Math.PI * 0.7, distance: 46, gravity: 70, duration: 650 });
 }
 
-/* Shakes the mascot and spills crumbs from it. `spriteKey` is the drawing on the button. */
-export function crackMascot(button, spriteKey) {
+/* Shakes the mascot. A drawing marked with steam then steams for one cycle (a cup spilling
+ * crumbs makes no sense); any other spills crumbs from it. The drawing decides, never the
+ * theme. `spriteKey` is the drawing on the button, drawn at `size`. */
+export function crackMascot(button, spriteKey, size = 3) {
   button.classList.remove('crack');
   void button.offsetWidth; // restart the animation when tapped again quickly
   button.classList.add('crack');
+  if (hasSteam(spriteKey)) {
+    steam(button.querySelector('canvas'), spriteKey, size);
+    return;
+  }
   const box = button.getBoundingClientRect();
   crumbs(box.left + box.width / 2, box.top + box.height / 2, outlineColour(spriteKey));
+}
+
+/* ---------------------------------------------------------------- steam */
+
+/* The stop function of the steam running on each canvas: a new run there stops it first. */
+const steaming = new WeakMap();
+
+/**
+ * Runs the steam of a drawing marked with it, on the canvas that shows it at `size`: the first
+ * step at once, then one step every step length of sprites.js, and after `cycles` cycles
+ * (Infinity: until stopped) the whole drawing again. Returns a function that stops it where it
+ * is. With less motion asked for, without a canvas, or for a drawing with no steam, nothing
+ * happens: the canvas keeps the whole drawing. A canvas that has left the page ends it, and is
+ * drawn on no more.
+ */
+export function steam(canvas, spriteKey, size, { cycles = 1 } = {}) {
+  if (!canvas || reducedMotion() || !hasSteam(spriteKey)) return () => {};
+  steaming.get(canvas)?.();
+  if (!canvas.isConnected) return () => {};
+  const { steps, stepMs } = steamCycle();
+  const last = cycles * steps;
+  let step = 0;
+  let timer = null;
+  const stop = () => {
+    window.clearInterval(timer);
+    if (steaming.get(canvas) === stop) steaming.delete(canvas);
+  };
+  drawCollection(canvas, spriteKey, size, step);
+  timer = window.setInterval(() => {
+    if (!canvas.isConnected) {
+      stop();
+      return;
+    }
+    step += 1;
+    if (step < last) {
+      drawCollection(canvas, spriteKey, size, step % steps);
+      return;
+    }
+    drawCollection(canvas, spriteKey, size);
+    stop();
+  }, stepMs);
+  steaming.set(canvas, stop);
+  return stop;
 }
 
 /* ---------------------------------------------------------------- the rolling number */
@@ -151,9 +201,9 @@ export function keepSeenOnlyFor(userId) {
 let introShown = false;
 
 /**
- * "Today's treats are out of the oven": under a second, once per page load, a tap skips it.
- * `mascot` is the sprite key of the team's mascot. Resolves when it has left, so the page can
- * start the tile's entrance after it.
+ * The oven intro (its title is the caller's): under a second, once per page load, a tap skips
+ * it. `mascot` is the sprite key of the team's mascot; one drawn with steam steams while the
+ * intro shows. Resolves when it has left, so the page can start the tile's entrance after it.
  */
 export function ovenIntro({ title, skip, mascot }) {
   if (introShown || reducedMotion()) {
@@ -162,15 +212,19 @@ export function ovenIntro({ title, skip, mascot }) {
   }
   introShown = true;
   return new Promise(resolve => {
+    const picture = spriteCanvas(mascot, 8);
     const node = el('div', { attrs: { class: 'oven', role: 'presentation' } }, [
-      spriteCanvas(mascot, 8),
+      picture,
       el('p', { text: title, attrs: { class: 'oven-text' } }),
       el('p', { text: skip, attrs: { class: 'oven-sub' } }),
     ]);
     let done = false;
+    let stopSteam = () => {};
     const dismiss = () => {
       if (done) return;
       done = true;
+      // The cup leaves with the intro, its steam stopped where it is.
+      stopSteam();
       node.classList.add('leaving');
       window.setTimeout(() => {
         node.remove();
@@ -179,6 +233,8 @@ export function ovenIntro({ title, skip, mascot }) {
     };
     node.addEventListener('click', dismiss);
     document.body.append(node);
+    // Only a canvas in the page steams, so it starts now.
+    stopSteam = steam(picture, mascot, 8, { cycles: Infinity });
     // It starts to leave at 0.9 s, as in the demo: the pop-in alone takes 0.5 s, so leaving
     // any sooner would give the words no time to be read.
     window.setTimeout(dismiss, 900);
