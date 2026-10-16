@@ -671,10 +671,11 @@
   var shuttering = false;
 
   /* The shop's name as the sign spells it. The page's pixel letters are capitals with no
-   * accents, so the accent goes first: "Pastry shop" is PASTRY SHOP, "Bakery" BAKERY and
-   * "Café" CAFE (an É would be drawn as a gap). */
+   * accents, so the accent goes first: split from its letter (NFD), it is the one thing
+   * left outside plain printable ASCII, and goes. "Pastry shop" is PASTRY SHOP, "Bakery"
+   * BAKERY and "Café" CAFE (an É would be drawn as a gap). */
   function signText(id) {
-    return Pixel.THEMES[id].label.en.normalize('NFD').replace(/\p{M}/gu, '').toUpperCase();
+    return Pixel.THEMES[id].label.en.normalize('NFD').replace(/[^ -~]/g, '').toUpperCase();
   }
 
   /* The name in the sign's own colour (--sign-ink in style.css), the same in every shop:

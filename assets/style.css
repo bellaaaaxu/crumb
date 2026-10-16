@@ -207,7 +207,7 @@
 /* Forced colours (a high-contrast mode) put the system's own colours on the page,
    a light ground under a light high-contrast theme, but cannot reach into a
    canvas: the café's cream digits and caramel CRUMB would vanish there, so they
-   take the system's text colour. The other shops' dark brown reads either way. */
+   take the system's text colour. The other shops keep 0.3's dark brown (assumption 39). */
 @media (forced-colors: active) {
   [data-theme="cafe"] {
     --digit: CanvasText;
