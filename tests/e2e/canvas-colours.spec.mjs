@@ -183,3 +183,87 @@ test.describe('Café: the app', () => {
     }
   });
 });
+
+/* ---------------------------------------------------------------- Café: the demo (spec §8, §13) */
+
+/* In the demo's café the balance, CRUMB and the chevron under the phone are drawn in the café's
+ * --digit, --wordmark and --chevron, read from the page when they are drawn: on a page opened in
+ * the café, and after a switch to it. Under forced colours the balance and CRUMB take the system's
+ * text colour instead (assumption 39). Everything here is in a block of its own, so its names
+ * never meet the ones above. */
+test.describe('Café: the demo', () => {
+  const DEMO = new URL('../../index.html', import.meta.url).href;
+  const CHEVRON_ROWS = ['X.....X', 'XX...XX', '.XX.XX.', '..XXX..'];
+  const CAFE = { '--digit': '#f9e0b4', '--wordmark': '#ecbc7c', '--chevron': '#b9a68b' };
+
+  /* The colours the page has now, read the way assets/app.js reads them. */
+  const tokens = page => page.evaluate(() => {
+    const style = getComputedStyle(document.documentElement);
+    return Object.fromEntries(['--digit', '--wordmark', '--chevron'].map(name => [name, style.getPropertyValue(name).trim()]));
+  });
+  /* The three canvases as shown, and as the page's own pixel table draws them in `colours` (the
+   * balance being the amount #balance-text says). */
+  const shown = page => page.evaluate(() => ({
+    balance: document.getElementById('balance').toDataURL(),
+    wordmark: document.getElementById('wordmark').toDataURL(),
+    chevron: document.getElementById('more-arrow').toDataURL(),
+  }));
+  const drawn = (page, colours) => page.evaluate(([colours, rows]) => {
+    const draw = paint => {
+      const canvas = document.createElement('canvas');
+      paint(canvas);
+      return canvas.toDataURL();
+    };
+    const amount = document.getElementById('balance-text').textContent.replace('$', '');
+    return {
+      balance: draw(canvas => Pixel.drawNumber(canvas, amount, 9, colours['--digit'])),
+      wordmark: draw(canvas => Pixel.drawText(canvas, 'CRUMB', 7, colours['--wordmark'])),
+      chevron: draw(canvas => Pixel.drawSprite(canvas, { palette: { X: colours['--chevron'] }, rows }, 3, 0)),
+    };
+  }, [colours, CHEVRON_ROWS]);
+  /* A page opened with the café remembered; less motion, so the balance is drawn in one go and
+   * nothing plays over it. */
+  async function openCafe(browser, options = {}) {
+    const context = await browser.newContext({ reducedMotion: 'reduce', ...options });
+    const page = await context.newPage();
+    await page.goto(DEMO);
+    await page.evaluate(() => localStorage.setItem('crumb_demo_theme', 'cafe'));
+    await page.reload();
+    await expect(page.locator('#mascot')).toHaveAttribute('aria-label', 'Mascot: hot coffee');
+    return { context, page };
+  }
+
+  test('the balance, CRUMB and the chevron are drawn in the café’s colours, opened there and after a switch', async ({ browser }) => {
+    const { context, page } = await openCafe(browser);
+    try {
+      expect(await tokens(page)).toEqual(CAFE);
+      expect(await shown(page)).toEqual(await drawn(page, CAFE));
+      // To the Pastry shop and back: with less motion each switch is instant.
+      await page.locator('#shop-switch [data-shop="default"]').click();
+      await expect(page.locator('#mascot')).toHaveAttribute('aria-label', 'Mascot: wife cake');
+      expect(await shown(page)).toEqual(await drawn(page, { '--digit': '#4a2f1b', '--wordmark': '#4a2f1b', '--chevron': '#8a6a4c' }));
+      await page.locator('#shop-switch [data-shop="cafe"]').click();
+      await expect(page.locator('#mascot')).toHaveAttribute('aria-label', 'Mascot: hot coffee');
+      expect(await tokens(page)).toEqual(CAFE);
+      expect(await shown(page)).toEqual(await drawn(page, CAFE));
+    } finally {
+      await context.close();
+    }
+  });
+
+  test('under forced colours the café’s balance and CRUMB are drawn in the system’s text colour', async ({ browser }) => {
+    const { context, page } = await openCafe(browser, { forcedColors: 'active' });
+    try {
+      const forced = await tokens(page);
+      expect(forced).toEqual({ ...CAFE, '--digit': 'CanvasText', '--wordmark': 'CanvasText' });
+      const now = await shown(page);
+      expect(now).toEqual(await drawn(page, forced));
+      // And that is not the café's cream and caramel: the canvas draws CanvasText as a colour of its own.
+      const cafe = await drawn(page, CAFE);
+      expect(now.balance).not.toBe(cafe.balance);
+      expect(now.wordmark).not.toBe(cafe.wordmark);
+    } finally {
+      await context.close();
+    }
+  });
+});

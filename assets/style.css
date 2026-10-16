@@ -92,6 +92,10 @@
   --line: #e4d2ae;
   --row-line: var(--line);
   --rule-style: dashed;
+
+  /* How far the counter fades while the tour drives the demo: visibly not the
+     visitor's yet, and still readable. */
+  --tour-fade: 0.72;
 }
 
 /* Layout, the same in every shop. */
@@ -117,6 +121,98 @@
   --sign-bg: #fffdf6;
   --sign-border: #5c3a1d;
   --sign-ink: #4a2f1b;
+}
+
+/* The café: a candle-lit café after dark, always, whatever the system's own
+   setting. The same colours as the app's café (app/app.css); the parts only the
+   demo has are its own. Every variable of the light set has a value here, the
+   shutter's none: the shutter and its sign are the same in every shop. */
+[data-theme="cafe"] {
+  color-scheme: dark;
+
+  --bg: #160f0a;
+  --page-art: radial-gradient(120% 600px at 50% 0%, #251910 0%, #160f0a 55%, #0f0a07 100%);
+  --phone-art: radial-gradient(120% 600px at 50% 0%, #251910 0%, #160f0a 55%, #0f0a07 100%);
+  --tile: linear-gradient(180deg, #221912 0%, #1b140f 100%);
+  --paper: #2a2017;
+  --chosen: #2e2318;
+
+  --ink: #f4e7d0;
+  --ink-soft: #b9a68b;
+  --accent: #ecbc7c;
+  --plus: #9fd8a8;
+  --minus: #f4a58e;
+
+  --digit: #f9e0b4;
+  --wordmark: #ecbc7c;
+  --chevron: #b9a68b;
+
+  --select: #7fd3dc;
+
+  --get-bg: radial-gradient(120% 150% at 50% 0%, #f6cd88 0%, #e6ac62 55%, #d6964c 100%);
+  --get-ink: #2b1708;
+  --get-ledge: #84522a;
+  --switch-on-bg: #ecbc7c;
+  --switch-on-ink: #2b1708;
+  --grant-bg: radial-gradient(120% 150% at 50% 0%, #f6cd88 0%, #e6ac62 55%, #d6964c 100%);
+  --grant-ledge: #84522a;
+  --grant-ink: #2b1708;
+  --confirm-bg: radial-gradient(120% 150% at 50% 0%, #f6cd88 0%, #e6ac62 55%, #d6964c 100%);
+  --confirm-border: #84522a;
+  --confirm-ink: #2b1708;
+  --frame: #b98c58;
+  --highlight: #ecbc7c;
+
+  --app-icon-bg: #160f0a;
+  --app-icon-border: #5e4632;
+  --app-icon-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
+  --bezel: #2c2118;
+  --bezel-shadow: 0 14px 34px rgba(0, 0, 0, 0.5);
+  --dot-on: #ecbc7c;
+  --bar-dot: #e6ac62;
+
+  /* Porcelain under every picture, so the drawings keep their dark outlines;
+     the empty place on the shelf is a dark hole. */
+  --slot-bg: radial-gradient(circle at 50% 40%, #fdf3e1 0%, #f1dfc0 70%, #e7cfa4 100%);
+  --slot-border: #b98c58;
+  --slot-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+  --slot-empty-bg: radial-gradient(circle at 50% 35%, #1d150f, #130d0a);
+  --slot-empty-border: #5e4632;
+  --slot-empty-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.55);
+  --limited-bg: #2a2017;
+  --rule-bg: #2e2318;
+  --rule-ink: #ecbc7c;
+  --face-bg: radial-gradient(circle at 50% 42%, #fff4de 0%, #f3dcb3 65%, #e6c793 100%);
+  --face-ring: 0 0 0 1px rgba(255, 214, 160, 0.22), 0 2px 4px rgba(0, 0, 0, 0.45);
+  --face-pad: 3px;
+  --face-box: content-box;
+  --face-radius: 10px;
+
+  --bubble-bg: #ecbc7c;
+  --bubble-ink: #2b1708;
+  --sheet-scrim: rgba(0, 0, 0, 0.6);
+  --toast-bg: #2c2118;
+  --toast-ink: #f4e7d0;
+  --toast-error-bg: #5a271d;
+  --toast-error-ink: #fbe3da;
+
+  --line: #3a2b1f;
+  --row-line: #2e2219;
+  --rule-style: solid;
+
+  /* The counter fades less while the tour plays: its text stays at 4.5:1. */
+  --tour-fade: 0.8;
+}
+
+/* Forced colours (a high-contrast mode) put the system's own colours on the page,
+   a light ground under a light high-contrast theme, but cannot reach into a
+   canvas: the café's cream digits and caramel CRUMB would vanish there, so they
+   take the system's text colour. The other shops' dark brown reads either way. */
+@media (forced-colors: active) {
+  [data-theme="cafe"] {
+    --digit: CanvasText;
+    --wordmark: CanvasText;
+  }
 }
 
 * {
@@ -319,7 +415,7 @@ canvas { display: block; image-rendering: pixelated; }
 
 /* While the demo drives itself the counter is visibly along for the ride:
    still readable, clearly not yours yet, and one click takes it. */
-body.autoplay .counter { opacity: 0.72; }
+body.autoplay .counter { opacity: var(--tour-fade); }
 body.autoplay .grant,
 body.autoplay .person,
 body.autoplay .reset { cursor: default; }

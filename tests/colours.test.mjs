@@ -232,6 +232,7 @@ const DEMO_VARIABLES = [
   '--face-bg', '--face-ring', '--face-pad', '--face-box', '--face-radius',
   '--bubble-bg', '--bubble-ink', '--sheet-scrim', '--toast-bg', '--toast-ink', '--toast-error-bg', '--toast-error-ink',
   '--line', '--row-line', '--rule-style',
+  '--tour-fade', // how far the counter fades while the tour plays: an opacity, not a colour
 ];
 
 /* The demo's layout constants, the same in every shop. */
@@ -522,4 +523,103 @@ test('app/app.css: the café’s medallions are round only when its mascot fits 
   // Every medallion and the header button's corners (and so its focus ring) go together.
   assert.equal(cafe.get('--face-radius'), shape);
   assert.equal(cafe.get('--mascot-radius'), shape);
+});
+
+/* ------------------------------------------------------------------ the demo's café */
+
+/* Text and the grounds it sits on in the demo, by variable name (spec §8's table and the rules
+ * of assets/style.css): the page and the phone's screen, a tile, the counter (--paper), a pressed
+ * person (--chosen), and each button, rule strip, bubble and toast on its own ground. */
+const DEMO_TEXT = [
+  ['--ink', ['--bg', '--page-art', '--phone-art', '--tile', '--paper', '--chosen']],
+  ['--ink-soft', ['--bg', '--page-art', '--phone-art', '--tile', '--paper', '--chosen']],
+  ['--accent', ['--bg', '--page-art', '--phone-art', '--tile', '--paper', '--chosen']],
+  ['--plus', ['--tile', '--paper']],
+  ['--minus', ['--tile']],
+  ['--digit', ['--tile']],
+  ['--wordmark', ['--bg', '--page-art']],
+  ['--get-ink', ['--get-bg']],
+  ['--switch-on-ink', ['--switch-on-bg']],
+  ['--grant-ink', ['--grant-bg']],
+  ['--confirm-ink', ['--confirm-bg']],
+  ['--rule-ink', ['--rule-bg']],
+  ['--bubble-ink', ['--bubble-bg']],
+  ['--toast-ink', ['--toast-bg']],
+  ['--toast-error-ink', ['--toast-error-bg']],
+];
+
+/* What must be seen without being text, 3:1: the focus ring (drawn outside its control, on the
+ * ground around it), a pressed person's frame, the slot rings on the phone and in the cabinet,
+ * and the chevron under the phone. */
+const DEMO_NON_TEXT = [
+  ['--select', ['--bg', '--page-art', '--phone-art', '--tile', '--paper']],
+  ['--frame', ['--paper', '--chosen']],
+  ['--slot-border', ['--tile', '--paper']],
+  ['--chevron', ['--bg', '--page-art']],
+];
+
+colourSetTests({ file: 'assets/style.css', text: DEMO_TEXT, nonText: DEMO_NON_TEXT });
+
+test('assets/style.css: the demo’s café is always dark, and its only rule of its own is the forced-colours override', () => {
+  const rules = parseCss(read('assets/style.css'));
+  const [cafe] = topLevel(rules, '[data-theme="cafe"]');
+  assert.ok(cafe, 'the café has a colour set');
+  assert.equal(cafe.declarations.find(({ property }) => property === 'color-scheme')?.value, 'dark');
+  // As in the app: a rule that starts from a data-theme matches everything inside such a page.
+  // The demo needs one only where a variable cannot reach: inside a canvas, under forced colours.
+  const own = rules
+    .filter(rule => !(rule.context.length === 0 && (rule.selector === ':root, [data-theme]' || THEME_SET.test(rule.selector))))
+    .filter(rule => splitSelectors(rule.selector).some(selector => selector.startsWith('[data-theme')))
+    .map(rule => `${where(rule)} { ${rule.declarations.map(({ property, value }) => `${property}: ${value}`).join('; ')} }`);
+  assert.deepEqual(own, ['@media (forced-colors: active) / [data-theme="cafe"] { --digit: CanvasText; --wordmark: CanvasText }']);
+});
+
+test('assets/style.css: the demo’s café has the app’s café values wherever the two share a variable', t => {
+  const cafeOf = file => colourSets(file).themes.find(({ id }) => id === 'cafe');
+  const demo = cafeOf('assets/style.css');
+  const app = cafeOf('app/app.css');
+  assert.ok(demo && app, 'both stylesheets have a café set');
+  const inApp = variablesOf([app.rule]);
+  const shared = [...variablesOf([demo.rule]).keys()].filter(name => inApp.has(name));
+  t.diagnostic(`${shared.length} variables in both`);
+  for (const name of ['--bg', '--ink', '--slot-bg', '--face-radius']) assert.ok(shared.includes(name), `${name} is in both`);
+  // Worked out, var() put in: the app's --confirm-bg: var(--primary-bg) is the honey it names.
+  const differ = shared.filter(name => normalise(demo.values.get(name)) !== normalise(app.values.get(name)))
+    .map(name => `${name}: ${demo.values.get(name)} in the demo, ${app.values.get(name)} in the app`);
+  assert.deepEqual(differ, []);
+});
+
+/* The counter's text and what it sits on (assets/style.css: the counter is --paper, a person
+ * button --tile and a pressed one --chosen, the $ buttons --grant-bg). While the tour drives the
+ * demo, the whole counter fades to --tour-fade. */
+const DEMO_COUNTER_TEXT = [
+  ['--ink', ['--paper', '--tile', '--chosen']],
+  ['--ink-soft', ['--paper', '--tile', '--chosen']],
+  ['--accent', ['--paper', '--chosen']],
+  ['--plus', ['--paper']],
+  ['--grant-ink', ['--grant-bg']],
+];
+
+test('assets/style.css: in each theme’s colour set the counter’s text still reaches 4.5:1 while the tour fades it', t => {
+  const { themes } = colourSets('assets/style.css');
+  assert.ok(themes.length > 0, 'a theme has colours of its own');
+  const short = [];
+  for (const { id, values } of themes) {
+    const fade = Number(values.get('--tour-fade'));
+    assert.ok(fade > 0 && fade <= 1, `${id}: --tour-fade is an opacity: ${values.get('--tour-fade')}`);
+    let lowest = Infinity;
+    for (const [ink, grounds] of DEMO_COUNTER_TEXT) {
+      const [colour] = stops(values.get(ink));
+      for (const ground of grounds) {
+        for (const stop of stops(values.get(ground))) {
+          // As spec §13 measures it: the text's colour, faded, laid on the ground it sits on.
+          const ratio = contrast(blend(colour, stop, colour.a * fade), stop);
+          lowest = Math.min(lowest, ratio);
+          if (ratio < 4.5) short.push(`${id}: ${ink} on ${ground} faded to ${fade}: ${ratio.toFixed(2)} < 4.5 at ${asRgb(stop)}`);
+        }
+      }
+    }
+    t.diagnostic(`${id}: the lowest, faded to ${fade}, is ${lowest.toFixed(2)}`);
+  }
+  assert.deepEqual(short, []);
 });

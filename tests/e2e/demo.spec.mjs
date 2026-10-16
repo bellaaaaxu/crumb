@@ -1226,3 +1226,123 @@ test('a switch stops the café’s steam, on the mascot and in the intro: none o
   expect(log.draws.filter(entry => entry.at > log.swappedAt)).toEqual([]);
   expect(errors).toEqual([]);
 });
+
+/* ---------------------------------------------------------------- the café's colours (spec §5, §8) */
+
+/* The whole page takes the café's colours with data-theme on <html>: behind the shutter at the
+ * swap (the parts outside the phone change in plain view, assumption 8), at once with reduced
+ * motion, and from the first paint when the café is remembered. The colours themselves are
+ * checked in tests/colours.test.mjs and the canvases in canvas-colours.spec.mjs. */
+
+const DARK = 'rgb(22, 15, 10)';     // the café's --bg, #160f0a
+const LIGHT = 'rgb(242, 231, 206)'; // the light shops' --bg, #f2e7ce
+
+/* Runs in the page: presses a shop button and notes, at the press, in the tick the shop changes
+ * behind the shutter (the mascot's name turns to `mascotName`) and when the shutter has gone,
+ * whether the shutter is down, the shop on <html>, and the ground of the page and of the phone. */
+const coloursThroughSwitch = (page, shop, mascotName) => page.evaluate(([shop, mascotName]) => new Promise(resolve => {
+  const phone = document.getElementById('phone');
+  const mascot = document.getElementById('mascot');
+  const look = () => ({
+    door: phone.querySelector('.shutter') !== null,
+    theme: document.documentElement.getAttribute('data-theme'),
+    page: getComputedStyle(document.body).backgroundColor,
+    phone: getComputedStyle(phone).backgroundColor,
+  });
+  const seen = {};
+  new MutationObserver((records, observer) => {
+    if (mascot.getAttribute('aria-label') !== mascotName) return;
+    observer.disconnect();
+    seen.swap = look();
+  }).observe(mascot, { attributes: true, attributeFilter: ['aria-label'] });
+  new MutationObserver((records, observer) => {
+    if (!records.some(record => [...record.removedNodes].some(node => node.nodeType === 1 && node.matches('.shutter')))) return;
+    observer.disconnect();
+    seen.up = look();
+    resolve(seen);
+  }).observe(phone, { childList: true });
+  document.querySelector(`#shop-switch [data-shop="${shop}"]`).click();
+  seen.press = look();
+}), [shop, mascotName]);
+
+test('the colours change behind the shutter: the phone is dark when it rolls up on the Café, and light again when it leaves', async ({ page }) => {
+  const errors = errorsOf(page);
+  await takeControl(page);
+  expect(await coloursThroughSwitch(page, 'cafe', CAFE_MASCOT)).toEqual({
+    press: { door: true, theme: 'default', page: LIGHT, phone: LIGHT },
+    swap: { door: true, theme: 'cafe', page: DARK, phone: DARK },
+    up: { door: false, theme: 'cafe', page: DARK, phone: DARK },
+  });
+  expect(await coloursThroughSwitch(page, 'bakery', BAKERY_MASCOT)).toEqual({
+    press: { door: true, theme: 'cafe', page: DARK, phone: DARK },
+    swap: { door: true, theme: 'bakery', page: LIGHT, phone: LIGHT },
+    up: { door: false, theme: 'bakery', page: LIGHT, phone: LIGHT },
+  });
+  expect(errors).toEqual([]);
+});
+
+test('with reduced motion the switch to the Café is instant, and its colours come with it', async ({ browser }) => {
+  const context = await browser.newContext({ reducedMotion: 'reduce' });
+  try {
+    const page = await context.newPage();
+    const errors = errorsOf(page);
+    await page.addInitScript(countShutters);
+    await page.goto(DEMO);
+    // Pressed and read in the same instant; the colours once the 0.01 ms transition that
+    // style.css gives every element under reduced motion has run.
+    const atPress = await page.evaluate(async () => {
+      document.querySelector('#shop-switch [data-shop="cafe"]').click();
+      const label = document.getElementById('mascot').getAttribute('aria-label');
+      const theme = document.documentElement.getAttribute('data-theme');
+      const ended = document.getAnimations().filter(each => each instanceof CSSTransition).map(each => each.finished.catch(() => {}));
+      await Promise.all(ended);
+      return {
+        label,
+        theme,
+        page: getComputedStyle(document.body).backgroundColor,
+        phone: getComputedStyle(document.getElementById('phone')).backgroundColor,
+      };
+    });
+    expect(atPress).toEqual({ label: CAFE_MASCOT, theme: 'cafe', page: DARK, phone: DARK });
+    expect(await page.evaluate(() => window.__shutters)).toBe(0);
+    expect(errors).toEqual([]);
+  } finally {
+    await context.close();
+  }
+});
+
+test('a page opened on the Café is dark from its first paint, and draws its tab icon on the café’s ground', async ({ page }) => {
+  const errors = errorsOf(page);
+  await page.goto(DEMO);
+  await page.evaluate(() => localStorage.setItem('crumb_demo_theme', 'cafe'));
+  await page.addInitScript(watchFirstRead);
+  await page.reload();
+  await expect(page.locator('#mascot')).toHaveAttribute('aria-label', CAFE_MASCOT);
+  // Before assets/app.js has drawn anything, the page is already the café's.
+  expect(await page.evaluate(() => window.__beforeApp)).toEqual({ theme: 'cafe', page: DARK, phone: DARK });
+  const icon = decodeURIComponent((await page.locator('#tab-icon').getAttribute('href')).slice('data:image/svg+xml,'.length));
+  expect(icon).toContain('<rect width="14" height="14" fill="#160f0a"/>');
+  expect(errors).toEqual([]);
+});
+
+/* While the tour drives the demo the counter fades (style.css, --tour-fade): visibly not the
+ * visitor's yet. The Pastry shop and the Bakery keep 0.2's 0.72; the café fades less, so its
+ * text stays readable on the dark counter. */
+test('while the tour plays the counter fades as before in the Pastry shop and the Bakery, and less in the Café', async ({ page }) => {
+  const errors = errorsOf(page);
+  await page.goto(DEMO);
+  const fadeIn = async shop => {
+    await page.evaluate(shop => localStorage.setItem('crumb_demo_theme', shop), shop);
+    await page.reload();
+    await expect(page.locator('body')).toHaveClass(/autoplay/);
+    return page.locator('#counter').evaluate(node => getComputedStyle(node).opacity);
+  };
+  expect(await fadeIn('default')).toBe('0.72');
+  expect(await fadeIn('bakery')).toBe('0.72');
+  expect(await fadeIn('cafe')).toBe('0.8');
+  // Once the visitor drives, the counter is theirs and does not fade at all.
+  await page.getByRole('button', { name: 'Take control', exact: true }).click();
+  await expect(page.locator('body')).not.toHaveClass(/autoplay/);
+  expect(await page.locator('#counter').evaluate(node => getComputedStyle(node).opacity)).toBe('1');
+  expect(errors).toEqual([]);
+});
