@@ -969,3 +969,260 @@ test('the shutter’s sign spells CAFE, in the sign’s own colour whichever sho
   await shutterGone(page);
   expect(errors).toEqual([]);
 });
+
+/* ---------------------------------------------------------------- the café's steam (spec §3, §8) */
+
+/* Hot Coffee steams where the other mascots are bitten or spill crumbs: one cycle on a tap and
+ * after a spend, all the time the intro shows; with reduced motion, never. A switch of shop stops
+ * whatever the old mascot was doing (assumption 41). Every step is compared with the same step
+ * drawn by the page's own pixel table, so these tests follow sprites.js's step table rather than
+ * repeating it. The steam runs on timers, so the page's clock is paused and moved on by hand. */
+
+/* The café's cup as the page's pixel table draws it at `size`: at one step of its steam, or whole
+ * when `step` is left out. */
+const cupAt = (page, size, step) => page.evaluate(([size, step]) => {
+  const canvas = document.createElement('canvas');
+  Pixel.drawSprite(canvas, Pixel.SPRITES[Pixel.THEMES.cafe.mascot], size, 0, step);
+  return canvas.toDataURL();
+}, [size, step]);
+const cupSteps = async (page, size, steps) => {
+  const drawings = [];
+  for (let at = 0; at < steps; at += 1) drawings.push(await cupAt(page, size, at));
+  return drawings;
+};
+const steamCycle = page => page.evaluate(() => ({ steps: Pixel.STEAM_STEPS.length, stepMs: Pixel.STEAM_STEP_MS }));
+const pictureOf = (page, selector) => page.evaluate(selector => document.querySelector(selector).toDataURL(), selector);
+
+/* Counts the particles (crumbs, confetti) put on the page from now on. */
+const countParticles = page => page.evaluate(() => {
+  window.__particles = 0;
+  new MutationObserver(records => {
+    for (const record of records) {
+      for (const node of record.addedNodes) if (node.nodeType === 1 && node.matches('.particle')) window.__particles += 1;
+    }
+  }).observe(document.body, { childList: true });
+});
+
+/* The café, the visitor driving and the opening intro gone. */
+async function cafeDriving(page) {
+  await page.goto(DEMO);
+  await page.evaluate(() => localStorage.setItem('crumb_demo_theme', 'cafe'));
+  await page.reload();
+  await page.getByRole('button', { name: 'Take control', exact: true }).click();
+  await expect(page.locator('#phone .oven')).toHaveCount(0);
+  await expect(page.locator('#mascot')).toHaveAttribute('aria-label', CAFE_MASCOT);
+}
+
+/* Keys in a spend of $5.00 and confirms it. */
+async function spendFive(page) {
+  await page.locator('#spend').click();
+  for (const key of ['5', '0', '0']) await page.locator('.sheet .key', { hasText: new RegExp(`^${key}$`) }).click();
+  await page.locator('#sheet-ok').click();
+}
+
+test('a tap on the café’s mascot shakes it and steams one cycle, with no crumbs; a second tap starts it over', async ({ page }) => {
+  const errors = errorsOf(page);
+  await cafeDriving(page);
+  const { steps, stepMs } = await steamCycle(page);
+  // Assumption 5: one cycle, 8 steps of 120 ms, about a second.
+  expect(steps * stepMs).toBe(960);
+  const whole = await cupAt(page, 3);
+  const step = await cupSteps(page, 3, steps);
+  expect(await pictureOf(page, '#mascot-canvas')).toBe(whole);
+  for (const [at, drawing] of step.entries()) expect(drawing, `step ${at} hides some steam`).not.toBe(whole);
+
+  await page.clock.install();
+  await page.clock.pauseAt(Date.now() + 1000);
+  await countParticles(page);
+  await page.locator('#mascot').click();
+  await expect(page.locator('#mascot')).toHaveClass(/crack/);
+  expect(await pictureOf(page, '#mascot-canvas')).toBe(step[0]);
+  for (let at = 1; at < steps; at += 1) {
+    await page.clock.runFor(stepMs);
+    expect(await pictureOf(page, '#mascot-canvas'), `step ${at}`).toBe(step[at]);
+  }
+  await page.clock.runFor(stepMs);
+  expect(await pictureOf(page, '#mascot-canvas')).toBe(whole);
+  await page.clock.runFor(steps * stepMs);
+  expect(await pictureOf(page, '#mascot-canvas')).toBe(whole);
+
+  // Tapped again part-way through, it starts over, and the cycle it cut short draws no more:
+  // that cycle's next step was due half a step after the tap.
+  await page.locator('#mascot').click();
+  await page.clock.runFor(2 * stepMs + stepMs / 2);
+  expect(await pictureOf(page, '#mascot-canvas')).toBe(step[2]);
+  await page.locator('#mascot').click();
+  expect(await pictureOf(page, '#mascot-canvas')).toBe(step[0]);
+  await page.clock.runFor(stepMs / 2);
+  expect(await pictureOf(page, '#mascot-canvas')).toBe(step[0]);
+  await page.clock.runFor(stepMs / 2);
+  expect(await pictureOf(page, '#mascot-canvas')).toBe(step[1]);
+  await page.clock.runFor((steps - 1) * stepMs);
+  expect(await pictureOf(page, '#mascot-canvas')).toBe(whole);
+  expect(await page.evaluate(() => window.__particles)).toBe(0);
+  expect(errors).toEqual([]);
+});
+
+test('after a spend in the Café the cup steams one cycle where the other shops bite', async ({ page }) => {
+  const errors = errorsOf(page);
+  await cafeDriving(page);
+  const { steps, stepMs } = await steamCycle(page);
+  const whole = await cupAt(page, 3);
+  const step = await cupSteps(page, 3, steps);
+  await page.clock.install();
+  await page.clock.pauseAt(Date.now() + 1000);
+  await countParticles(page);
+  await spendFive(page);
+  await expect(page.locator('.toast')).toHaveText('$5.00 taken off — the shelf keeps every cup and plate ☕');
+  expect(await pictureOf(page, '#mascot-canvas')).toBe(step[0]);
+  for (let at = 1; at < steps; at += 1) {
+    await page.clock.runFor(stepMs);
+    expect(await pictureOf(page, '#mascot-canvas'), `step ${at}`).toBe(step[at]);
+  }
+  await page.clock.runFor(stepMs);
+  expect(await pictureOf(page, '#mascot-canvas')).toBe(whole);
+  // Past the 900 ms a bitten mascot takes to grow back: nothing more is drawn.
+  await page.clock.runFor(1000);
+  expect(await pictureOf(page, '#mascot-canvas')).toBe(whole);
+  await expect(page.locator('#mascot-canvas')).not.toHaveClass(/regrow/);
+  expect(await page.evaluate(() => window.__particles)).toBe(0);
+  expect(errors).toEqual([]);
+});
+
+test('the café’s intro cup steams while the intro shows, and stops when it leaves', async ({ page }) => {
+  const errors = errorsOf(page);
+  await cafeDriving(page);
+  const { steps, stepMs } = await steamCycle(page);
+  const step = await cupSteps(page, 8, steps);
+  // A visitor who has taken over sees the intro on every load. The paused clock moves the
+  // intro on only as far as the test moves it.
+  await page.clock.install();
+  await page.clock.pauseAt(Date.now() + 1000);
+  await page.reload();
+  const intro = page.locator('#phone .oven');
+  await expect(intro).toBeVisible();
+  expect(await pictureOf(page, '#phone .oven canvas')).toBe(step[0]);
+  for (let at = 1; at < steps; at += 1) {
+    await page.clock.runFor(stepMs);
+    expect(await pictureOf(page, '#phone .oven canvas'), `step ${at}`).toBe(step[at]);
+  }
+  // It starts to leave at 0.9 s, as in 0.3, and its steam stops where it is: the next step was
+  // due at the end of the cycle.
+  await page.clock.runFor(900 - (steps - 1) * stepMs);
+  await expect(intro).toHaveClass(/leaving/);
+  await page.clock.runFor(steps * stepMs - 900);
+  expect(await pictureOf(page, '#phone .oven canvas')).toBe(step[steps - 1]);
+  await page.clock.runFor(900 + 420 - steps * stepMs);
+  await expect(intro).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+test('with reduced motion the café’s cup stays whole after a spend and a tap, and nothing spills', async ({ browser }) => {
+  const context = await browser.newContext({ reducedMotion: 'reduce' });
+  try {
+    const page = await context.newPage();
+    const errors = errorsOf(page);
+    await page.goto(DEMO);
+    await shopButton(page, 'Café').click();
+    await expect(page.locator('#mascot')).toHaveAttribute('aria-label', CAFE_MASCOT);
+    const whole = await cupAt(page, 3);
+    await countParticles(page);
+    await spendFive(page);
+    expect(await pictureOf(page, '#mascot-canvas')).toBe(whole);
+    await page.locator('#mascot').click();
+    expect(await pictureOf(page, '#mascot-canvas')).toBe(whole);
+    // Longer than a steam cycle, and than a bite's 900 ms to grow back.
+    await page.waitForTimeout(1200);
+    expect(await pictureOf(page, '#mascot-canvas')).toBe(whole);
+    expect(await page.evaluate(() => window.__particles)).toBe(0);
+    expect(errors).toEqual([]);
+  } finally {
+    await context.close();
+  }
+});
+
+/* Runs in the page. From now on notes every drawing on the header's mascot canvas or on an
+ * intro's canvas (when, where, which drawing, the bite and the steam step), every time the
+ * mascot canvas is given its regrow animation, and the moment the shop changes behind the
+ * shutter: the mascot's name turning to `mascotName`. Called again, it starts a new log. */
+function watchMascot(mascotName) {
+  window.__mascot = { name: mascotName, draws: [], regrows: [], swappedAt: null };
+  if (window.__watching) return;
+  window.__watching = true;
+  const draw = Pixel.drawSprite;
+  Pixel.drawSprite = function (canvas, sprite, size, bite, step) {
+    const where = canvas.id === 'mascot-canvas' ? 'header' : canvas.closest('.oven') ? 'intro' : null;
+    if (where) {
+      const key = Object.keys(Pixel.SPRITES).find(each => Pixel.SPRITES[each] === sprite) ?? null;
+      window.__mascot.draws.push({ at: performance.now(), where, key, bite: bite || 0, step: step ?? null });
+    }
+    return draw.apply(this, arguments);
+  };
+  const mascot = document.getElementById('mascot');
+  new MutationObserver(() => {
+    const log = window.__mascot;
+    if (log.swappedAt === null && mascot.getAttribute('aria-label') === log.name) log.swappedAt = performance.now();
+  }).observe(mascot, { attributes: true, attributeFilter: ['aria-label'] });
+  new MutationObserver(records => {
+    for (const record of records) {
+      if (record.target.classList.contains('regrow') && !/\bregrow\b/.test(record.oldValue ?? '')) window.__mascot.regrows.push(performance.now());
+    }
+  }).observe(document.getElementById('mascot-canvas'), { attributes: true, attributeFilter: ['class'], attributeOldValue: true });
+}
+const mascotLog = page => page.evaluate(() => window.__mascot);
+
+test('a switch stops the Pastry shop’s bite: none of it is drawn once the café is behind the shutter', async ({ page }) => {
+  const errors = errorsOf(page);
+  await takeControl(page);
+  await page.evaluate(watchMascot, CAFE_MASCOT);
+  // A spend starts the bite, and in the same instant the Café is pressed.
+  await page.evaluate(() => {
+    document.getElementById('spend').click();
+    for (const key of ['5', '0', '0']) [...document.querySelectorAll('.sheet .key')].find(each => each.textContent === key).click();
+    document.getElementById('sheet-ok').click();
+    document.querySelector('#shop-switch [data-shop="cafe"]').click();
+  });
+  await shutterGone(page);
+  // Past the bite's 240 ms and the 900 ms after it in which it would grow back.
+  await page.waitForTimeout(400);
+  const log = await mascotLog(page);
+  expect(log.swappedAt).not.toBeNull();
+  expect(log.draws.some(entry => entry.at < log.swappedAt && entry.key === 'laopo' && entry.bite > 0), 'the bite began').toBe(true);
+  expect(log.draws.filter(entry => entry.at > log.swappedAt)).toEqual([]);
+  expect(log.regrows.filter(at => at > log.swappedAt)).toEqual([]);
+  expect(await showsMascot(page, '#mascot-canvas', 'cafe', 3)).toBe(true);
+  expect(errors).toEqual([]);
+});
+
+test('a switch stops the café’s steam, on the mascot and in the intro: none of it is drawn once the next shop is behind the shutter', async ({ page }) => {
+  const errors = errorsOf(page);
+  await cafeDriving(page);
+  await page.evaluate(watchMascot, PASTRY_MASCOT);
+  // A tap starts a cycle of steam (960 ms), and in the same instant the Pastry shop is pressed.
+  await page.evaluate(() => {
+    document.getElementById('mascot').click();
+    document.querySelector('#shop-switch [data-shop="default"]').click();
+  });
+  await shutterGone(page);
+  await page.waitForTimeout(300);
+  let log = await mascotLog(page);
+  expect(log.draws.some(entry => entry.at < log.swappedAt && entry.where === 'header' && entry.step !== null), 'the steam began').toBe(true);
+  expect(log.draws.filter(entry => entry.at > log.swappedAt)).toEqual([]);
+  expect(await showsMascot(page, '#mascot-canvas', 'default', 3)).toBe(true);
+
+  // Back in the café, Reset plays the intro, its cup steaming until the intro goes. The switch
+  // takes the intro away at once; its steam then stops by itself.
+  await shopButton(page, 'Café').click();
+  await shutterGone(page);
+  await page.evaluate(watchMascot, PASTRY_MASCOT);
+  await page.evaluate(() => {
+    document.getElementById('reset').click();
+    document.querySelector('#shop-switch [data-shop="default"]').click();
+  });
+  await shutterGone(page);
+  await page.waitForTimeout(300);
+  log = await mascotLog(page);
+  expect(log.draws.some(entry => entry.at < log.swappedAt && entry.where === 'intro' && entry.step !== null), 'the intro steamed').toBe(true);
+  expect(log.draws.filter(entry => entry.at > log.swappedAt)).toEqual([]);
+  expect(errors).toEqual([]);
+});

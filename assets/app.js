@@ -600,7 +600,8 @@
 
     var el = document.createElement('div');
     el.className = 'oven';
-    el.appendChild(pastryCanvas(mascotKey(), 8));
+    var picture = pastryCanvas(mascotKey(), 8);
+    el.appendChild(picture);
     var t = document.createElement('p');
     t.className = 'oven-text';
     t.textContent = TEXT[themeId].intro;
@@ -610,11 +611,16 @@
     el.appendChild(t);
     el.appendChild(s);
     $('phone').appendChild(el);
+    /* A mascot drawn with steam steams while the intro shows; any other stands still.
+     * setTheme takes the intro away without dismissing it, and the steam then stops by
+     * itself, its canvas gone from the page. */
+    var steaming = steamMascot(picture, mascotSprite(), 8, Infinity);
 
     var done = false;
     var dismiss = function () {
       if (done) return;
       done = true;
+      steaming.cancel();
       el.classList.add('leaving');
       window.setTimeout(function () { el.remove(); }, 420);
     };
@@ -783,17 +789,84 @@
     runCues(cues, finish);
   }
 
-  /* ---------------------------------------------------------------- mascot bite */
+  /* ---------------------------------------------------------------- mascot motion
+   *
+   * After a spend the header's mascot is bitten and grows back, or, if it is drawn with
+   * steam (the café's cup: biting a cup makes no sense), it steams for one cycle. A tap
+   * on a mascot with steam steams it too. Which of the two is decided once, by the
+   * mascot on show when it starts. The one started last is mascotMotion, and a switch
+   * of shop (setTheme) stops it first: nothing of one shop's mascot is ever drawn over
+   * the next one's. A new cycle of steam stops the one running; a new bite lets any bite
+   * still running go on, as in 0.3, and carries it, so that stopping the new one stops
+   * them all. */
 
-  /* The mascot is looked up at every frame, so a switch of shop in the middle of
-   * a bite carries on with the new one and grows back as the new one. */
+  var mascotMotion = null;
+
+  function stopMascotMotion() {
+    if (mascotMotion) mascotMotion.cancel();
+    mascotMotion = null;
+  }
+
+  /* A sprite's steam on its canvas, by the step table in sprites.js: the first step at
+   * once, then one every Pixel.STEAM_STEP_MS, and after `cycles` cycles (Infinity: until
+   * cancelled) the whole drawing again. A canvas that has left the page ends it, drawing
+   * nothing more. With motion reduced, or for a sprite without steam, nothing happens:
+   * the canvas keeps the whole drawing. */
+  function steamMascot(canvas, sprite, size, cycles) {
+    var timer = null;
+    var cancel = function () {
+      if (timer !== null) window.clearInterval(timer);
+      timer = null;
+    };
+    if (reduced() || !sprite.steam || !canvas.isConnected) return { cancel: cancel };
+    var last = cycles * Pixel.STEAM_STEPS.length;
+    var step = 0;
+    Pixel.drawSprite(canvas, sprite, size, 0, step);
+    timer = window.setInterval(function () {
+      if (!canvas.isConnected) {
+        cancel();
+        return;
+      }
+      step += 1;
+      if (step < last) {
+        Pixel.drawSprite(canvas, sprite, size, 0, step);
+        return;
+      }
+      Pixel.drawSprite(canvas, sprite, size, 0);
+      cancel();
+    }, Pixel.STEAM_STEP_MS);
+    return { cancel: cancel };
+  }
+
   function biteMascot() {
     var canvas = $('mascot-canvas');
+    var sprite = mascotSprite();
+    if (sprite.steam) {
+      stopMascotMotion();
+      mascotMotion = steamMascot(canvas, sprite, 3, 1);
+      return;
+    }
     var DEPTH = 0.55;
+    var frame = null;
+    var timer = null;
+    var earlier = mascotMotion;
+    mascotMotion = {
+      cancel: function () {
+        if (earlier) earlier.cancel();
+        earlier = null;
+        if (frame !== null) cancelAnimationFrame(frame);
+        if (timer !== null) window.clearTimeout(timer);
+        frame = null;
+        timer = null;
+      },
+    };
 
     var restore = function () {
-      window.setTimeout(function () {
-        Pixel.drawSprite(canvas, mascotSprite(), 3, 0);
+      timer = window.setTimeout(function () {
+        timer = null;
+        /* Every bite runs as long as the others, so the one carried has ended by now. */
+        earlier = null;
+        Pixel.drawSprite(canvas, sprite, 3, 0);
         canvas.classList.remove('regrow');
         void canvas.offsetWidth;
         canvas.classList.add('regrow');
@@ -801,25 +874,26 @@
     };
 
     if (reduced()) {
-      Pixel.drawSprite(canvas, mascotSprite(), 3, DEPTH);
+      Pixel.drawSprite(canvas, sprite, 3, DEPTH);
       restore();
       return;
     }
 
     var started = null;
     var step = function (ts) {
+      frame = null;
       if (started === null) started = ts;
       var p = Math.min((ts - started) / 240, 1);
-      Pixel.drawSprite(canvas, mascotSprite(), 3, p * DEPTH);
+      Pixel.drawSprite(canvas, sprite, 3, p * DEPTH);
       if (p < 1) {
-        requestAnimationFrame(step);
+        frame = requestAnimationFrame(step);
       } else {
         var b = canvas.getBoundingClientRect();
         crumbs(b.left + b.width * 0.78, b.top + b.height * 0.3, 6);
         restore();
       }
     };
-    requestAnimationFrame(step);
+    frame = requestAnimationFrame(step);
   }
 
   /* ---------------------------------------------------------------- actions */
@@ -1224,11 +1298,13 @@
    * are; only what fills the shelves changes. A tour that is playing starts again
    * from its first scene, with the tour's own people and balances, as every loop
    * of it does. Whatever names the old shop's goods goes: the name tip, the oven
-   * intro and the toast. A page opened with a remembered shop never comes through
-   * here: the wiring draws that shop from the start. */
+   * intro and the toast. The old mascot's bite or steam stops before anything is
+   * drawn. A page opened with a remembered shop never comes through here: the
+   * wiring draws that shop from the start. */
 
   function setTheme(id) {
     if (!known(id) || id === themeId) return;
+    stopMascotMotion();
     themeId = id;
     rememberTheme(id);
     hideName();
@@ -1381,11 +1457,20 @@
     renderLog();
   });
 
+  /* A tap shakes the mascot. One drawn with steam then steams for a cycle (a second tap
+   * starts it over), with no crumbs: a cup spilling crumbs makes no sense. Any other
+   * spills crumbs, as it always has. */
   $('mascot').addEventListener('click', function (e) {
     var el = e.currentTarget;
     el.classList.remove('crack');
     void el.offsetWidth;
     el.classList.add('crack');
+    var sprite = mascotSprite();
+    if (sprite.steam) {
+      stopMascotMotion();
+      mascotMotion = steamMascot($('mascot-canvas'), sprite, 3, 1);
+      return;
+    }
     var c = centreOf(el);
     crumbs(c.x, c.y);
   });
