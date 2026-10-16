@@ -867,6 +867,43 @@ test('the tour’s second line comes from each shop’s own words, the café’s
   expect(errors).toEqual([]);
 });
 
+test('each shop’s intro, next-item line and unlock toast are its own words, and the toast says the amount pressed', async ({ page }) => {
+  const errors = errorsOf(page);
+  // The Pastry shop's and the Bakery's are 0.3's sentences, word for word.
+  const oven = {
+    intro: 'Today’s perks are out of the oven!',
+    next: name => `${name} is in the oven`,
+    unlocked: (amount, name) => `${amount} added — ${name} came out of the oven!`,
+  };
+  const words = {
+    default: oven,
+    bakery: oven,
+    cafe: {
+      intro: 'Today’s perks are hot and ready!',
+      next: name => `${name} is coming right up`,
+      unlocked: (amount, name) => `${amount} added — your ${name} is ready!`,
+    },
+  };
+  await page.goto(DEMO);
+  await page.getByRole('button', { name: 'Take control', exact: true }).click();
+  for (const [shop, line] of Object.entries(words)) {
+    await page.evaluate(shop => localStorage.setItem('crumb_demo_theme', shop), shop);
+    await page.reload();
+    await expect(page.locator('html'), shop).toHaveAttribute('data-theme', shop);
+    // Sam's fresh demo: six on the shelf and slot 6 next. $100 takes his $312.50 received to
+    // $412.50, eight items, and the toast names the last of them, slot 7.
+    await page.getByRole('button', { name: 'Reset the demo', exact: true }).click();
+    await expect(page.locator('#phone .oven .oven-text'), shop).toHaveText(line.intro);
+    const [next, last] = await page.evaluate(shop => [6, 7].map(slot => Pixel.NAMES[Pixel.forSlot('118', slot, shop)].en), shop);
+    await expect(page.locator('#oven-caption'), shop).toHaveText(line.next(next));
+    await expect(page.locator('#oven-caption b'), shop).toHaveText(next);
+    await page.locator('[data-grant="100"]').click();
+    await expect(filled(page), shop).toHaveCount(8);
+    await expect(page.locator('.toast'), shop).toHaveText(line.unlocked('$100.00', last));
+  }
+  expect(errors).toEqual([]);
+});
+
 test('switching to the Café while the tour plays starts it again from Sam, in the café’s words', async ({ page }) => {
   const errors = errorsOf(page);
   await page.goto(DEMO);
@@ -1188,6 +1225,37 @@ test('a switch stops the Pastry shop’s bite: none of it is drawn once the caf�
   const log = await mascotLog(page);
   expect(log.swappedAt).not.toBeNull();
   expect(log.draws.some(entry => entry.at < log.swappedAt && entry.key === 'laopo' && entry.bite > 0), 'the bite began').toBe(true);
+  expect(log.draws.filter(entry => entry.at > log.swappedAt)).toEqual([]);
+  expect(log.regrows.filter(at => at > log.swappedAt)).toEqual([]);
+  expect(await showsMascot(page, '#mascot-canvas', 'cafe', 3)).toBe(true);
+  expect(errors).toEqual([]);
+});
+
+test('a switch stops the Pastry shop’s bite part-way through its frames: none of it is drawn once the café is behind the shutter', async ({ page }) => {
+  const errors = errorsOf(page);
+  await takeControl(page);
+  await page.evaluate(watchMascot, CAFE_MASCOT);
+  // The Café is pressed with the keypad open, and the spend is confirmed 300 ms later, under the
+  // shutter: the bite's 240 ms of frames are still running when the shop changes, at about 383 ms.
+  await page.evaluate(() => new Promise(resolve => {
+    document.getElementById('spend').click();
+    for (const key of ['5', '0', '0']) [...document.querySelectorAll('.sheet .key')].find(each => each.textContent === key).click();
+    document.querySelector('#shop-switch [data-shop="cafe"]').click();
+    window.setTimeout(() => {
+      document.getElementById('sheet-ok').click();
+      resolve();
+    }, 300);
+  }));
+  await shutterGone(page);
+  // Past the end of the bite's frames (540 ms) and of the 900 ms after them in which it would
+  // grow back (1440 ms after the press).
+  await page.waitForTimeout(800);
+  const log = await mascotLog(page);
+  expect(log.swappedAt).not.toBeNull();
+  const bitten = log.draws.filter(entry => entry.at < log.swappedAt && entry.key === 'laopo' && entry.bite > 0);
+  expect(bitten.length, 'the bite began').toBeGreaterThan(0);
+  // Its deepest frame before the swap is short of the full 0.55: it was cut off mid-way.
+  expect(Math.max(...bitten.map(entry => entry.bite)), 'the bite was still running at the swap').toBeLessThan(0.55);
   expect(log.draws.filter(entry => entry.at > log.swappedAt)).toEqual([]);
   expect(log.regrows.filter(at => at > log.swappedAt)).toEqual([]);
   expect(await showsMascot(page, '#mascot-canvas', 'cafe', 3)).toBe(true);
