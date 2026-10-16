@@ -99,7 +99,7 @@ test('every string in the locale files is one the app uses', async () => {
   // Words no page asks for any more would still be translated and reviewed, so they
   // leave with the page that used them. A key counts as used when the app names it
   // as a quoted literal: t('key'), has('key'), themed('key', …), or a key handed to a
-  // helper that calls t() (unconfirmedNotice, boldName and the like).
+  // helper that calls t() (unconfirmedNotice and the like).
   const app = (await sources('app')).filter(file => !file.path.includes('locales'));
   const code = app.map(({ text }) => text).join('\n');
   // Besides the families in BUILT, two are built from what the server sends; the test above
@@ -122,6 +122,12 @@ test('themed() picks a theme’s own sentence when there is one, the base senten
   assert.equal(themed('grant.unlocked', 'nosuchtheme', { count: 2 }), 'And that baked 2 new pastry(ies).', 'a theme this version does not have');
   assert.equal(themed('grant.unlocked', undefined, { count: 2 }), 'And that baked 2 new pastry(ies).', 'no theme at all');
   assert.equal(themed('members.roleDetail.admin', 'bakery'), en['members.roleDetail.admin'], 'a key the theme has no version of');
+  // The "next item" line and the oven intro (spec §7): Café has its own, the Bakery has none
+  // and reads the base sentence, as the Pastry shop does.
+  assert.equal(themed('me.inOven', 'cafe', { name: 'It' }), 'It is coming right up');
+  assert.equal(themed('intro.title', 'cafe'), 'Today’s treats are served!');
+  assert.equal(themed('me.inOven', 'bakery', { name: 'It' }), 'It is in the oven', 'the Bakery has no version of its own');
+  assert.equal(themed('intro.title', 'bakery'), 'Today’s treats are out of the oven!', 'the Bakery has no version of its own');
   // The theme's version comes in the page's language too. setLocale() also sets <html lang>,
   // and Node has no document.
   globalThis.document = { documentElement: {} };
@@ -132,10 +138,19 @@ test('themed() picks a theme’s own sentence when there is one, the base senten
   setLocale('zh-CN');
   assert.equal(themed('grant.unlocked', 'bakery', { count: 2 }), '顺便又烤好了 2 件。');
   assert.equal(themed('grant.unlocked', 'default', { count: 2 }), '顺便烤出了 2 件新点心。');
+  assert.equal(themed('intro.title', 'cafe'), '今天的下午茶上桌啦');
+  assert.equal(themed('intro.title', 'bakery'), '今天的下午茶出炉啦');
 });
 
 test('a theme’s own sentence has its base key and the same placeholders', () => {
-  assert.ok(THEME_IDS.includes('default') && THEME_IDS.includes('bakery'), `themes/*.json: ${THEME_IDS.join(', ')}`);
+  // The sentences each theme has its own version of, in both languages and no others (spec
+  // §7). The Bakery keeps the five of 0.3, so its "next item" line and oven intro read the base
+  // sentences, as the Pastry shop's do; Café has a version of all seven.
+  const OWN = {
+    bakery: ['setup.thresholdCredit', 'setup.thresholdPoints', 'grant.unlocked', 'revoke.explain', 'members.roleDetail.member'],
+    cafe: ['setup.thresholdCredit', 'setup.thresholdPoints', 'grant.unlocked', 'revoke.explain', 'members.roleDetail.member', 'me.inOven', 'intro.title'],
+  };
+  for (const id of ['default', ...Object.keys(OWN)]) assert.ok(THEME_IDS.includes(id), `${id} is not among themes/*.json: ${THEME_IDS.join(', ')}`);
   for (const [language, dictionary] of [['en', en], ['zh-CN', zhCN]]) {
     for (const key of Object.keys(dictionary)) {
       const id = THEME_IDS.find(themeId => key.endsWith(`.${themeId}`));
@@ -146,9 +161,13 @@ test('a theme’s own sentence has its base key and the same placeholders', () =
       assert.ok(Object.hasOwn(dictionary, base), `${language} ${key} has no base key ${base}`);
       assert.deepEqual(placeholders(dictionary[key]), placeholders(dictionary[base]), `${language} ${key}`);
     }
+    for (const [id, bases] of Object.entries(OWN)) {
+      const own = Object.keys(dictionary).filter(key => key.endsWith(`.${id}`));
+      assert.deepEqual(own.sort(), bases.map(base => `${base}.${id}`).sort(), `${language}: the sentences ${id} has its own version of`);
+    }
   }
-  // The Bakery has its own version of every one (spec §6).
-  for (const base of THEMED_KEYS) assert.ok(Object.hasOwn(en, `${base}.bakery`), `${base}.bakery`);
+  // Café's seven are every sentence that follows the theme.
+  assert.deepEqual([...THEMED_KEYS].sort(), [...OWN.cafe].sort(), 'THEMED_KEYS in app/i18n.js');
 });
 
 test('every sentence that follows the theme is looked up through themed()', async () => {
@@ -197,4 +216,36 @@ test('the collection theme choice uses the approved words', () => {
   assert.equal(en['settings.themeChanged'],
     'Theme changed. {count} benefit icon(s) aren’t in this theme, so they were removed. You can pick new ones.');
   assert.equal(zhCN['settings.themeChanged'], '主题换好了。有 {count} 个福利的配图新主题里没有，已经去掉，可以重新配。');
+});
+
+test('Café’s own sentences, its name and its card line use the approved words', () => {
+  // Spec §7, word for word: seven keys, each in English and Chinese.
+  const CAFE = {
+    'setup.thresholdCredit.cafe': [
+      'An amount like 50.00. Every time someone’s treats add up to another step this size, another coffee or something sweet is served.',
+      '一个金额，比如 50.00。谁收到的下午茶每攒够这么多，就多上一份咖啡或甜点。',
+    ],
+    'setup.thresholdPoints.cafe': [
+      'A whole number like 100. Every time someone’s treats add up to another step this size, another coffee or something sweet is served.',
+      '一个整数，比如 100。谁收到的下午茶每攒够这么多，就多上一份咖啡或甜点。',
+    ],
+    'me.inOven.cafe': ['{name} is coming right up', '{name} 马上就好'],
+    'intro.title.cafe': ['Today’s treats are served!', '今天的下午茶上桌啦'],
+    'grant.unlocked.cafe': ['And {count} more came up at the counter.', '顺便又上了 {count} 份。'],
+    'members.roleDetail.member.cafe': ['Sees their own treats, coffees and sweets, and spends.', '看自己的下午茶和咖啡甜点，自己花。'],
+    'revoke.explain.cafe': [
+      'A reversing entry goes in; the original stays, marked as taken back. Coffees and sweets already served stay on the shelf.',
+      '会加一笔冲回去的记录，原来那笔照旧留着、标成已收回。已经上过的咖啡和甜点不会收走。',
+    ],
+  };
+  for (const [key, [english, chinese]] of Object.entries(CAFE)) {
+    assert.equal(en[key], english, `en ${key}`);
+    assert.equal(zhCN[key], chinese, `zh-CN ${key}`);
+  }
+  // The name and the card line are in Café's entry in assets/sprites.js. That file touches no
+  // browser API when it loads, and new Function runs it in this realm, as tests/pixels.test.mjs
+  // does, so its objects compare equal to these.
+  const Pixel = new Function(`${readFileSync(new URL('../assets/sprites.js', import.meta.url), 'utf8')}\nreturn Pixel;`)();
+  assert.deepEqual(Pixel.THEMES.cafe.label, { en: 'Café', 'zh-CN': '咖啡店' });
+  assert.deepEqual(Pixel.THEMES.cafe.card, { en: 'Café · {count} coffees and sweets', 'zh-CN': '咖啡店 · {count} 款咖啡和甜点' });
 });

@@ -531,3 +531,81 @@ test('a Bakery team’s Team page uses the Bakery’s sentences: the treat toast
     await fx.close();
   }
 });
+
+/* ---------------------------------------------------------------- the "next item" line and the oven intro */
+
+/* Café's list file, as the server reads it: its 24 keys and their names. */
+const CAFE = themeById('cafe');
+
+/* Olive's own page (#/me), loaded afresh with the oven intro held on screen: the page's clock
+ * stands still, so the intro stays until tapped. Checks the intro's title, taps the intro away
+ * (its slide out takes 420 ms) and lets the clock run again. */
+async function introOnOwnPage(page, origin, title) {
+  await page.goto(`${origin}/#/me`);
+  await page.clock.install();
+  await page.clock.pauseAt(Date.now() + 1000);
+  await page.reload();
+  await expect(page.locator('.oven .oven-text')).toHaveText(title);
+  await page.locator('.oven').click();
+  await page.clock.runFor(500);
+  await expect(page.locator('.oven')).toHaveCount(0);
+  await page.clock.resume();
+}
+
+/* The "next item" line under the shelf, the name it shows in bold, and the key of that item in
+ * the theme's list (found by its English name). */
+async function nextItem(page, list) {
+  const caption = page.locator('.oven-caption');
+  const name = await caption.locator('b').textContent();
+  const spriteKey = list.keys.find(each => list.names[each].en === name);
+  expect(spriteKey, `"${name}" is not one of ${list.themeId}'s`).toBeDefined();
+  return { caption, name, spriteKey };
+}
+
+test('a Café team’s oven intro says the treats are served; its next item is coming right up, in English and in Chinese', async ({ browser }) => {
+  let crumb;
+  let context;
+  try {
+    crumb = await themedCrumb('cafe');
+    // Full motion: the oven intro only plays with it.
+    context = await browser.newContext({ reducedMotion: 'no-preference' });
+    const page = await context.newPage();
+    const errors = pageErrors(page);
+    await signIn(page, crumb.origin, 'olive');
+    await introOnOwnPage(page, crumb.origin, 'Today’s treats are served!');
+    const { caption, name, spriteKey } = await nextItem(page, CAFE);
+    await expect(caption).toHaveText(`${name} is coming right up`);
+    // In Chinese: Café's own line, around the item's Chinese name. (The intro plays once per
+    // page load and this page's clock is already installed, so its Chinese title is pinned in
+    // tests/i18n.test.mjs instead.)
+    await nameMenu(page).click();
+    await page.getByLabel('Language', { exact: true }).selectOption('zh-CN');
+    await expect(caption).toHaveText(`${CAFE.names[spriteKey]['zh-CN']} 马上就好`);
+    expect(errors).toEqual([]);
+  } finally {
+    await context?.close();
+    await crumb?.close();
+  }
+});
+
+test('Pastry shop and Bakery teams still read “… is in the oven” and “Today’s treats are out of the oven!”', async ({ browser }) => {
+  // Neither theme has its own version of these two sentences (spec §7): both read the base ones.
+  for (const theme of [undefined, 'bakery']) {
+    let crumb;
+    let context;
+    try {
+      crumb = await themedCrumb(theme);
+      context = await browser.newContext({ reducedMotion: 'no-preference' });
+      const page = await context.newPage();
+      const errors = pageErrors(page);
+      await signIn(page, crumb.origin, 'olive');
+      await introOnOwnPage(page, crumb.origin, 'Today’s treats are out of the oven!');
+      const { caption, name } = await nextItem(page, themeById(theme ?? 'default'));
+      await expect(caption).toHaveText(`${name} is in the oven`);
+      expect(errors, String(theme)).toEqual([]);
+    } finally {
+      await context?.close();
+      await crumb?.close();
+    }
+  }
+});

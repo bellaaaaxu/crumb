@@ -3,7 +3,7 @@
 
 import { ApiError, forgetPendingFor, keepPendingOnlyFor, renewTokenWith, request, setActor, setCsrf } from './api.js';
 import { button, closeAllDialogs, el, inWeChat, openDialog, safeUrl, toast, uid } from './dom.js';
-import { LANGUAGES, getLocale, has, preferredLocale, rememberLocale, setLocale, t } from './i18n.js';
+import { LANGUAGES, getLocale, has, preferredLocale, rememberLocale, setLocale, t, themed } from './i18n.js';
 import { crackMascot, forgetSeen, keepSeenOnlyFor, ovenIntro } from './motion.js';
 import { iconHref, mascotKey, spriteCanvas, themeBackground, touchIconHref } from './pixels.js';
 import { renderAuth } from './views/auth.js';
@@ -604,7 +604,12 @@ async function boot() {
   // A sign-in link or the sign-in page goes straight to its form.
   if (state.session.user && !state.link) {
     state.entering = true;
-    await ovenIntro({ title: t('intro.title'), skip: t('intro.skip'), mascot: mascotKey(state.session.org?.theme) });
+    // The intro's title follows the team's theme, as the "next item" line does.
+    await ovenIntro({
+      title: themed('intro.title', state.session.org?.theme),
+      skip: t('intro.skip'),
+      mascot: mascotKey(state.session.org?.theme),
+    });
   }
   render();
   window.addEventListener('hashchange', () => {
