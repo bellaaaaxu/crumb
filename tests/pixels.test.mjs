@@ -1,6 +1,7 @@
-/* The theme helpers of app/pixels.js, against the real assets/sprites.js and the theme list
- * files. They touch no browser API, so Node runs them once the pixel table is where a page
- * has it: a global named Pixel. */
+/* The helpers of app/pixels.js, against the real assets/sprites.js and the theme list files,
+ * with the pixel table where a page has it: a global named Pixel. Most touch no browser API,
+ * so Node runs them as they are; the tests of those that do (colourToken, drawing on a canvas)
+ * stub only what that code reads and remove the stub afterwards. */
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
@@ -156,4 +157,69 @@ test('a colour for a canvas is read from the page root\'s style variables on eac
   assert.equal(pixels.colourToken('--nosuch'), '');
   assert.deepEqual(asked.map(each => each.name), ['--digit', '--wordmark', '--nosuch']);
   assert.ok(asked.every(each => each.node === root), 'always the page root, never a canvas');
+});
+
+/* ---------------------------------------------------------------- steam */
+
+test('only a drawing marked with steam steams: Hot Coffee, never the other mascots or a key the table lacks', () => {
+  assert.equal(pixels.hasSteam('hotcoffee'), true);
+  for (const key of ['laopo', 'toastbite', undefined, null, '', 'unicorn', 'constructor', '__proto__', 'toString', 42]) {
+    assert.equal(pixels.hasSteam(key), false, String(key));
+  }
+  // Each drawing answers by its own steam field, whichever themes it is in.
+  for (const [key, sprite] of Object.entries(Pixel.SPRITES)) assert.equal(pixels.hasSteam(key), Boolean(sprite.steam), key);
+  assert.equal(bare.hasSteam('hotcoffee'), false);
+});
+
+test('a steam cycle is the one sprites.js has: 8 steps of 120 ms, and none without the pixel table', () => {
+  assert.deepEqual(pixels.steamCycle(), { steps: Pixel.STEAM_STEPS.length, stepMs: Pixel.STEAM_STEP_MS });
+  // Design section 3 and its assumption 5: a tap runs one cycle, 960 ms.
+  assert.deepEqual(pixels.steamCycle(), { steps: 8, stepMs: 120 });
+  assert.equal(bare.steamCycle(), null);
+});
+
+/* What a drawing leaves on a canvas: `colour x,y` for each square filled, in the order filled.
+ * The canvas is a stand-in with only what sprites.js's setupCanvas and drawSprite use of a
+ * canvas and its 2D context. */
+function cellsDrawnBy(draw) {
+  const cells = [];
+  const context = {
+    fillStyle: '',
+    setTransform() {},
+    clearRect() {},
+    beginPath() {},
+    arc() {},
+    fill() {},
+    fillRect(x, y) { cells.push(`${this.fillStyle} ${x},${y}`); },
+  };
+  const returned = draw({ style: {}, getContext: () => context });
+  return { returned, cells };
+}
+
+test('drawCollection draws one step of the steam when given it, and the whole drawing without', t => {
+  // setupCanvas reads the screen's pixel ratio from window, which Node does not have: lent here
+  // and taken back when the test ends, so the other tests see Node as it is.
+  assert.equal(typeof globalThis.window, 'undefined', 'Node has no window of its own');
+  globalThis.window = { devicePixelRatio: 1 };
+  t.after(() => { delete globalThis.window; });
+  const bySprites = (key, step) => cellsDrawnBy(canvas => Pixel.drawSprite(canvas, Pixel.SPRITES[key], 3, 0, step)).cells;
+  const whole = bySprites('hotcoffee');
+
+  // Left out, it is the whole drawing, as before there was steam.
+  const plain = cellsDrawnBy(canvas => pixels.drawCollection(canvas, 'hotcoffee', 3));
+  assert.equal(plain.returned, true);
+  assert.deepEqual(plain.cells, whole);
+  for (let step = 0; step < Pixel.STEAM_STEPS.length; step += 1) {
+    const stepped = cellsDrawnBy(canvas => pixels.drawCollection(canvas, 'hotcoffee', 3, step));
+    assert.equal(stepped.returned, true, `step ${step}`);
+    assert.deepEqual(stepped.cells, bySprites('hotcoffee', step), `step ${step}`);
+    // Some of the steam is hidden at every step: none looks like the cup at rest.
+    assert.ok(stepped.cells.length < whole.length, `step ${step}`);
+  }
+  // A drawing with no steam is whole at any step.
+  assert.deepEqual(cellsDrawnBy(canvas => pixels.drawCollection(canvas, 'laopo', 3, 5)).cells, bySprites('laopo'));
+  // Without the pixel table nothing is drawn.
+  const none = cellsDrawnBy(canvas => bare.drawCollection(canvas, 'hotcoffee', 3, 2));
+  assert.equal(none.returned, false);
+  assert.deepEqual(none.cells, []);
 });

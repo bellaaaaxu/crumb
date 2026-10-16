@@ -24,11 +24,12 @@ function canvas() {
   return node;
 }
 
-/* Draws one collectible. Returns false when the key is not in the table. */
-export function drawCollection(target, spriteKey, size = 3) {
+/* Draws one collectible. Returns false when the key is not in the table. `step` is one step of
+ * a steam cycle (steamCycle()) for a drawing marked with steam; left out, the whole drawing. */
+export function drawCollection(target, spriteKey, size = 3, step) {
   const sprite = table?.SPRITES?.[spriteKey];
   if (!sprite) return false;
-  table.drawSprite(target, sprite, size, 0);
+  table.drawSprite(target, sprite, size, 0, step);
   return true;
 }
 
@@ -105,6 +106,19 @@ export function mascotKey(id) {
 export function outlineColour(spriteKey) {
   const known = typeof spriteKey === 'string' && table?.SPRITES && Object.hasOwn(table.SPRITES, spriteKey);
   return (known && table.SPRITES[spriteKey].palette?.X) || FALLBACK_OUTLINE;
+}
+
+/* Whether a drawing is marked with steam (its `steam` field): a tap and the intro then steam it
+ * instead of spilling crumbs. Only the table's own entries count, as for the outline colour. */
+export function hasSteam(spriteKey) {
+  const known = typeof spriteKey === 'string' && table?.SPRITES && Object.hasOwn(table.SPRITES, spriteKey);
+  return Boolean(known && table.SPRITES[spriteKey].steam);
+}
+
+/* A steam cycle as sprites.js has it: how many steps, and how long each one shows. Null
+ * without the table. */
+export function steamCycle() {
+  return table?.STEAM_STEPS ? { steps: table.STEAM_STEPS.length, stepMs: table.STEAM_STEP_MS } : null;
 }
 
 /* One of the theme's texts in the interface's language; English when it has none in that one. */
