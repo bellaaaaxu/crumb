@@ -29,7 +29,7 @@ const showsMascot = (page, selector, shop, size) => page.evaluate(([selector, sh
 const CARD_PICTURES = {
   default: { 'icons-keep': ['laopo', 'tart', 'bolo'], 'icons-hide': ['charsiu'], 'icons-vary': ['mochi', 'walnut', 'mango', 'taro'] },
   bakery: { 'icons-keep': ['toastbite', 'croissant', 'bolo'], 'icons-hide': ['cupcake'], 'icons-vary': ['donut', 'pretzel', 'mango', 'bagel'] },
-  cafe: { 'icons-keep': ['hotcoffee', 'latte', 'tiramisu'], 'icons-hide': ['pourover'], 'icons-vary': ['icedcoffee', 'madeleine', 'irishcoffee', 'dalgona'] },
+  cafe: { 'icons-keep': ['hotcoffee', 'latte', 'tiramisu'], 'icons-hide': ['pourover'], 'icons-vary': ['icedcoffee', 'madeleine', 'coffeebeans', 'frenchpress'] },
 };
 
 /* Whether the canvases in `selector` show exactly the drawings of `keys`, in that order, each

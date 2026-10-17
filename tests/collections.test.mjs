@@ -65,8 +65,8 @@ const RELEASED_KEYS = {
   ],
   cafe: [
     'hotcoffee', 'latte', 'tiramisu', 'icedcoffee', 'cappuccino', 'croissant', 'mocha', 'pourover', 'madeleine',
-    'takeaway', 'dalgona', 'cinnamonroll', 'espresso', 'coldbrew', 'porttart', 'irishcoffee', 'frappe', 'swissroll',
-    'vietnamesedrip', 'macchiato', 'blackforest', 'espressotonic', 'affogato', 'strawberrycake',
+    'takeaway', 'frenchpress', 'cinnamonroll', 'espresso', 'coldbrew', 'porttart', 'coffeebeans', 'frappe', 'swissroll',
+    'mokapot', 'macchiato', 'blackforest', 'espressotonic', 'espressomachine', 'strawberrycake',
   ],
 };
 
@@ -162,8 +162,8 @@ test('Café is the 24 of the design, Hot Coffee first, sharing 3 drawings with P
   assert.equal(cafe.mascot, 'hotcoffee');
   assert.deepEqual([...cafe.rotation], [
     'hotcoffee', 'latte', 'tiramisu', 'icedcoffee', 'cappuccino', 'croissant', 'mocha', 'pourover', 'madeleine',
-    'takeaway', 'dalgona', 'cinnamonroll', 'espresso', 'coldbrew', 'porttart', 'irishcoffee', 'frappe', 'swissroll',
-    'vietnamesedrip', 'macchiato', 'blackforest', 'espressotonic', 'affogato', 'strawberrycake',
+    'takeaway', 'frenchpress', 'cinnamonroll', 'espresso', 'coldbrew', 'porttart', 'coffeebeans', 'frappe', 'swissroll',
+    'mokapot', 'macchiato', 'blackforest', 'espressotonic', 'espressomachine', 'strawberrycake',
   ], 'the order of design section 2, which is also the demo rotation');
   assert.deepEqual([...cafe.limited], []);
   assert.equal(cafe.version, 1);
@@ -181,8 +181,8 @@ test('Café is the 24 of the design, Hot Coffee first, sharing 3 drawings with P
   ]);
   // The 16 coffees are Café's own drawings; with them the sketchbook holds 67 (design section 11).
   assert.deepEqual([...cafe.rotation].filter(key => !pastry.includes(key) && !bakery.includes(key)).sort(), [
-    'hotcoffee', 'espresso', 'latte', 'cappuccino', 'mocha', 'macchiato', 'icedcoffee', 'coldbrew', 'affogato',
-    'irishcoffee', 'vietnamesedrip', 'pourover', 'takeaway', 'espressotonic', 'dalgona', 'frappe',
+    'hotcoffee', 'espresso', 'latte', 'cappuccino', 'mocha', 'macchiato', 'icedcoffee', 'coldbrew', 'espressomachine',
+    'coffeebeans', 'mokapot', 'pourover', 'takeaway', 'espressotonic', 'frenchpress', 'frappe',
   ].sort());
   assert.equal(Object.keys(Pixel.SPRITES).length, 67);
 
@@ -200,13 +200,13 @@ test('Café is the 24 of the design, Hot Coffee first, sharing 3 drawings with P
     macchiato: ['Caramel Macchiato', '焦糖瑪奇朵', '焦糖玛奇朵'],
     icedcoffee: ['Iced Coffee', '冰咖啡', '冰咖啡'],
     coldbrew: ['Cold Brew', '冷萃', '冷萃'],
-    affogato: ['Affogato', '阿芙佳朵', '阿芙佳朵'],
-    irishcoffee: ['Irish Coffee', '愛爾蘭咖啡', '爱尔兰咖啡'],
-    vietnamesedrip: ['Vietnamese Drip', '越南滴漏', '越南滴漏'],
+    espressomachine: ['Espresso Machine', '義式咖啡機', '意式咖啡机'],
+    coffeebeans: ['Coffee Beans', '咖啡豆', '咖啡豆'],
+    mokapot: ['Moka Pot', '摩卡壺', '摩卡壶'],
     pourover: ['Pour-over', '手沖', '手冲'],
     takeaway: ['Takeaway Coffee', '外帶咖啡', '外带咖啡'],
     espressotonic: ['Espresso Tonic', '咖啡湯力', '咖啡汤力'],
-    dalgona: ['Dalgona', '400 次咖啡', '400 次咖啡'],
+    frenchpress: ['French Press', '法壓壺', '法压壶'],
     frappe: ['Coffee Frappé', '咖啡冰沙', '咖啡冰沙'],
   };
   for (const [key, [en, hant, hans]] of Object.entries(expected)) {

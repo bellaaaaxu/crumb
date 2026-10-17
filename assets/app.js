@@ -141,7 +141,7 @@
     cafe: {
       'icons-keep': ['hotcoffee', 'latte', 'tiramisu'],
       'icons-hide': ['pourover'],
-      'icons-vary': ['icedcoffee', 'madeleine', 'irishcoffee', 'dalgona'],
+      'icons-vary': ['icedcoffee', 'madeleine', 'coffeebeans', 'frenchpress'],
     },
   };
 

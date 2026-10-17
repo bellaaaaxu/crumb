@@ -14,19 +14,19 @@
     "pourover",
     "madeleine",
     "takeaway",
-    "dalgona",
+    "frenchpress",
     "cinnamonroll",
     "espresso",
     "coldbrew",
     "porttart",
-    "irishcoffee",
+    "coffeebeans",
     "frappe",
     "swissroll",
-    "vietnamesedrip",
+    "mokapot",
     "macchiato",
     "blackforest",
     "espressotonic",
-    "affogato",
+    "espressomachine",
     "strawberrycake"
   ],
   "names": {
@@ -80,10 +80,10 @@
       "zh-Hant": "外帶咖啡",
       "zh-CN": "外带咖啡"
     },
-    "dalgona": {
-      "en": "Dalgona",
-      "zh-Hant": "400 次咖啡",
-      "zh-CN": "400 次咖啡"
+    "frenchpress": {
+      "en": "French Press",
+      "zh-Hant": "法壓壺",
+      "zh-CN": "法压壶"
     },
     "cinnamonroll": {
       "en": "Cinnamon Roll",
@@ -105,10 +105,10 @@
       "zh-Hant": "葡式蛋撻",
       "zh-CN": "葡式蛋挞"
     },
-    "irishcoffee": {
-      "en": "Irish Coffee",
-      "zh-Hant": "愛爾蘭咖啡",
-      "zh-CN": "爱尔兰咖啡"
+    "coffeebeans": {
+      "en": "Coffee Beans",
+      "zh-Hant": "咖啡豆",
+      "zh-CN": "咖啡豆"
     },
     "frappe": {
       "en": "Coffee Frappé",
@@ -120,10 +120,10 @@
       "zh-Hant": "瑞士卷",
       "zh-CN": "瑞士卷"
     },
-    "vietnamesedrip": {
-      "en": "Vietnamese Drip",
-      "zh-Hant": "越南滴漏",
-      "zh-CN": "越南滴漏"
+    "mokapot": {
+      "en": "Moka Pot",
+      "zh-Hant": "摩卡壺",
+      "zh-CN": "摩卡壶"
     },
     "macchiato": {
       "en": "Caramel Macchiato",
@@ -140,10 +140,10 @@
       "zh-Hant": "咖啡湯力",
       "zh-CN": "咖啡汤力"
     },
-    "affogato": {
-      "en": "Affogato",
-      "zh-Hant": "阿芙佳朵",
-      "zh-CN": "阿芙佳朵"
+    "espressomachine": {
+      "en": "Espresso Machine",
+      "zh-Hant": "義式咖啡機",
+      "zh-CN": "意式咖啡机"
     },
     "strawberrycake": {
       "en": "Strawberry Cake",
