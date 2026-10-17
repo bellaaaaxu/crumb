@@ -41,13 +41,13 @@
 | `macchiato` | 焦糖玛奇朵 | 焦糖瑪奇朵 | Caramel Macchiato | 透明杯，分层，顶上焦糖格纹 |
 | `icedcoffee` | 冰咖啡 | 冰咖啡 | Iced Coffee | 高玻璃杯，看得到冰块，插吸管 |
 | `coldbrew` | 冷萃 | 冷萃 | Cold Brew | 一个玻璃瓶 |
-| `affogato` | 阿芙佳朵 | 阿芙佳朵 | Affogato | 一球冰淇淋，浇上浓缩咖啡 |
-| `irishcoffee` | 爱尔兰咖啡 | 愛爾蘭咖啡 | Irish Coffee | 高脚杯，下面深色，上面白色奶油 |
-| `vietnamesedrip` | 越南滴漏 | 越南滴漏 | Vietnamese Drip | 金属滴滤壶架在杯子上 |
+| `espressomachine` | 意式咖啡机 | 義式咖啡機 | Espresso Machine | 红色意式咖啡机，冲煮头下一只小杯，正在滴咖啡 |
+| `coffeebeans` | 咖啡豆 | 咖啡豆 | Coffee Beans | 敞口的牛皮纸袋，袋口堆着深色咖啡豆，袋前靠着一颗大咖啡豆 |
+| `mokapot` | 摩卡壶 | 摩卡壺 | Moka Pot | 银色金属的炉上咖啡壶，盖上有钮 |
 | `pourover` | 手冲 | 手沖 | Pour-over | 滤杯架在玻璃分享壶上 |
 | `takeaway` | 外带咖啡 | 外帶咖啡 | Takeaway Coffee | 纸杯，有盖子和杯套 |
 | `espressotonic` | 咖啡汤力 | 咖啡湯力 | Espresso Tonic | 高杯分层，杯口一片橙子 |
-| `dalgona` | 400 次咖啡 | 400 次咖啡 | Dalgona | 白色牛奶上一层蓬松的打发咖啡 |
+| `frenchpress` | 法压壶 | 法壓壺 | French Press | 玻璃壶装着深色咖啡，顶上一根压杆和圆钮，侧边有把手 |
 | `frappe` | 咖啡冰沙 | 咖啡冰沙 | Coffee Frappé | 圆顶盖的杯子，插吸管 |
 
 鸳鸯不选：画出来就是一杯浅棕色的饮料，和奶茶、吉祥物分不开。
@@ -56,9 +56,9 @@
 
 **轮换顺序**（也是演示页的轮换；咖啡店的 24 款都在演示页的轮换里，没有「只在应用里」的款，`limited` 是空的，和面包店一样——假设 3c）：
 
-`hotcoffee`、`latte`、`tiramisu`、`icedcoffee`、`cappuccino`、`croissant`、`mocha`、`pourover`、`madeleine`、`takeaway`、`dalgona`、`cinnamonroll`、`espresso`、`coldbrew`、`porttart`、`irishcoffee`、`frappe`、`swissroll`、`vietnamesedrip`、`macchiato`、`blackforest`、`espressotonic`、`affogato`、`strawberrycake`。
+`hotcoffee`、`latte`、`tiramisu`、`icedcoffee`、`cappuccino`、`croissant`、`mocha`、`pourover`、`madeleine`、`takeaway`、`frenchpress`、`cinnamonroll`、`espresso`、`coldbrew`、`porttart`、`coffeebeans`、`frappe`、`swissroll`、`mokapot`、`macchiato`、`blackforest`、`espressotonic`、`espressomachine`、`strawberrycake`。
 
-排法（假设 3a）：吉祥物第一（0.3 规定：卡片画清单的前三款，第一款是吉祥物）；之后每三款里两款咖啡、一款甜点，所以卡片上的三张是「热咖啡、拿铁、提拉米苏」，正好对得上卡片文字「咖啡和甜点」。外形像的不挨着，分这几组：两种小杯（`hotcoffee`、`espresso`）；透明的杯子、看得到杯里分层或冰块的（`icedcoffee`、`dalgona`、`irishcoffee`、`macchiato`、`espressotonic`）；两种带吸管的（`icedcoffee`、`frappe`）。同一组里任何两款在顺序里都不相邻（最后一款接回第一款也算）。自己架的应用里，每个人收藏架上的顺序照旧按 `SHA-256(userId:key)` 各不相同（`server/collections.mjs` 的 `orderedKeys`），这个顺序不影响它。这个顺序决定的是：演示页的轮换、卡片上的三张、团队页给福利选配图时各款的排列（`/api/admin/rewards` 按清单文件的顺序给键，清单文件是轮换加 `limited`），以及演示页点心柜的排列。
+排法（假设 3a）：吉祥物第一（0.3 规定：卡片画清单的前三款，第一款是吉祥物）；之后每三款里两款咖啡、一款甜点，所以卡片上的三张是「热咖啡、拿铁、提拉米苏」，正好对得上卡片文字「咖啡和甜点」。外形像的不挨着，分这几组：两种小杯（`hotcoffee`、`espresso`）；透明的杯子、看得到杯里分层或冰块的（`icedcoffee`、`macchiato`、`espressotonic`）；两种带吸管的（`icedcoffee`、`frappe`）。同一组里任何两款在顺序里都不相邻（最后一款接回第一款也算）。自己架的应用里，每个人收藏架上的顺序照旧按 `SHA-256(userId:key)` 各不相同（`server/collections.mjs` 的 `orderedKeys`），这个顺序不影响它。这个顺序决定的是：演示页的轮换、卡片上的三张、团队页给福利选配图时各款的排列（`/api/admin/rewards` 按清单文件的顺序给键，清单文件是轮换加 `limited`），以及演示页点心柜的排列。
 
 **画法**：守 `docs/THEMES.md` 的格式和画法——12×12，`.` 透明，调色板 `#RRGGBB`，平涂，连外框 3 到 5 种颜色，没有脸，外框 `X` 用这款主色的深色（咖啡用深棕，透明玻璃杯用杯里饮料的深一号）。陶瓷杯（白杯子）的外框沿用吉祥物草稿的深棕：这一点超出 `docs/THEMES.md`（那里白色、浅色的东西用那浅色的深一号），算设计选择；每款的外框颜色在第一道关确认。**咖啡店的图一律画在奶油色的「瓷白」底子上**（下表），所以外框照样是深色，不用为深色页面另画一套。这也取代了 0.3 设计 §11 那句「咖啡的图要按深色背景来画」：选定的样子是瓷白底子，图的画法不变。
 
@@ -458,7 +458,7 @@ s.
 | 点心柜标题 | `cabinet` | The café counter |
 
   吉祥物的名字暂定「热咖啡 / Hot Coffee」，画图那道关定；名字变了，读屏名字跟着变（那是一句新话，要批准，见假设 33）。自动播放第二句见 §7 演示页的三句新话（新键 `tourGrant`）。
-- **三张说明卡的小图**（`CARD_ICONS.cafe`，假设 3b）：第一张 `hotcoffee`、`latte`、`tiramisu`（清单前三款，和面包店一样）；第二张 `pourover`（「马上就好」配一杯正在滴的手冲）；第三张 `icedcoffee`、`madeleine`、`irishcoffee`、`dalgona`。咖啡店里这些小图也在瓷白圆盘上（设计选择，§2）。
+- **三张说明卡的小图**（`CARD_ICONS.cafe`，假设 3b）：第一张 `hotcoffee`、`latte`、`tiramisu`（清单前三款，和面包店一样）；第二张 `pourover`（「马上就好」配一杯正在滴的手冲）；第三张 `icedcoffee`、`madeleine`、`coffeebeans`、`frenchpress`。咖啡店里这些小图也在瓷白圆盘上（设计选择，§2）。
 - **记忆**：照旧用 `crumb_demo_theme`，三家店都记；「Reset the demo」不清掉它；带着记住的咖啡店打开页面，第一次画就是暗的（§5），直接画咖啡店，不放卷闸。
 - **不动的**：页面顶上的简介（「unlocks a pixel pastry」）、「This is a demo」那段（写着「The bakery team」）、「🍞 Spend some credit」按钮、每日一句 `DAILY` 和 `DAILY_ZERO`（连同 🥐🍞🥖🍰🥯🧈）、记录为空时那句「Nothing yet — tap the button when you take something 🍞」，在咖啡店里文字照旧（假设 34）；这些地方的颜色照样跟着换（比如「This is a demo」那块用 `--paper`、`--line`）。来历那段不变。分享链接的预览图（`assets/og.png`）和它的文字（假设 35）、页脚的签名图（自带奶油色底，在深色页面上是一块奶油色牌子，假设 36）也照旧。
 
@@ -558,7 +558,7 @@ s.
 
 验收（每道关都要维护者点头）：
 
-1. **图**：15 款新咖啡＋吉祥物，分两批，每批先给盲认的人认过，认不出的先改好，名字在这里定（假设 29、32）。第一批是吉祥物和容易混的那几款放在一起看：`hotcoffee`、`espresso`、`latte`、`cappuccino`、`icedcoffee`、`mocha`、`pourover`、`takeaway`；第二批：`affogato`、`coldbrew`、`irishcoffee`、`macchiato`、`vietnamesedrip`、`frappe`、`espressotonic`、`dalgona`。吉祥物给三种样子：瓷白圆盘上（页头大小）、深色上（开场动画大小和标签图标大小），外加热气 8 步的连续画面。这一关还请维护者确认每款的外框颜色；`hotcoffee` 的「)」形检查（单元测试）要过。由名字带出来的句子在这里一起批（假设 33）。
+1. **图**：15 款新咖啡＋吉祥物，分两批，每批先给盲认的人认过，认不出的先改好，名字在这里定（假设 29、32）。第一批是吉祥物和容易混的那几款放在一起看：`hotcoffee`、`espresso`、`latte`、`cappuccino`、`icedcoffee`、`mocha`、`pourover`、`takeaway`；第二批：`espressomachine`、`coldbrew`、`coffeebeans`、`macchiato`、`mokapot`、`frappe`、`espressotonic`、`frenchpress`。吉祥物给三种样子：瓷白圆盘上（页头大小）、深色上（开场动画大小和标签图标大小），外加热气 8 步的连续画面。这一关还请维护者确认每款的外框颜色；`hotcoffee` 的「)」形检查（单元测试）要过。由名字带出来的句子在这里一起批（假设 33）。
 2. **新写或改过的 README 和文档句子**，做成带中文注释的 PDF（比如「只有两套主题」改成三套；假设 33）。
 3. **截图**：咖啡店的成员页、团队页、设置页、登录页、数字键盘，用 `node scripts/screenshots.mjs --theme cafe --all`。`--all` 今天已经拍了主屏小贴士（`member-home-tip`）和设置页的锁定说明；`scripts/screenshots.mjs` 还要补拍（§10）：
    - 新起一个服务器、还没建团队：建团队页选中咖啡店卡片（浅色页面里的深色卡片）；
@@ -587,8 +587,8 @@ s.
 
 这些是决定里没有写到、本文先这样定的地方。每条都请维护者看；不同意的，按后面的另一种做法改。编号沿用上一稿，拆开的写成 a、b，新加的从 30 往后排。
 
-1. **16 个新键**：`hotcoffee`、`espresso`、`latte`、`cappuccino`、`mocha`、`macchiato`、`icedcoffee`、`coldbrew`、`affogato`、`irishcoffee`、`vietnamesedrip`、`pourover`、`takeaway`、`espressotonic`、`dalgona`、`frappe`。发布后永远不改。另一种：换别的拼法（比如越南滴漏用 `phin`、焦糖玛奇朵用 `caramelmacchiato`）。
-2. a. **英文名每个词首字母大写**（Vietnamese Drip、Takeaway Coffee、Coffee Frappé），和现有名字一致。另一种：照决定记录里的写法（Vietnamese drip、Takeaway coffee、Coffee frappé）。
+1. **16 个新键**：`hotcoffee`、`espresso`、`latte`、`cappuccino`、`mocha`、`macchiato`、`icedcoffee`、`coldbrew`、`espressomachine`、`coffeebeans`、`mokapot`、`pourover`、`takeaway`、`espressotonic`、`frenchpress`、`frappe`。发布后永远不改。另一种：换别的拼法（比如咖啡豆用 `beans`、焦糖玛奇朵用 `caramelmacchiato`）。
+2. a. **英文名每个词首字母大写**（Moka Pot、Takeaway Coffee、Coffee Frappé），和现有名字一致。另一种：照决定记录里的写法（Moka pot、Takeaway coffee、Coffee frappé）。
    b. **繁体名是表里的暂定写法**。另一种：在画图那道关另定。
 3. a. **轮换顺序**按 §2 排（每三款两咖啡一甜点；外形像的三组里任何两款都不相邻）。另一种：先 16 款咖啡、后 8 款甜点；或别的排法。
    b. **演示页说明卡的小图**按 §8（第一张热咖啡、拿铁、提拉米苏）。另一种：别的小图。
