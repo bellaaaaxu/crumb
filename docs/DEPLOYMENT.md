@@ -7,7 +7,7 @@ This guide covers trying Crumb on your own computer, then running it for real on
 behind HTTPS. Day-to-day care — backups, restores, upgrades, locked-out owners — is in
 [OPERATIONS.md](OPERATIONS.md).
 
-> Crumb is early software (version 0.3). Read [what has and has not been tested](VALIDATION.md)
+> Crumb is early software (version 0.4). Read [what has and has not been tested](VALIDATION.md)
 > before you rely on it for your team's benefits.
 
 ## What you need
@@ -40,8 +40,9 @@ You also choose the **unlock step**: each time someone's treats add up past anot
 this size, a new pixel collectible joins their shelf.
 
 You pick a **collection theme** too: which collectibles fill the shelf, with the mascot and
-the app icons that go with them. Crumb comes with two, the **Pastry shop** (39 pastries, the
-default) and the **Bakery** (24 breads and cakes).
+the app icons that go with them. Crumb comes with three: the **Pastry shop** (39 pastries, the
+default), the **Bakery** (24 breads and cakes) and the **Café** (24 coffees and sweets). The
+Café also has colours of its own: every page its team sees is dark.
 
 The type and currency can change until the **first benefit gets a price** or the first
 treat is recorded; the unlock step and the collection theme until the first treat. After that
@@ -157,12 +158,14 @@ and signing out.
 
 ## Upgrading
 
-Upgrades, and going back, are in [OPERATIONS.md](OPERATIONS.md#upgrading). Coming from 0.2
-(its database is at schema 2), the first start of 0.3 updates the database once (it adds the
-team's collection theme, and an existing team is on the Pastry shop): read
-[Upgrading from 0.2 to 0.3](OPERATIONS.md#upgrading-from-02-to-03) and back up first. Coming
-from 0.1 (schema 1), that first start also makes the update to 0.2 (it adds how people spend
-and rebuilds the ledger table): read
+Upgrades, and going back, are in [OPERATIONS.md](OPERATIONS.md#upgrading). Coming from 0.3,
+nothing in the database changes: see
+[Upgrading from 0.3 to 0.4](OPERATIONS.md#upgrading-from-03-to-04), which also says how to go
+back. Coming from 0.2 (its database is at schema 2), the first start of 0.4 updates the
+database once (it adds the team's collection theme, and an existing team is on the Pastry
+shop): read [Upgrading from 0.2 to 0.3](OPERATIONS.md#upgrading-from-02-to-03) and back up
+first. Coming from 0.1 (schema 1), that first start also makes the update to 0.2 (it adds how
+people spend and rebuilds the ledger table): read
 [Upgrading from 0.1 to 0.2](OPERATIONS.md#upgrading-from-01-to-02) too.
 
 ## Running without Docker
@@ -238,9 +241,12 @@ lock everyone out for 15 minutes. Run Crumb as an unprivileged user that owns `D
   collection, history and requests; there are no leaderboards or cross-member comparisons.
 - The server logs startup, errors by type, and nothing else: no passwords, links, cookies or
   request bodies.
-- The browser keeps four things for Crumb in its local storage: the chosen language; whether
-  a team member dismissed the home-screen tip; and, for the person signed in on that browser
-  now and no one else, two more. First, for a change whose answer never arrived, a random
+- The browser keeps five things for Crumb in its local storage: the chosen language; the
+  team's collection theme (`crumb.theme`: only the theme's id, such as `cafe`, so that a café
+  team's page is dark from the first moment; it belongs to the team, not to a person, and
+  stays after signing out); whether a team member dismissed the home-screen tip; and, for the
+  person signed in on that browser now and no one else, two more. First, for a change whose
+  answer never arrived, a random
   request key with a fingerprint of the change, the person's id, the kind of change and when
   it was sent (`crumb.pending`), so sending it again after a reload is not recorded twice. The
   keys and the fingerprint of each unanswered change stay in this browser until an answer

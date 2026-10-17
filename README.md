@@ -93,18 +93,37 @@ Crumb is for a small shop that wants to download it, fill in a few settings and 
 bakery, a café, a bubble tea place, or any small team. No code needed.
 
 Settings do the rest: your name and logo, the language, what you call the credit ("Café
-credit", "stars"), credit or points, the currency, the collection theme (Pastry shop or
-Bakery), how much earns the next item on the shelf, a welcome line, how people spend (they
+credit", "stars"), credit or points, the currency, the collection theme (Pastry shop, Bakery
+or Café), how much earns the next item on the shelf, a welcome line, how people spend (they
 jot it down themselves, or an admin confirms), a contact link and a feedback link.
 
 Want a different shelf? [docs/THEMES.md](docs/THEMES.md) shows how to add a theme: draw and
 list it in one file, run one command, register its new keys in the tests and, if you like,
-give it its own wording.
+give it its own wording and its own colours.
 
 Why "Crumb"? Eat the bread and the crumbs stay. Spend the credit and the shelf keeps what it
 earned.
 
-## What is in version 0.3
+## What is in version 0.4
+
+New in 0.4:
+
+- **A third collection theme, the Café**: 24 coffees and sweets, 16 of them new coffee
+  drawings. Its mascot is a cup of hot coffee: tapped, it steams instead of dropping crumbs.
+  An owner picks it at setup, or in Settings until the first treat, like the other two.
+- **The first theme with colours of its own**: the Café is always dark, a café after dark by
+  candlelight. Every page its team sees is dark — the member page, the Team page, Settings and
+  the sign-in page — and so are its tab and home-screen icons and the opening animation,
+  whatever the phone or computer is set to. The Pastry shop and the Bakery look exactly as
+  they did.
+- **The demo** has a third shop: Pastry shop | Bakery | Café.
+
+Upgrading from 0.3 changes nothing in the database: see
+[Upgrading from 0.3 to 0.4](docs/OPERATIONS.md#upgrading-from-03-to-04), which also says how
+to go back. From 0.2, the first start of 0.4 updates the database once: read
+[Upgrading from 0.2 to 0.3](docs/OPERATIONS.md#upgrading-from-02-to-03) and back up first.
+From 0.1, read [Upgrading from 0.1 to 0.2](docs/OPERATIONS.md#upgrading-from-01-to-02) too:
+the first start of 0.4 makes both updates at once.
 
 New in 0.3:
 
@@ -115,11 +134,6 @@ New in 0.3:
   the theme in Settings until the first treat; after that it is fixed, like the unlock step.
   Teams upgrading from 0.2 are on the Pastry shop, and their shelves stay as they were.
 - **The demo** switches between the two themes.
-
-Upgrading from 0.2 updates the database once, on the first start: read
-[Upgrading from 0.2 to 0.3](docs/OPERATIONS.md#upgrading-from-02-to-03) and back up first.
-From 0.1, read [Upgrading from 0.1 to 0.2](docs/OPERATIONS.md#upgrading-from-01-to-02) too:
-the first start of 0.3 makes both updates at once.
 
 New in 0.2:
 
@@ -150,8 +164,8 @@ Still there from 0.1:
 - **Corrections that stay on the record**: an admin takes back a treat or refunds a benefit,
   always with a reason; the original stays in the log, marked.
 - **A permanent collection**, unlocked by treats received: 39 pixel pastries on the Pastry
-  shop theme, 24 breads and cakes on the Bakery. Spending never removes one, and neither does
-  correcting a mistaken treat.
+  shop theme, 24 breads and cakes on the Bakery, 24 coffees and sweets on the Café. Spending
+  never removes one, and neither does correcting a mistaken treat.
 - **Roles**: owner, admin and member. Team members sign in with a personal link — no
   password to remember — and their phone stays signed in for up to 180 days; a new link
   signs a lost phone out. Owners and admins use a password. Every link is shown to an admin
@@ -183,7 +197,8 @@ docker compose up -d --build
 ```
 
 Open <http://localhost:3000>, paste the one-time setup code (`cat .secrets/setup-token`),
-choose credit or points and how people spend, and create the owner account.
+choose credit or points, the collection theme (Pastry shop, Bakery or Café) and how people
+spend, and create the owner account.
 
 To look around first, with Node.js 24 and no Docker: `npm ci`, then `npm run demo`. It opens
 an invented team, "Corner Café (sample team)", at <http://localhost:3000> and prints the
@@ -210,13 +225,13 @@ stand in for each other.
 
 ## Status and limits
 
-Crumb is **early — version 0.3**. The money rules, permissions, concurrency and recovery
+Crumb is **early — version 0.4**. The money rules, permissions, concurrency and recovery
 are covered by automated tests, and [docs/VALIDATION.md](docs/VALIDATION.md) records exactly
 what was tested, where, and what has not been verified yet. It has not had an independent
 security audit.
 
 One instance serves one organization. There is no email, no single sign-on, only a choice of
-two collection themes (one per team), and it runs as a single server. Use it for a team's
+three collection themes (one per team), and it runs as a single server. Use it for a team's
 perks with regular backups; do not use it for pay or anything tax-related.
 
 ## Contributing and feedback
@@ -235,10 +250,11 @@ repository is the real thing, with accounts, roles, benefits and a shared ledger
 
 ## The art
 
-The Pastry shop's 39 pastries and the Bakery's 24 breads and cakes (51 drawings, as the two
-themes share 12) live in the source as character grids, 12×12 each, in
-[`assets/sprites.js`](assets/sprites.js) — no icon library, no pixel font, no image files.
-The demo, the app and the link-preview card all draw from that one table.
+The Pastry shop's 39 pastries, the Bakery's 24 breads and cakes and the Café's 24 coffees and
+sweets (67 drawings, as a drawing two or three themes share is drawn once) live in the source
+as character grids, 12×12 each, in [`assets/sprites.js`](assets/sprites.js) — no icon
+library, no pixel font, no image files. The demo, the app and the link-preview card all draw
+from that one table.
 
 ```js
 laopo: { palette: { X: '#5C3A1D', b: '#E0A73C', a: '#F3D488', s: '#8A5A22' }, rows: [

@@ -42,9 +42,14 @@ With Docker available, `bash scripts/ci/container-drill.sh` runs the same drill 
 real image and Compose files, on throwaway volumes. CI is set up to run all of the above on
 every pull request; [docs/VALIDATION.md](docs/VALIDATION.md) records what has actually run.
 
-After adding a theme, or changing a theme's items, names or mascot, run `npm run themes`: it
-rewrites the theme lists in `themes/` and the icons in `app/icons/`, and the tests fail until
-they match. [docs/THEMES.md](docs/THEMES.md) has the steps.
+After adding a theme, or changing a theme's items, names, mascot or `background`, run
+`npm run themes`: it rewrites the theme lists in `themes/` and the icons in `app/icons/`, and
+the tests fail until they match. [docs/THEMES.md](docs/THEMES.md) has the steps.
+
+After adding a theme with colours of its own, or changing a colour in `app/app.css` or
+`assets/style.css`, run `npm test`: `tests/colours.test.mjs` names every variable a theme's
+colours leave out, and every text, focus ring or input border that does not stand out enough
+from what is behind it.
 
 To use the app locally:
 
@@ -75,7 +80,7 @@ There is no build step. Open `index.html` directly in a browser, or serve the fo
 
 The demo keeps its invented state in `localStorage`; **Reset the demo** puts it back. Check the
 tour, taking control, giving recognition, spending (the collection must not shrink),
-switching people, the **Pastry shop | Bakery** switch and resetting, on narrow and wide
+switching people, the **Pastry shop | Bakery | Café** switch and resetting, on narrow and wide
 screens, from the keyboard and with reduced motion. `npx playwright test tests/e2e/demo.spec.mjs`
 covers the main path.
 
