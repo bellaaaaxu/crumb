@@ -1,29 +1,33 @@
-# Release checklist — Crumb 0.3.0
+# Release checklist — Crumb 0.4.0
 
 One row for each requirement of
 [the design behind 0.1](superpowers/specs/2026-09-27-crumb-self-hosted-design.md) and each
 acceptance criterion in its section 11, with the evidence behind it; under "The one-page
 round", one row for each part of
-[the one-page design](superpowers/specs/2026-09-29-crumb-one-page-design.md); and under "The
+[the one-page design](superpowers/specs/2026-09-29-crumb-one-page-design.md); under "The
 collection themes round", one row for each part of
-[the themes design](superpowers/specs/2026-10-03-crumb-themes-design.md). How and where the
+[the themes design](superpowers/specs/2026-10-03-crumb-themes-design.md); and under "The café
+round", one row for each part of
+[the café design](superpowers/specs/2026-10-06-crumb-cafe-theme-design.md). How and where the
 checks ran is in [VALIDATION.md](VALIDATION.md).
 
-The themes round was checked on a fresh clone of the development branch on 2026-10-05, whose
-code is the code of this release: the commit cloned was `9849c31`
-("docs: the themes spec says it is implemented on feature/themes"). CI has not run on it.
-The one-page round, released as 0.2.0, was checked on a fresh clone of `2ddc69b` on 2026-10-01
-and in CI on its pull request (`1fb57ee`) and on `main` (`bbfda7f`).
+The café round was checked on a fresh clone of the development branch on 2026-10-17, whose code
+is the code of this release: the commit cloned was `ce41879` ("docs: the Café in the guides; version 0.4.0; screenshots retaken"). CI has not run on it.
+The themes round, released as 0.3.0, was checked on a fresh clone of `9849c31` on 2026-10-05
+and in CI on its pull request (`057cd38`) and on `main` (`5247e73`). The one-page round,
+released as 0.2.0, was checked on a fresh clone of `2ddc69b` on 2026-10-01 and in CI on its
+pull request (`1fb57ee`) and on `main` (`bbfda7f`).
 
-The themes round is released as Crumb 0.3.0 and moves the database to schema 3. "0.2.0" on
-this page means the release at merge commit `bbfda7f`, with its database at schema 2; "0.1"
-means the first release, commit `643e237`, with its database at schema 1.
+The café round is released as Crumb 0.4.0; its database is still at schema 3. "0.3.0" on this
+page means the release at merge commit `5247e73`; "0.2.0" the release at merge commit
+`bbfda7f`, with its database at schema 2; and "0.1" the first release, commit `643e237`, with
+its database at schema 1.
 
 **Passed** means an automated check ran and passed in the recorded run. **Partly** means
 some of the requirement was checked and the rest was not. **Not verified** means it has not
 been run at all — nothing is marked passed on the strength of reading the code. **Reviewed by
-eye**, a status of the themes round, means the maintainer was shown it and approved it; no
-automated check covers how it looks.
+eye**, a status of the themes and café rounds, means the maintainer was shown it and approved
+it; no automated check covers how it looks.
 
 ## Design coverage
 
@@ -37,8 +41,8 @@ automated check covers how it looks.
 | Permanent collection, revoke threshold, complete set, theme rules | Passed | `tests/collections.test.mjs` (released keys never removed, fixed order, revoke keeps unlocks, complete collection), `docs/THEMES.md` |
 | Member, team and settings views; phone; English and Chinese | Passed (Chromium only) | `tests/e2e/product.spec.mjs`, `tests/e2e/accessibility.spec.mjs` (390 px and 1440 px), `tests/i18n.test.mjs` (same strings and placeholders in both languages) |
 | Branding, logo upload, contact link, feedback link, export | Passed | `tests/org.test.mjs` (logo decoding and limits, safe link schemes), `tests/csv.test.mjs`, `tests/api.test.mjs` (export only from Crumb's pages), E2E CSV download |
-| Persistence, migrations, container, HTTPS | Partly | Persistence and migrations: `tests/db.test.mjs`, the process drill (restart). Container: built and taken through the whole container drill in CI for 0.1 (`67a174b`) and 0.2.0 (`1fb57ee`, `bbfda7f`), **not verified** for the themes round. HTTPS: only the Compose configuration was validated — **not verified** on a real domain. |
-| Consistent backup, restore, upgrade, owner rescue | Partly | `tests/backup.test.mjs`, `tests/ops.test.mjs`, process drill 20/20, and the container drill in CI (backup in the running container, copy off and back in, restore into a new volume, owner recovery, rollback). Upgrading: migration 002 takes a version 1 database to version 2 in unit tests that build a real schema 1 file from `001-initial.sql` and open it with the current code (see "Migration 002" below); upgrading a real deployment of 0.1 with the 0.2 image: **not verified**. Migration 003 takes a schema 2 database to schema 3 in unit tests (see "The collection themes round"); upgrading a real deployment of 0.2 with the 0.3 image: **not verified**. Rolling back is still simulated with a copy of the code that has one more migration. |
+| Persistence, migrations, container, HTTPS | Partly | Persistence and migrations: `tests/db.test.mjs`, the process drill (restart). Container: built and taken through the whole container drill in CI for 0.1 (`67a174b`), 0.2.0 (`1fb57ee`, `bbfda7f`) and 0.3.0 (`057cd38`, `5247e73`), **not verified** for the café round. HTTPS: only the Compose configuration was validated — **not verified** on a real domain. |
+| Consistent backup, restore, upgrade, owner rescue | Partly | `tests/backup.test.mjs`, `tests/ops.test.mjs`, process drill 20/20, and the container drill in CI (backup in the running container, copy off and back in, restore into a new volume, owner recovery, rollback). Upgrading: migration 002 takes a version 1 database to version 2 in unit tests that build a real schema 1 file from `001-initial.sql` and open it with the current code (see "Migration 002" below); upgrading a real deployment of 0.1 with the 0.2 image: **not verified**. Migration 003 takes a schema 2 database to schema 3 in unit tests (see "The collection themes round"); upgrading a real deployment of 0.2 with the 0.3 image: **not verified**. 0.4 adds no migration: going from 0.1 or 0.2 straight to 0.4 runs 002 and 003 in the same unit tests (see "The café round"); upgrading a real deployment of 0.3 with the 0.4 image: **not verified**. Rolling back is still simulated with a copy of the code that has one more migration. |
 | Static demo, real screenshots, README, share card | Passed | `tests/e2e/demo.spec.mjs`, `tests/docs.test.mjs`; screenshots made from the real app by `scripts/screenshots.mjs` and reviewed by eye. Links that point at `main` only work after merging: **not verified**. |
 | Three feedback paths; no telemetry; no sensitive data sent out | Passed | Issue templates checked by `tests/docs.test.mjs`; the app's Content Security Policy only lets pages load from and talk to Crumb's own address, and the browser tests fail on any violation (`tests/e2e/accessibility.spec.mjs`); the process drill checks that server output holds no passwords or setup code. |
 
@@ -112,10 +116,10 @@ VALIDATION.md, "Results in CI").
 Checked on a fresh clone of the development branch `feature/themes` on 2026-10-05, on one
 Windows computer, in Chromium only (`npm test` 283 passed and 2 skipped of 285, theme lists
 current, process drill 20 of 20, browser tests 105 of 105). The commit cloned was `9849c31`
-("docs: the themes spec says it is implemented on feature/themes"); since that run only this
-checklist and VALIDATION.md have changed, so its code is the code of this release. CI has
-not run on this round (the branch has not been pushed), so nothing here ran on Linux or in
-the container.
+("docs: the themes spec says it is implemented on feature/themes"); after that run only this
+checklist and VALIDATION.md changed before 0.3.0 was released, so its code is the code of
+0.3.0. CI ran on this round's pull request (`057cd38`) and on `main` after merging
+(`5247e73`), both jobs green (see VALIDATION.md, "Results in CI").
 
 | Requirement | Status | Evidence |
 | --- | --- | --- |
@@ -127,16 +131,50 @@ the container.
 | The server works with the team's theme | Passed | `tests/collections.test.mjs` (a Bakery team unlocks from its 24 keys, capped at 24, in hash order), `tests/api.test.mjs` (`/api/me` and `/api/admin/rewards` carry the team's theme; a benefit icon must be one of its keys), `tests/org.test.mjs` (the session, signed in and out, carries it) |
 | The mascot follows the theme | Passed (Chromium only) | `tests/pixels.test.mjs` (each theme's own mascot; a missing or unknown theme id gets Pastry shop's wife cake, and nothing throws); E2E in `tests/e2e/themes.spec.mjs` (a Bakery team's member page, header, intro and sign-in page; the sign-in page after a sign-out whose follow-up question gets no answer; a theme id the page does not know, or none, draws the wife cake with no error). On a real phone: **not verified** |
 | Tab and home-screen icons per theme | Partly | `tests/icons.test.mjs` (four files for every theme other than Pastry shop, PNGs with the mascot's pixels; the four addresses answered per team theme, Pastry shop's before setup), `tests/pixels.test.mjs` (the icon links the page sets for each theme, Pastry shop's for a missing or unknown one); E2E: the tab-icon link points at the Bakery icon on a Bakery team's pages, and the tab and home-screen icon links follow a theme change in Settings without a reload. An icon on a real phone's home screen: **not verified** |
-| Bakery's own sentences | Passed | `tests/i18n.test.mjs` (both languages; every `<key>.bakery` with its base key and the same placeholders; every one used; no "recognition" or 认可); seen in place in the pictures checked during the run (VALIDATION.md, "Pictures from the fresh clone") |
+| Bakery's own sentences | Passed | `tests/i18n.test.mjs` (both languages; every `<key>.bakery` with its base key and the same placeholders; every one used; no "recognition" or 认可); seen in place in the pictures checked during the run (VALIDATION.md, "Pictures from the fresh clone of `9849c31`") |
 | Migration 003 on a version 2 database | Partly | `tests/db.test.mjs` (a 0.2.0 database opens on `default`, its data unchanged). A real deployment of 0.2 upgraded by the 0.3 image, with or without Docker: **not verified** |
 | A theme this version does not include is refused | Passed | `tests/db.test.mjs` (`THEME_UNKNOWN` when the database is opened; a database with no team opens), `tests/ops.test.mjs` (`recover-owner` refuses it too), `tests/backup.test.mjs` (a schema 3 backup with such a team refused before anything is written; schema 1 and 2 backups and backups taken before setup restore) |
-| The public demo's switch | Passed (Chromium only) | E2E in `tests/e2e/demo.spec.mjs` (shelf, mascot and its accessible name, cabinet and numbers change; all three cards have pictures; no console errors; kept across a reload and "Reset the demo"; the tour starts again). On GitHub Pages: **not verified** until merged |
+| The public demo's switch | Passed (Chromium only) | E2E in `tests/e2e/demo.spec.mjs` (shelf, mascot and its accessible name, cabinet and numbers change; all three cards have pictures; no console errors; kept across a reload and "Reset the demo"; the tour starts again). On GitHub Pages: opened once after merging, in Chromium, on 2026-10-17: switched to Bakery with no console errors |
 | The shutter animation | Passed (Chromium only) | E2E: the eight shutter tests in `tests/e2e/demo.spec.mjs` (the full sequence: down in eight steps, the sign squashed to a line and given the new name as the shop changes behind it, the wobble, up in eight steps, then the shelf restocked 8 ms apart with a 160 ms pop; a switch takes the old shop's toast with it, and a grant pressed behind the shutter bursts nothing over it; one switch at a time, before and after the sign flips; no shutter for the shop already on show; with reduced motion no shutter and an instant switch; the choice stored at the press, and a page opened with it remembered drawn with no shutter; a switch while the tour plays runs one shutter and restarts the tour from Sam with no oven intro — that the restart comes while the shutter is down is **not verified**). Its look and length: a strip of frames captured from the fresh clone of `9849c31`, shown to the maintainer and approved as it is on 2026-10-06, with the restock's 160 ms pop, 8 ms apart, kept. Finishing in a background tab: checked once on the fresh clone in a Chromium tab hidden while the shutter was down, where the switch still finished, on Bakery with no shutter left. On a real phone: **not verified** |
 | The theme choice at both widths | Passed (Chromium only) | `tests/e2e/accessibility.spec.mjs` (setup and Settings at 390 px and 1440 px: no sideways scrolling, every control labelled, no CSP violations) |
 | `npm run demo -- --theme bakery` | Passed | `tests/demo.test.mjs` (the sample team on Bakery; an unknown theme refused before anything is made) |
 | The 12 new drawings | Reviewed by eye | Each at intro and header size, in two batches, before it was final (§12 of the themes design, acceptance 1): the first seven, Bitten Toast among them, and the other five, both batches approved on 2026-10-05. The drawings in the commit cloned are exactly the approved ones, compared during the run with the approval record kept outside the repository |
-| Bakery pages and the demo after switching | Reviewed by eye | Six pictures taken from the fresh clone of `9849c31`, shown to the maintainer and approved as they are on 2026-10-06: the Bakery member page, Settings with the two theme cards before the first treat, Settings after switching to Bakery with one benefit icon removed, the demo after switching to Bakery at 1280 px, the shutter's frame strip, and the Bakery sign-in page at phone width; the public demo at `9849c31` was also opened for the maintainer in a browser. The other pictures were checked against the design during the run (VALIDATION.md, "Pictures from the fresh clone"). None is kept in the repository, where the README stays on Pastry shop |
+| Bakery pages and the demo after switching | Reviewed by eye | Six pictures taken from the fresh clone of `9849c31`, shown to the maintainer and approved as they are on 2026-10-06: the Bakery member page, Settings with the two theme cards before the first treat, Settings after switching to Bakery with one benefit icon removed, the demo after switching to Bakery at 1280 px, the shutter's frame strip, and the Bakery sign-in page at phone width; the public demo at `9849c31` was also opened for the maintainer in a browser. The other pictures were checked against the design during the run (VALIDATION.md, "Pictures from the fresh clone of `9849c31`"). None is kept in the repository, where the README stays on Pastry shop |
 | Version 0.3.0 | Passed | `tests/docs.test.mjs` (the lock file and both READMEs follow `package.json`), `tests/auth.test.mjs` (the session reports it), in the run above. The footer in the README screenshots retaken by `scripts/screenshots.mjs` reads "Crumb 0.3.0 is open-source software (MIT).", checked in those screenshots during the run |
+| Documents | Partly | Automated: `tests/docs.test.mjs` (local links resolve, every README image exists and has an alt text) and `tests/source.test.mjs` (no invisible characters). Not automated: what README (EN/ZH), THEMES.md, OPERATIONS.md, DEPLOYMENT.md and CONTRIBUTING.md say; their new sentences were shown to the maintainer and approved before they were committed |
+| CI and the container drill for this round | Passed | Both jobs passed on the pull request's last commit `057cd38` and on the merge commit `5247e73` on `main`: the tests on Linux with none skipped, and the container drill (VALIDATION.md, "Results in CI"). |
+
+## The café round
+
+Checked on a fresh clone of the development branch `feature/cafe` on 2026-10-17, on one Windows
+computer, in Chromium only (`npm test` 342 passed and 2 skipped of 344, theme lists
+current, process drill 20 of 20, browser tests 216 of 216). The commit cloned was `ce41879`
+("docs: the Café in the guides; version 0.4.0; screenshots retaken"); since that run only this checklist and VALIDATION.md have changed, so its code is
+the code of this release. CI has not run on this round (the branch has not been pushed), so
+nothing here ran on Linux or in the container.
+
+| Requirement | Status | Evidence |
+| --- | --- | --- |
+| Café, a third theme: 24 coffees and sweets, 16 new drawings with Hot Coffee as its mascot | Passed | `tests/themes.test.mjs`, `tests/collections.test.mjs` (Café's list file equals a fresh build and what the server loads; its 24 released keys, the 8 shared desserts included; rotation, card, name and `background`; three names for every key), and `node scripts/theme-manifest.mjs --check` in the run above |
+| Pastry shop and Bakery unchanged, pixel for pixel and word for word | Passed (Chromium only) | `tests/light-styles.test.mjs` (every 0.3.0 rule of both stylesheets computes the same declarations with the light values); E2E in `tests/e2e/light-unchanged.spec.mjs` (every computed colour, state and pseudo-element on both themes' pages and on the demo's two shops equals a record made from 0.3.0) and `tests/e2e/canvas-colours.spec.mjs` (the balance, `CRUMB` and the chevron in 0.3.0's colours); `tests/i18n.test.mjs` (their sentences); their list files and icons byte for byte as in 0.3.0, in the run above |
+| Café's own colours, always dark | Passed (Chromium only) | `tests/colours.test.mjs` (every themed variable given; no colour outside a variable; `background` equals `--bg`; no `prefers-color-scheme`); E2E in `tests/e2e/theme-colours.spec.mjs` |
+| Every café text at least 4.5:1 | Passed (Chromium only) | `tests/colours.test.mjs` (the design's pairs, every stop of a gradient ground); E2E in `tests/e2e/cafe-contrast.spec.mjs` (every visible text on the café's member, Team, Settings and sign-in pages, the keypad, toasts, the intro and the demo, element and ancestor opacity multiplied in, the playing tour's counter at its café fade of 0.8; disabled controls and locked cards left out, as WCAG 1.4.3 allows, and the moment of signing out skipped) |
+| The café's focus ring and input borders at least 3:1 | Partly (Chromium only) | `tests/colours.test.mjs` (the design's pairs for the ring and the field border); E2E in `tests/e2e/cafe-contrast.spec.mjs` (the ring of every control the keyboard reaches on those pages, the one a dialog, menu or sheet opens on included, against the ground its control sits on; the border of every visible input and select, the language select and disabled fields included, against its own ground and the ground beside it). Not measured: the border of a disabled select, which Chromium fades to 0.7 (the café's locked currency select is 2.38:1 on paper and 2.50:1 on the tile beside it; shown to the maintainer and kept); the sliver of a ring that brushes a neighbouring control (the header's current-page pill, the demo's pressed shop button), where the ground under that control is measured instead; the browser's own ring on the demo's links and its log's scroller |
+| The theme reaches the page, the device and the browser bar | Passed (Chromium only) | `tests/pixels.test.mjs` (`colourToken`, `themeBackground`); E2E in `tests/e2e/theme-colours.spec.mjs` (the design's table row by row; saving Café in Settings recolours without a reload, and back; the Settings and member pages pick up a switch made in another tab). The browser bar's colour on a real phone: **not verified** |
+| No light flash | Passed (Chromium only) | E2E in `tests/e2e/no-flash.spec.mjs` (a second visit dark while the session is held back; a new device dark when the session arrives; the sign-in page dark after signing out, also with no answer to who is here now; a light setup page for a remembered café with no team), `tests/e2e/static-host.spec.mjs` (the static copy always light), `tests/e2e/product.spec.mjs` (blocked storage on a café team). On a real phone: **not verified** |
+| Canvases in the theme's colours | Passed (Chromium only) | E2E in `tests/e2e/canvas-colours.spec.mjs` (the café balance and `CRUMB`, and the demo's after a switch) and `tests/e2e/theme-colours.spec.mjs` (under forced colours, the café balance and `CRUMB` in the system's text colour) |
+| Theme cards in their own colours | Passed (Chromium only) | E2E in `tests/e2e/theme-colours.spec.mjs` (setup: the café card dark, the others light, choosing Café leaves the page light; a café team's Settings: the Pastry shop and Bakery cards light, selectable and locked), `tests/e2e/accessibility.spec.mjs` (the three cards by keyboard, at phone and laptop width) |
+| The mascot's steam | Passed (Chromium only) | `tests/steam.test.mjs` (the step table, the wisps, `[0,1,1,0]` for Hot Coffee, the rule checks), `tests/pixels.test.mjs`; E2E in `tests/e2e/steam.spec.mjs` (a tap, the intro, reduced motion). Its eight steps were shown to the maintainer with the drawings |
+| Café's icons | Partly | `tests/icons.test.mjs` (the four café files drawn on `#160F0A`; Pastry shop's and Bakery's unchanged; a café team gets Café's at the fixed addresses). An icon on a real phone's home screen: **not verified** |
+| Café's sentences | Passed | `tests/i18n.test.mjs` (the 14 sentences, the name and the card line word for word; `THEMED_KEYS` holds seven keys; both languages); E2E in `tests/e2e/themes.spec.mjs` (a café team's "next item" line and intro) |
+| A change to or from Café keeps 0.3's rules | Passed | `tests/org.test.mjs` (from Pastry shop to Café, the icons of the three shared desserts stay and the rest are removed) |
+| No server change, no migration | Passed | In the run above: nothing under `server/` changed since 0.3.0; `tests/db.test.mjs` (a database at schema 3 opens as it is) |
+| Going from 0.1 or 0.2 straight to 0.4 | Partly | `tests/db.test.mjs` (the migration tests: a schema 1 database runs 002 and 003, a 0.2.0 database runs 003, and both open on `default` with their data intact). A real deployment of 0.1, 0.2 or 0.3 upgraded by the 0.4 image, with or without Docker: **not verified** |
+| No page trips the CSP, at both widths | Passed (Chromium only) | `tests/e2e/accessibility.spec.mjs` (also on a café team: no sideways scrolling, no CSP violations). That this check fails when a café page breaks the policy: **not verified** (see VALIDATION.md, "Not verified") |
+| The public demo's café | Passed (Chromium only) | E2E in `tests/e2e/demo.spec.mjs` (three buttons at phone width; everything Café's after a switch, no console errors, no visible "oven"; colours changed behind the shutter; the same sign colour in all three shops; reduced motion; no frame of the old shop's motion; remembered and dark from the first paint; kept by "Reset the demo"; the tour from Sam) and `tests/e2e/canvas-colours.spec.mjs`. On GitHub Pages: **not verified** until merged |
+| The 16 new drawings | Reviewed by eye | In two batches of eight, Hot Coffee in the first, before they were final (§13 of the café design, gate 1): the first approved on 2026-10-16, the second on 2026-10-17. The drawings in the commit cloned are exactly the approved ones, compared during the run with the approval record kept outside the repository |
+| Café's pages, theme cards and the demo | Reviewed by eye | Taken from the fresh clone of `ce41879` and shown to the maintainer with every colour and porcelain ground the design leaves as a choice, approved on 2026-10-17 (§13 of the café design, gate 3); the demo's switch between the three shops was shown served on this computer from the same commit. None of these pictures is kept in the repository, where the README stays on Pastry shop |
+| Version 0.4.0 | Passed | `tests/docs.test.mjs` (the lock file and both READMEs follow `package.json`), `tests/auth.test.mjs` (the session reports it), in the run above. The footer in the README screenshots retaken by `scripts/screenshots.mjs` reads "Crumb 0.4.0 is open-source software (MIT).", checked in those screenshots during the run |
 | Documents | Partly | Automated: `tests/docs.test.mjs` (local links resolve, every README image exists and has an alt text) and `tests/source.test.mjs` (no invisible characters). Not automated: what README (EN/ZH), THEMES.md, OPERATIONS.md, DEPLOYMENT.md and CONTRIBUTING.md say; their new sentences were shown to the maintainer and approved before they were committed |
 | CI and the container drill for this round | Not verified | The branch has not been pushed; Docker is not installed on the computer that ran the fresh clone. |
 
@@ -150,7 +188,10 @@ the container.
 - [x] The one-page round: push the branch, open a pull request, get both CI jobs green (the
       tests on Linux and the container drill), and record that run in VALIDATION.md (green on
       `1fb57ee` and on `bbfda7f`, recorded with the themes round).
-- [ ] The themes round: push the branch, open a pull request, get both CI jobs green (the
+- [x] The themes round: push the branch, open a pull request, get both CI jobs green (the
+      tests on Linux and the container drill), and record that run in VALIDATION.md (green on
+      `057cd38` and on `5247e73`, recorded with the café round).
+- [ ] The café round: push the branch, open a pull request, get both CI jobs green (the
       tests on Linux and the container drill), and record that run in VALIDATION.md.
 - [ ] The one-page round on a real phone: the member page in both spending modes, the keypad,
       the name menu, and the intro with and without reduced motion.
@@ -167,12 +208,19 @@ the container.
 - [ ] The same on an Android phone, and opening a sent picture with a long press.
 - [ ] Decide the open items listed under "Known limits" in VALIDATION.md.
 - [ ] Try the HTTPS setup on a real domain once, including a backup and a restore.
-- [ ] After merging, check that the demo with its switch between Pastry shop and Bakery, the
-      README links and the GitHub Pages site work. The app folder that GitHub Pages also
+- [ ] After merging, check that the demo with its switch between Pastry shop, Bakery and Café,
+      the README links and the GitHub Pages site work. The app folder that GitHub Pages also
       publishes says it needs its own server (tested with a local server laid out like GitHub
-      Pages).
+      Pages). For 0.3.0 the demo's switch to Bakery and the app folder were checked on the
+      published site; the README links were not.
 - [ ] The themes round on a real phone: a Bakery team's member page, header and intro, its
       icon added to the home screen, and the demo's switch and shutter.
 - [ ] Upgrade a copy of a real instance of 0.2 (invented data) with the 0.3 image, as
       OPERATIONS.md describes, and check that it comes up on Pastry shop with its balances,
       collections, benefit icons and settings unchanged.
+- [ ] The café round on a real phone: a café team's member page, keypad, intro and steam, the
+      sign-in page after signing out, its icon added to the home screen, the browser bar's
+      colour, and the demo's switch to Café.
+- [ ] Upgrade a copy of a real instance of 0.3 (invented data) with the 0.4 image, as
+      OPERATIONS.md describes, check that its team, balances, collections and settings are
+      unchanged, then go back to the 0.3 image with a Pastry shop or Bakery team.
