@@ -253,18 +253,18 @@ test('backups, restored copies and new databases can be read by their owner only
   });
 
 // The refusal's wording is pinned once, in tests/themes.test.mjs.
-const UNKNOWN_THEME = unknownThemeError('cafe').message;
+const UNKNOWN_THEME = unknownThemeError('nosuchtheme').message;
 
 test('restore refuses a backup whose team uses a theme this version does not include', async t => {
   const { db, dir } = fixture(t);
-  const backup = (await backupDatabase(db, join(dir, 'cafe.sqlite'))).path;
+  const backup = (await backupDatabase(db, join(dir, 'nosuchtheme.sqlite'))).path;
   const raw = new Database(backup);
-  raw.prepare(`UPDATE organization SET theme = 'cafe' WHERE id = 1`).run();
+  raw.prepare(`UPDATE organization SET theme = 'nosuchtheme' WHERE id = 1`).run();
   raw.close();
-  const destination = join(dir, 'from-cafe', 'crumb.sqlite');
+  const destination = join(dir, 'from-nosuchtheme', 'crumb.sqlite');
   await assert.rejects(restoreDatabase({ sourcePath: backup, destinationPath: destination }),
     { code: 'THEME_UNKNOWN', message: UNKNOWN_THEME });
-  assert.deepEqual(readdirSync(join(dir, 'from-cafe')), [], 'neither the target nor a temporary copy is left behind');
+  assert.deepEqual(readdirSync(join(dir, 'from-nosuchtheme')), [], 'neither the target nor a temporary copy is left behind');
 });
 
 /* A backup made by an earlier release: migrations 001 up to `version` applied the way

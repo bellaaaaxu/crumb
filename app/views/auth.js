@@ -6,7 +6,7 @@ import { request, setCsrf, wasRefused } from '../api.js';
 import { button, el, field, formError, inWeChat, openedAsIPhoneHomeScreenApp, radios, toast, uid } from '../dom.js';
 import { LANGUAGES, getLocale, t, themed } from '../i18n.js';
 import { amountToUnits } from '../format.js';
-import { mascotKey, pixelWord, spriteCanvas } from '../pixels.js';
+import { colourToken, mascotKey, pixelWord, spriteCanvas } from '../pixels.js';
 import { loading, themeCards } from './shared.js';
 
 const USERNAME = /^[a-z0-9._-]{3,64}$/;
@@ -24,8 +24,10 @@ function frame(ctx, title, children) {
   const org = ctx.session.org;
   return el('main', { attrs: { id: 'main', class: 'auth', tabindex: '-1' } }, [
     el('div', { attrs: { class: 'auth-card' } }, [
-      // The team's mascot. Before setup there is no team yet, and Pastry shop's is drawn.
-      el('div', { attrs: { class: 'auth-brand' } }, [brandMascot(org?.theme), pixelWord('CRUMB', 5, '#4a2f1b')]),
+      // The team's mascot. Before setup there is no team yet, and Pastry shop's is drawn. The
+      // wordmark is in the page's --wordmark, read from the page root: this card is not in the
+      // page yet.
+      el('div', { attrs: { class: 'auth-brand' } }, [brandMascot(org?.theme), pixelWord('CRUMB', 5, colourToken('--wordmark'))]),
       org?.hasLogo ? el('img', { attrs: { src: '/api/org/logo', alt: t('auth.logoAlt', { name: org.name }), class: 'auth-logo' } }) : null,
       el('h1', { text: title }),
       ...children,

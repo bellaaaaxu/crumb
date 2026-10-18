@@ -1,26 +1,123 @@
 /* Crumb — the self-hosted app. The same warm world as the public demo:
    white tiles with a heavy bottom shadow, bakery browns, pixel pastries, 3D
-   buttons. One light theme. Small text uses a shade darker than the demo so it
-   passes WCAG AA on cream. */
+   buttons. Small text uses a shade darker than the demo so it passes WCAG AA
+   on cream. Every colour comes from a variable: the light set below is Pastry
+   shop's and Bakery's, and sits on the page and on any element with
+   data-theme, so a theme with colours of its own can give its own set. */
 
-:root {
+:root, [data-theme] {
   color-scheme: light;
+  /* page and grounds */
   --bg: #f2e7ce;
+  --page-art:
+    repeating-linear-gradient(0deg, rgba(122, 74, 38, 0.025) 0 2px, transparent 2px 24px),
+    repeating-linear-gradient(90deg, rgba(122, 74, 38, 0.025) 0 2px, transparent 2px 24px);
   --tile: #fffdf6;
+  --lift: 0 6px 0 rgba(122, 74, 38, 0.18), 0 10px 26px rgba(74, 47, 27, 0.1);
+  --lamp-bg: var(--tile);
+  --lamp-shadow: var(--lift);
   --paper: #fbf3e0;
+  --chosen: #fff8e6;
+  /* text */
   --ink: #4a2f1b;
+  --holder-ink: var(--ink);
   --ink-soft: #7a5c40;
-  --wood: #7a4a26;
-  --wood-deep: #5c3a1d;
-  --gold: #efb63c;
-  --gold-deep: #c98f1f;
+  --card-soft: var(--ink-soft);
+  --tile-label: var(--ink-soft);
+  --accent: #7a4a26;
+  --price: #5c3a1d;
   --plus: #2f7a4a;
   --minus: #b83f33;
+  /* read by scripts that draw on a canvas: plain colours only */
+  --digit: #4a2f1b;
+  --wordmark: #4a2f1b;
+  /* buttons and controls */
+  --primary-bg: #7a4a26;
+  --primary-ink: #fff3dc;
+  --primary-shadow: 0 5px 0 #5c3a1d;
+  --primary-shadow-active: 0 1px 0 #5c3a1d;
+  --confirm-bg: #efb63c;
+  --confirm-ink: #5c3a1d;
+  --confirm-shadow: 0 4px 0 #9c6e14;
+  --confirm-shadow-active: 0 1px 0 #9c6e14;
+  --btn-ledge: #d3bc92;
+  --control-accent: #7a4a26;
+  --focus: #0f6f7a;
+  /* frames, bars, pills */
+  --frame: #7a4a26;
+  --intro-ledge: #5c3a1d;
+  --link-panel-border: #c98f1f;
+  --bar-bg: #7a4a26;
+  --bar-ink: #fff3dc;
+  --bar-shadow: none;
+  --bar-dot: #efb63c;
+  --pill-bg: #7a4a26;
+  --pill-ink: #fff8e6;
+  --skip-bg: #5c3a1d;
+  --skip-ink: #fff8e6;
+  --bubble-bg: #7a4a26;
+  --bubble-ink: #fff3dc;
+  /* lines: between sections, and between the rows of a list */
   --line: #e4d2ae;
+  --row-line: var(--line);
+  --rule-style: dashed;
+  /* slots, and the ground under a single drawing (none in light) */
   --slot-bg: #efdcb6;
   --slot-border: #a9793f;
-  --focus: #0f6f7a;
-  --lift: 0 6px 0 rgba(122, 74, 38, 0.18), 0 10px 26px rgba(74, 47, 27, 0.1);
+  --slot-shadow: inset 0 3px 0 rgba(122, 74, 38, 0.22), inset 0 -2px 0 rgba(255, 250, 235, 0.7);
+  --slot-empty-bg: var(--slot-bg);
+  --slot-empty-border: var(--slot-border);
+  --slot-empty-shadow: var(--slot-shadow);
+  --slot-ink: var(--ink);
+  --face-bg: none;
+  --face-ring: none;
+  --face-pad: 0;
+  --face-box: border-box;
+  --face-radius: 0;
+  --mascot-radius: 8px;
+  --row-icon-size: 36px;
+  --pic-bg: none;
+  --pic-ring: none;
+  --pic-pad: 0;
+  --pic-box: border-box;
+  --pic-radius: 0;
+  /* logos */
+  --brand-logo-bg: var(--tile);
+  --brand-logo-pad: 0;
+  --auth-logo-bg: none;
+  --auth-logo-pad: 0;
+  --auth-logo-radius: 0;
+  --logo-preview-bg: var(--paper);
+  /* fields and keypad */
+  --field-bg: var(--tile);
+  --field-border: var(--line);
+  --key-bg: #f6ebd2;
+  --key-border: #d9c09a;
+  --key-ledge: #c9a874;
+  --amount-zero: #d9c4a6;
+  /* notices and badges */
+  --warn-bg: #fff3cf;
+  --warn-border: #efd28a;
+  --warn-ink: #7a5200;
+  --ok-bg: #e7f3ea;
+  --ok-border: #b9dcc4;
+  --ok-ink: #245c39;
+  --bad-bg: #f8e4e1;
+  --bad-border: #e8b9b2;
+  --bad-ink: #8e2f25;
+  /* toasts */
+  --toast-bg: #7a4a26;
+  --toast-border: #5c3a1d;
+  --toast-ink: #fff3dc;
+  --toast-shadow: 0 4px 0 #5c3a1d, 0 10px 26px rgba(74, 47, 27, 0.35);
+  --toast-error-bg: #b83f33;
+  --toast-error-border: #93342a;
+  --toast-error-ink: #fff3dc;
+  --toast-error-shadow: 0 4px 0 #93342a, 0 10px 26px rgba(74, 47, 27, 0.35);
+}
+
+/* Layout, the same in every theme. */
+:root {
   --radius-tile: 20px;
   --radius-btn: 16px;
 }
@@ -29,9 +126,7 @@
 
 body {
   background: var(--bg);
-  background-image:
-    repeating-linear-gradient(0deg, rgba(122, 74, 38, 0.025) 0 2px, transparent 2px 24px),
-    repeating-linear-gradient(90deg, rgba(122, 74, 38, 0.025) 0 2px, transparent 2px 24px);
+  background-image: var(--page-art);
   color: var(--ink);
   font-family: ui-rounded, 'SF Pro Rounded', -apple-system, BlinkMacSystemFont,
     'Segoe UI', Roboto, 'Helvetica Neue', Arial,
@@ -43,7 +138,7 @@ body {
 button, input, select, textarea { font: inherit; color: inherit; }
 button { background: none; border: 0; cursor: pointer; }
 canvas { display: block; image-rendering: pixelated; }
-a { color: var(--wood); text-underline-offset: 3px; }
+a { color: var(--accent); text-underline-offset: 3px; }
 :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
 [hidden] { display: none !important; }
 .muted { color: var(--ink-soft); }
@@ -53,7 +148,7 @@ a { color: var(--wood); text-underline-offset: 3px; }
 
 .skip-link {
   position: absolute; left: 12px; top: -60px; z-index: 50;
-  background: var(--wood-deep); color: #fff8e6; padding: 8px 14px; border-radius: 10px; font-weight: 700;
+  background: var(--skip-bg); color: var(--skip-ink); padding: 8px 14px; border-radius: 10px; font-weight: 700;
 }
 .skip-link:focus { top: 12px; }
 .boot, .loading { color: var(--ink-soft); }
@@ -67,18 +162,23 @@ a { color: var(--wood); text-underline-offset: 3px; }
   padding: 12px max(16px, calc((100% - 1100px) / 2)) 6px;
   min-height: 52px;
 }
-.brand { display: flex; align-items: center; gap: 8px; min-width: 0; font-weight: 800; letter-spacing: 0.12em; color: var(--wood); text-transform: uppercase; }
+.brand { display: flex; align-items: center; gap: 8px; min-width: 0; font-weight: 800; letter-spacing: 0.12em; color: var(--accent); text-transform: uppercase; }
 .brand-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.mascot { display: block; line-height: 0; flex: none; border-radius: 8px; }
+.mascot { display: block; line-height: 0; flex: none; border-radius: var(--mascot-radius); }
 .mascot:active { transform: scale(0.92); }
 .mascot.crack { animation: crack 0.46s ease; }
 @keyframes crack { 0% { transform: rotate(0) } 25% { transform: rotate(-9deg) } 55% { transform: rotate(7deg) } 100% { transform: rotate(0) } }
-.brand-logo { width: 32px; height: 32px; object-fit: contain; border-radius: 8px; background: var(--tile); flex: none; }
+.brand-logo { width: 32px; height: 32px; object-fit: contain; border-radius: 8px; background: var(--brand-logo-bg); padding: var(--brand-logo-pad); flex: none; }
+/* A single drawing on its own ground: the header and sign-in mascots, the "next item" picture,
+ * a benefit's icon. The canvas keeps its drawing size; any padding goes outside it. */
+.mascot canvas, .auth-mascot, .oven-caption canvas, .row-icon canvas {
+  background: var(--face-bg); box-shadow: var(--face-ring); padding: var(--face-pad); box-sizing: var(--face-box); border-radius: var(--face-radius);
+}
 
 .main-nav { display: none; gap: 4px; margin-left: 6px; }
 .main-nav a { padding: 6px 12px; border-radius: 999px; text-decoration: none; font-weight: 700; font-size: 0.9rem; color: var(--ink-soft); }
 .main-nav a:hover { background: var(--paper); color: var(--ink); }
-.main-nav a[aria-current='page'] { background: var(--wood); color: #fff8e6; }
+.main-nav a[aria-current='page'] { background: var(--pill-bg); color: var(--pill-ink); }
 @media (min-width: 720px) { .main-nav { display: flex; } }
 
 .account { position: relative; margin-left: auto; flex: none; }
@@ -100,11 +200,11 @@ a { color: var(--wood); text-underline-offset: 3px; }
 }
 .menu a, .menu button, .menu .language { display: flex; align-items: center; justify-content: flex-start; gap: 8px; width: 100%; padding: 10px 12px; border-radius: 10px; text-align: left; text-decoration: none; font-weight: 700; color: var(--ink); }
 .menu a:hover, .menu button:hover { background: var(--paper); }
-.menu a[aria-current='page'] { background: var(--wood); color: #fff8e6; }
+.menu a[aria-current='page'] { background: var(--pill-bg); color: var(--pill-ink); }
 .menu-nav { border-bottom: 2px dashed var(--line); padding-bottom: 6px; margin-bottom: 6px; }
 @media (min-width: 720px) { .menu-nav { display: none; } }
 .menu .language { justify-content: space-between; font-size: 0.9rem; color: var(--ink-soft); }
-.language select { padding: 4px 8px; border: 2px solid var(--line); border-radius: 10px; background: var(--tile); color: var(--ink); }
+.language select { padding: 4px 8px; border: 2px solid var(--field-border); border-radius: 10px; background: var(--field-bg); color: var(--ink); }
 
 /* ------------------------------------------------------------------ page */
 
@@ -119,7 +219,7 @@ a { color: var(--wood); text-underline-offset: 3px; }
 .tile { background: var(--tile); border-radius: var(--radius-tile); padding: 18px 18px 16px; box-shadow: var(--lift); min-width: 0; }
 .tile.enter { animation: tileSlide 0.5s cubic-bezier(0.3, 1.3, 0.4, 1); }
 @keyframes tileSlide { from { transform: translateY(-46px); opacity: 0; } to { transform: none; opacity: 1; } }
-.tile-title { font-size: 0.8rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--wood); margin-bottom: 10px; }
+.tile-title { font-size: 0.8rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); margin-bottom: 10px; }
 .tile > * + * { margin-top: 10px; }
 .tile > .tile-title + * { margin-top: 0; }
 /* A heading only screen readers hear takes no room, so it adds no gap either. */
@@ -129,9 +229,9 @@ a { color: var(--wood); text-underline-offset: 3px; }
 
 /* ------------------------------------------------------------------ the main tile */
 
-.main-tile { text-align: center; padding: 18px 16px 16px; }
-.holder { display: flex; justify-content: space-between; font-size: 0.9rem; font-weight: 700; text-align: left; overflow-wrap: anywhere; }
-.credit-label { margin-top: 12px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.3em; text-transform: uppercase; color: var(--ink-soft); }
+.main-tile { text-align: center; padding: 18px 16px 16px; background: var(--lamp-bg); box-shadow: var(--lamp-shadow); }
+.holder { display: flex; justify-content: space-between; font-size: 0.9rem; font-weight: 700; text-align: left; overflow-wrap: anywhere; color: var(--holder-ink); }
+.credit-label { margin-top: 12px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.3em; text-transform: uppercase; color: var(--tile-label); }
 .big-number { display: flex; justify-content: center; align-items: center; margin-top: 8px; min-height: 45px; }
 .big-number.dip { animation: dip 0.45s; }
 @keyframes dip { 35% { transform: scale(0.92); } }
@@ -141,20 +241,22 @@ a { color: var(--wood); text-underline-offset: 3px; }
 .slots { list-style: none; display: flex; justify-content: center; flex-wrap: wrap; gap: 6px; margin-top: 16px; min-height: 46px; }
 .slot {
   position: relative; width: 42px; height: 42px; border-radius: 10px;
-  background: var(--slot-bg); border: 2.5px solid var(--slot-border);
-  box-shadow: inset 0 3px 0 rgba(122, 74, 38, 0.22), inset 0 -2px 0 rgba(255, 250, 235, 0.7);
+  background: var(--slot-bg); border: 2.5px solid var(--slot-border); color: var(--slot-ink);
+  box-shadow: var(--slot-shadow);
   display: flex; align-items: center; justify-content: center;
 }
+/* A place on the shelf with nothing in it yet. */
+.slots > .slot:not(.filled) { background: var(--slot-empty-bg); border-color: var(--slot-empty-border); box-shadow: var(--slot-empty-shadow); }
 .slot.pop { animation: slotPop 0.4s cubic-bezier(0.34, 1.7, 0.64, 1) backwards; }
 @keyframes slotPop { from { transform: translateY(-26px) scale(0.4); opacity: 0; } to { transform: none; opacity: 1; } }
 .slot-button { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; border-radius: 8px; }
 .slot-name {
   display: none; position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%); z-index: 5;
-  width: max-content; max-width: 10rem; background: var(--wood); color: #fff3dc;
+  width: max-content; max-width: 10rem; background: var(--bubble-bg); color: var(--bubble-ink);
   font-size: 0.75rem; font-weight: 700; line-height: 1.3; padding: 5px 10px; border-radius: 8px; pointer-events: none;
 }
 .slot-button:hover .slot-name, .slot-button:focus-visible .slot-name, .slot-button.show-name .slot-name { display: block; }
-.oven-caption { display: flex; align-items: center; justify-content: center; gap: 7px; margin-top: 10px; font-size: 0.8rem; color: var(--ink-soft); }
+.oven-caption { display: flex; align-items: center; justify-content: center; gap: 7px; margin-top: 10px; font-size: 0.8rem; color: var(--card-soft); }
 .oven-caption b { color: var(--ink); }
 .oven-caption.complete { color: var(--plus); font-weight: 700; }
 
@@ -164,14 +266,14 @@ a { color: var(--wood); text-underline-offset: 3px; }
   display: inline-flex; align-items: center; justify-content: center; gap: 6px;
   padding: 10px 16px; line-height: 1.2; border-radius: var(--radius-btn);
   background: var(--paper); color: var(--ink); font-weight: 800; text-decoration: none; cursor: pointer;
-  box-shadow: 0 4px 0 #d3bc92; transition: transform 0.1s, box-shadow 0.1s;
+  box-shadow: 0 4px 0 var(--btn-ledge); transition: transform 0.1s, box-shadow 0.1s;
 }
-.btn:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 1px 0 #d3bc92; }
+.btn:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 1px 0 var(--btn-ledge); }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.btn-primary { background: var(--wood); color: #fff3dc; box-shadow: 0 5px 0 var(--wood-deep); }
-.btn-primary:active:not(:disabled) { transform: translateY(4px); box-shadow: 0 1px 0 var(--wood-deep); }
+.btn-primary { background: var(--primary-bg); color: var(--primary-ink); box-shadow: var(--primary-shadow); }
+.btn-primary:active:not(:disabled) { transform: translateY(4px); box-shadow: var(--primary-shadow-active); }
 .btn-danger { color: var(--minus); }
-.btn-quiet { background: none; box-shadow: none; padding: 8px; color: var(--wood); text-decoration: underline; text-underline-offset: 3px; }
+.btn-quiet { background: none; box-shadow: none; padding: 8px; color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
 .btn-quiet:active:not(:disabled) { transform: none; box-shadow: none; }
 .act { width: 100%; padding: 15px 8px; font-size: 1rem; letter-spacing: 0.04em; }
 .actions-hint { text-align: center; font-size: 0.8rem; color: var(--ink-soft); margin-top: -6px; }
@@ -183,21 +285,21 @@ a { color: var(--wood); text-underline-offset: 3px; }
 .quest { border-radius: 18px; box-shadow: var(--lift); background: var(--tile); }
 .quest-head {
   width: 100%; display: flex; align-items: center; gap: 8px; padding: 11px 18px; text-align: left; border-radius: 18px 18px 0 0;
-  background: var(--wood); color: #fff3dc; font-size: 0.8rem; font-weight: 800; letter-spacing: 0.2em;
+  background: var(--bar-bg); color: var(--bar-ink); box-shadow: var(--bar-shadow); font-size: 0.8rem; font-weight: 800; letter-spacing: 0.2em;
 }
 .quest-head:disabled { cursor: default; }
-.quest-head .dot { width: 8px; height: 8px; background: var(--gold); transform: rotate(45deg); flex: none; }
+.quest-head .dot { width: 8px; height: 8px; background: var(--bar-dot); transform: rotate(45deg); flex: none; }
 .quest-head .title { flex: 1; }
 .quest-head .toggle { font-size: 0.75rem; letter-spacing: 0.06em; opacity: 0.9; display: flex; align-items: center; gap: 5px; }
 .quest-head .chev { display: inline-block; transition: transform 0.3s; }
 .quest.open .chev { transform: rotate(180deg); }
 .quest-body { padding: 2px 18px 6px; }
 .quest-empty { padding: 16px 0; text-align: center; font-size: 0.875rem; color: var(--ink-soft); }
-.quest-month { display: flex; align-items: center; gap: 10px; padding: 14px 0 6px; font-size: 0.75rem; font-weight: 800; letter-spacing: 0.16em; color: var(--ink-soft); border-top: 2px dashed var(--line); }
+.quest-month { display: flex; align-items: center; gap: 10px; padding: 14px 0 6px; font-size: 0.75rem; font-weight: 800; letter-spacing: 0.16em; color: var(--ink-soft); border-top: 2px var(--rule-style) var(--row-line); }
 .quest-month:first-child { border-top: none; }
 .quest-month::after { content: ''; flex: 1; height: 2px; background: var(--line); border-radius: 2px; }
 .quest-month + .rec { border-top: none; }
-.rec { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; padding: 11px 0; border-top: 2px dashed var(--line); }
+.rec { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; padding: 11px 0; border-top: 2px var(--rule-style) var(--row-line); }
 .rec:first-child { border-top: none; }
 .rec-diamond { width: 9px; height: 9px; transform: rotate(45deg); flex: none; }
 .rec-diamond.plus { background: var(--plus); }
@@ -228,7 +330,7 @@ a { color: var(--wood); text-underline-offset: 3px; }
 /* ------------------------------------------------------------------ rows and badges (admin lists, benefits) */
 
 .rows { list-style: none; }
-.row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 0; border-top: 2px dashed var(--line); }
+.row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 0; border-top: 2px var(--rule-style) var(--row-line); }
 .row:first-child { border-top: none; padding-top: 2px; }
 .row-main { flex: 1 1 14rem; min-width: 0; overflow-wrap: anywhere; }
 .row-title { font-weight: 700; overflow-wrap: anywhere; }
@@ -246,15 +348,15 @@ button.person .person-head::after { content: ''; width: 7px; height: 7px; margin
 button.person[aria-expanded='true'] .person-head::after { transform: rotate(-135deg) translate(-2px, -1px); }
 .person-panel { flex: 1 1 100%; min-width: 0; padding: 6px 0 2px; }
 .person-panel .link-panel { margin-top: 10px; }
-.row-icon { flex: none; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; }
-.price { font-weight: 800; color: var(--wood-deep); font-variant-numeric: tabular-nums; }
+.row-icon { flex: none; width: var(--row-icon-size); height: var(--row-icon-size); display: flex; align-items: center; justify-content: center; }
+.price { font-weight: 800; color: var(--price); font-variant-numeric: tabular-nums; }
 .amount { min-width: 5.5rem; font-weight: 800; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .amount.plus { color: var(--plus); }
 .amount.minus { color: var(--minus); }
 .badge { display: inline-block; padding: 2px 10px; border-radius: 999px; white-space: nowrap; font-size: 0.8rem; font-weight: 700; background: var(--paper); border: 1px solid var(--line); color: var(--ink-soft); }
-.badge-pending { background: #fff3cf; border-color: #efd28a; color: #7a5200; }
-.badge-completed, .badge-open, .badge-member-active { background: #e7f3ea; border-color: #b9dcc4; color: #245c39; }
-.badge-rejected, .badge-revoked, .badge-voided, .badge-closed, .badge-member-deactivated { background: #f8e4e1; border-color: #e8b9b2; color: #8e2f25; }
+.badge-pending { background: var(--warn-bg); border-color: var(--warn-border); color: var(--warn-ink); }
+.badge-completed, .badge-open, .badge-member-active { background: var(--ok-bg); border-color: var(--ok-border); color: var(--ok-ink); }
+.badge-rejected, .badge-revoked, .badge-voided, .badge-closed, .badge-member-deactivated { background: var(--bad-bg); border-color: var(--bad-border); color: var(--bad-ink); }
 
 /* ------------------------------------------------------------------ forms */
 
@@ -267,7 +369,7 @@ details.invite[open] > summary { margin-bottom: 12px; }
 details.invite > p { margin-bottom: 10px; }
 .field-hint { font-size: 0.85rem; color: var(--ink-soft); }
 .field input:not([type='checkbox']):not([type='radio']):not([type='file']), .field select, .field textarea {
-  width: 100%; padding: 10px 12px; border: 2px solid var(--line); border-radius: 12px; background: var(--tile);
+  width: 100%; padding: 10px 12px; border: 2px solid var(--field-border); border-radius: 12px; background: var(--field-bg);
 }
 .field input[type='file'] { max-width: 100%; font-size: 0.9rem; }
 .field textarea { resize: vertical; min-height: 4.5em; }
@@ -276,33 +378,38 @@ details.invite > p { margin-bottom: 10px; }
   background: var(--paper); color: var(--ink-soft); border-style: dashed; cursor: not-allowed;
 }
 .field-error { color: var(--minus); font-size: 0.875rem; font-weight: 700; }
-.form-error { padding: 10px 12px; border-radius: 12px; background: #f8e4e1; color: #8e2f25; font-weight: 700; }
-.notice { padding: 10px 12px; border-radius: 12px; background: #fff3cf; border: 2px solid #efd28a; font-size: 0.92rem; }
-.home-tip { display: flex; flex-direction: column; gap: 6px; padding: 14px 16px; border-radius: 14px; background: #fff3cf; border: 2px solid #efd28a; }
+.form-error { padding: 10px 12px; border-radius: 12px; background: var(--bad-bg); color: var(--bad-ink); font-weight: 700; }
+.notice { padding: 10px 12px; border-radius: 12px; background: var(--warn-bg); border: 2px solid var(--warn-border); font-size: 0.92rem; }
+.home-tip { display: flex; flex-direction: column; gap: 6px; padding: 14px 16px; border-radius: 14px; background: var(--warn-bg); border: 2px solid var(--warn-border); }
 .home-tip .btn { align-self: flex-start; }
 fieldset { border: 0; min-width: 0; }
 fieldset.group { display: flex; flex-direction: column; gap: 14px; padding-top: 12px; border-top: 2px dashed var(--line); }
-fieldset.group > legend { font-size: 0.8rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--wood); padding-right: 8px; }
+fieldset.group > legend { font-size: 0.8rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); padding-right: 8px; }
 .radios { display: flex; flex-direction: column; gap: 8px; }
 .radios legend { margin-bottom: 6px; }
 .radio { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border: 2px solid var(--line); border-radius: 12px; background: var(--tile); }
-.radio:has(input:checked) { border-color: var(--wood); background: #fff8e6; }
+.radio:has(input:checked) { border-color: var(--frame); background: var(--chosen); }
 .radio:has(input:disabled) { opacity: 0.65; }
-.radio input { margin-top: 5px; accent-color: var(--wood); }
+.radio input { margin-top: 5px; accent-color: var(--control-accent); }
 .radio label { display: flex; flex-direction: column; cursor: pointer; }
 .radio:has(input:disabled) label { cursor: not-allowed; }
 .radio-label { font-weight: 700; }
 .radio-detail { font-size: 0.85rem; color: var(--ink-soft); }
 /* The collection theme (themeCards in views/shared.js): each card is a .radio, so it is chosen,
    greyed out and focused like every other choice; its first three items sit over its card
-   text. Side by side where both fit, one above the other on a phone. No colours of its own. */
+   text. Side by side where both fit, one above the other on a phone. A card states its own
+   text colour (its ground is .radio's) rather than take the page's. */
 .theme-cards { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(min(13rem, 100%), 1fr)); }
+.theme-card { color: var(--ink); }
 .theme-card label { gap: 6px; }
 .theme-card-pics { display: flex; gap: 6px; }
+.theme-card-pics canvas {
+  background: var(--pic-bg); box-shadow: var(--pic-ring); padding: var(--pic-pad); box-sizing: var(--pic-box); border-radius: var(--pic-radius);
+}
 .checkbox { display: flex; align-items: center; gap: 8px; font-weight: 700; }
-.checkbox input { width: 18px; height: 18px; accent-color: var(--wood); }
+.checkbox input { width: 18px; height: 18px; accent-color: var(--control-accent); }
 .check-list { list-style: none; max-height: 40dvh; overflow: auto; border: 2px solid var(--line); border-radius: 12px; padding: 4px 10px; }
-.check-list li { border-top: 2px dashed var(--line); }
+.check-list li { border-top: 2px var(--rule-style) var(--row-line); }
 .check-list li:first-child { border-top: none; }
 .check-list .checkbox { padding: 8px 0; font-weight: 600; }
 .check-actions { display: flex; gap: 12px; font-size: 0.85rem; }
@@ -312,11 +419,12 @@ fieldset.group > legend { font-size: 0.8rem; letter-spacing: 0.12em; text-transf
 .icon-picker label { position: relative; display: block; }
 .icon-picker input:checked + .slot { outline: 3px solid var(--focus); outline-offset: 1px; }
 .icon-picker input:focus-visible + .slot { outline: 3px solid var(--focus); outline-offset: 1px; }
-.link-panel { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; padding: 12px; border: 2px dashed var(--gold-deep); border-radius: 14px; background: #fff8e6; }
+.link-panel { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; padding: 12px; border: 2px dashed var(--link-panel-border); border-radius: 14px; background: var(--chosen); }
 .link-input { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.85rem; }
 .qr { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; }
+/* A QR code needs a white ground to scan, in every theme. */
 .qr-image { width: 240px; max-width: 100%; height: auto; image-rendering: pixelated; background: #fff; border-radius: 8px; }
-.logo-preview { width: 96px; height: 96px; object-fit: contain; padding: 6px; background: var(--paper); border: 2px solid var(--line); border-radius: 14px; }
+.logo-preview { width: 96px; height: 96px; object-fit: contain; padding: 6px; background: var(--logo-preview-bg); border: 2px solid var(--line); border-radius: 14px; }
 
 /* ------------------------------------------------------------------ dialogs, sheets, toasts */
 
@@ -324,35 +432,37 @@ fieldset.group > legend { font-size: 0.8rem; letter-spacing: 0.12em; text-transf
   margin: auto; width: min(520px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); overflow: auto;
   padding: 20px; border: 0; border-radius: var(--radius-tile); background: var(--tile); color: var(--ink); box-shadow: var(--lift);
 }
+/* Written out, not a variable: older browsers do not let ::backdrop inherit one from the dialog,
+ * and every theme would lose its scrim there. */
 .dialog::backdrop { background: rgba(58, 36, 17, 0.45); }
 .dialog-title { font-size: 1.2rem; line-height: 1.3; margin-bottom: 12px; overflow-wrap: anywhere; }
 .dialog p { overflow-wrap: anywhere; }
 .dialog-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
 /* On phones a dialog rises from the bottom as a sheet with a grip. */
 @media (max-width: 719px) {
-  .dialog { margin: auto 0 0; width: 100vw; max-width: none; max-height: calc(100dvh - 40px); border-radius: 24px 24px 0 0; border-top: 3px solid var(--wood); padding-top: 14px; animation: sheetUp 0.3s cubic-bezier(0.32, 0.72, 0.35, 1); }
+  .dialog { margin: auto 0 0; width: 100vw; max-width: none; max-height: calc(100dvh - 40px); border-radius: 24px 24px 0 0; border-top: 3px solid var(--frame); padding-top: 14px; animation: sheetUp 0.3s cubic-bezier(0.32, 0.72, 0.35, 1); }
   .dialog::before { content: ''; display: block; width: 44px; height: 5px; border-radius: 3px; background: var(--line); margin: 0 auto 14px; }
 }
 @keyframes sheetUp { from { transform: translateY(105%); } to { transform: none; } }
 
 .sheet-available { text-align: center; }
 .sheet-amount { display: flex; align-items: baseline; justify-content: center; gap: 4px; font-size: 2.75rem; font-weight: 800; margin: 10px 0 2px; min-height: 56px; font-variant-numeric: tabular-nums; }
-.sheet-amount.zero { color: #d9c4a6; }
+.sheet-amount.zero { color: var(--amount-zero); }
 .sheet-amount.over { color: var(--minus); }
 /* The line keeps its height while empty, so the buttons under it never jump; it sits close to
  * the keypad and to them, rather than leave a wide gap above Cancel and Confirm. */
 .sheet-warn { text-align: center; font-size: 0.85rem; color: var(--minus); min-height: 1.3em; font-weight: 600; margin: -6px 0 -4px; }
 .keys { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 8px; }
-.key { padding: 14px 0; border-radius: 14px; font-size: 1.5rem; font-weight: 800; background: #f6ebd2; border: 2px solid #d9c09a; box-shadow: 0 4px 0 #c9a874; transition: transform 0.08s, box-shadow 0.08s; }
-.key:active { transform: translateY(3px); box-shadow: 0 1px 0 #c9a874; }
+.key { padding: 14px 0; border-radius: 14px; font-size: 1.5rem; font-weight: 800; background: var(--key-bg); border: 2px solid var(--key-border); box-shadow: 0 4px 0 var(--key-ledge); transition: transform 0.08s, box-shadow 0.08s; }
+.key:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--key-ledge); }
 .sheet-actions { display: flex; gap: 12px; }
 .sheet-actions .btn { flex: 1; padding: 15px 0; }
-.btn-confirm { background: var(--gold); color: var(--wood-deep); box-shadow: 0 4px 0 #9c6e14; }
-.btn-confirm:active:not(:disabled) { box-shadow: 0 1px 0 #9c6e14; }
+.btn-confirm { background: var(--confirm-bg); color: var(--confirm-ink); box-shadow: var(--confirm-shadow); }
+.btn-confirm:active:not(:disabled) { box-shadow: var(--confirm-shadow-active); }
 
 .toasts { position: fixed; left: 50%; top: 18px; transform: translateX(-50%); z-index: 60; display: flex; flex-direction: column; gap: 8px; width: min(440px, calc(100vw - 32px)); pointer-events: none; }
-.toast { padding: 12px 22px; border-radius: 14px; background: var(--wood); color: #fff3dc; font-size: 0.95rem; font-weight: 700; border: 2px solid var(--wood-deep); box-shadow: 0 4px 0 var(--wood-deep), 0 10px 26px rgba(74, 47, 27, 0.35); text-align: center; overflow-wrap: anywhere; animation: toastIn 0.35s cubic-bezier(0.34, 1.4, 0.64, 1); }
-.toast-error { background: var(--minus); border-color: #93342a; box-shadow: 0 4px 0 #93342a, 0 10px 26px rgba(74, 47, 27, 0.35); }
+.toast { padding: 12px 22px; border-radius: 14px; background: var(--toast-bg); color: var(--toast-ink); font-size: 0.95rem; font-weight: 700; border: 2px solid var(--toast-border); box-shadow: var(--toast-shadow); text-align: center; overflow-wrap: anywhere; animation: toastIn 0.35s cubic-bezier(0.34, 1.4, 0.64, 1); }
+.toast-error { background: var(--toast-error-bg); color: var(--toast-error-ink); border-color: var(--toast-error-border); box-shadow: var(--toast-error-shadow); }
 @keyframes toastIn { from { opacity: 0; transform: translateY(-160%); } to { opacity: 1; transform: none; } }
 /* On a phone the header fills the top, so toasts come in just under it rather than cover the
  * name button for seconds. That is still well above where the keypad sheet rises to. toast()
@@ -365,7 +475,7 @@ fieldset.group > legend { font-size: 0.8rem; letter-spacing: 0.12em; text-transf
 .oven.leaving { transform: translateY(-100%); opacity: 0.4; pointer-events: none; }
 .oven canvas { animation: ovenPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1); }
 @keyframes ovenPop { from { transform: scale(0.3) rotate(-14deg); opacity: 0; } to { transform: scale(1) rotate(0); opacity: 1; } }
-.oven-text { font-size: 1.2rem; font-weight: 800; letter-spacing: 0.1em; background: var(--tile); border: 3px solid var(--wood); border-radius: 14px; padding: 12px 22px; box-shadow: 0 4px 0 var(--wood-deep); text-align: center; max-width: calc(100vw - 32px); }
+.oven-text { font-size: 1.2rem; font-weight: 800; letter-spacing: 0.1em; background: var(--tile); border: 3px solid var(--frame); border-radius: 14px; padding: 12px 22px; box-shadow: 0 4px 0 var(--intro-ledge); text-align: center; max-width: calc(100vw - 32px); }
 .oven-sub { font-size: 0.75rem; color: var(--ink-soft); }
 .particle { position: fixed; z-index: 25; pointer-events: none; border-radius: 1px; }
 
@@ -375,7 +485,7 @@ fieldset.group > legend { font-size: 0.8rem; letter-spacing: 0.12em; text-transf
 .auth:focus { outline: none; }
 .auth-card { width: 100%; max-width: 520px; display: flex; flex-direction: column; gap: 14px; padding: 26px 22px; background: var(--tile); border-radius: 24px; box-shadow: var(--lift); }
 .auth-brand { display: flex; align-items: center; gap: 12px; }
-.auth-logo { width: 72px; height: 72px; object-fit: contain; }
+.auth-logo { width: 72px; height: 72px; object-fit: contain; background: var(--auth-logo-bg); padding: var(--auth-logo-pad); border-radius: var(--auth-logo-radius); }
 .auth h1 { font-size: 1.45rem; line-height: 1.25; overflow-wrap: anywhere; }
 .auth-foot { padding-top: 12px; border-top: 2px dashed var(--line); }
 .auth .btn-quiet { align-self: flex-start; }
@@ -387,4 +497,138 @@ fieldset.group > legend { font-size: 0.8rem; letter-spacing: 0.12em; text-transf
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+}
+
+/* ------------------------------------------------------------------ Café: candlelight
+
+   A café after dark with its lamps lit: always dark, whatever the phone or computer is set to.
+   Every variable of the light set, given again; color-scheme makes the controls the browser
+   draws itself (dropdowns, the file button, scrollbars, radios, checkboxes) dark too. A theme
+   card carries its own data-theme, so the café card is dark on a light page and the other cards
+   light on this one. The drawings sit on cream porcelain, so their dark outlines read as
+   usual. */
+[data-theme="cafe"] {
+  color-scheme: dark;
+  /* page and grounds */
+  --bg: #160f0a;
+  --page-art: radial-gradient(120% 600px at 50% 0%, #251910 0%, #160f0a 55%, #0f0a07 100%);
+  --tile: linear-gradient(180deg, #221912 0%, #1b140f 100%);
+  --lift: inset 0 0 0 1px rgba(255, 214, 160, 0.10), inset 0 1px 0 rgba(255, 228, 186, 0.05), 0 6px 16px rgba(0, 0, 0, 0.4);
+  --lamp-bg: radial-gradient(72% 52% at 50% 44%, #4b3019 0%, #36251a 48%, #211812 100%);
+  --lamp-shadow: inset 0 1px 0 rgba(255, 228, 186, 0.08), 0 0 28px rgba(255, 150, 60, 0.10), 0 8px 18px rgba(0, 0, 0, 0.4);
+  --paper: #2a2017;
+  --chosen: #2e2318;
+  /* text */
+  --ink: #f4e7d0;
+  --holder-ink: #f6ead6;
+  --ink-soft: #b9a68b;
+  --card-soft: #cdb898;
+  --tile-label: #ebbd84;
+  --accent: #ecbc7c;
+  --price: #ecbc7c;
+  --plus: #9fd8a8;
+  --minus: #f4a58e;
+  /* read by scripts that draw on a canvas: plain colours only */
+  --digit: #f9e0b4;
+  --wordmark: #ecbc7c;
+  /* buttons and controls: the primary button is honey, and the keypad's confirm key is the same */
+  --primary-bg: radial-gradient(120% 150% at 50% 0%, #f6cd88 0%, #e6ac62 55%, #d6964c 100%);
+  --primary-ink: #2b1708;
+  --primary-shadow: inset 0 1px 0 rgba(255, 244, 220, 0.4), inset 0 -3px 4px rgba(150, 80, 20, 0.16), 0 3px 1px #84522a, 0 8px 22px rgba(240, 150, 60, 0.26);
+  --primary-shadow-active: inset 0 1px 0 rgba(255, 244, 220, 0.4), inset 0 -3px 4px rgba(150, 80, 20, 0.16), 0 1px 0 #84522a, 0 3px 10px rgba(240, 150, 60, 0.2);
+  --confirm-bg: var(--primary-bg);
+  --confirm-ink: var(--primary-ink);
+  --confirm-shadow: var(--primary-shadow);
+  --confirm-shadow-active: var(--primary-shadow-active);
+  --btn-ledge: #0f0a07;
+  --control-accent: #e6ac62;
+  --focus: #7fd3dc;
+  /* frames, bars, pills: the caramel ring colour #b98c58, caramel #ecbc7c */
+  --frame: #b98c58;
+  --intro-ledge: #0f0a07;
+  --link-panel-border: #b98c58;
+  --bar-bg: linear-gradient(180deg, #2c2118, #251c15);
+  --bar-ink: #ecbc7c;
+  --bar-shadow: inset 0 -1px 0 rgba(255, 214, 160, 0.07);
+  --bar-dot: #e6ac62;
+  --pill-bg: #ecbc7c;
+  --pill-ink: #2b1708;
+  --skip-bg: #ecbc7c;
+  --skip-ink: #2b1708;
+  --bubble-bg: #ecbc7c;
+  --bubble-ink: #2b1708;
+  /* lines: dividers between sections stay dashed, the rows of a list are solid */
+  --line: #3a2b1f;
+  --row-line: #2e2219;
+  --rule-style: solid;
+  /* slots, and porcelain under a single drawing: the canvas keeps its drawing size and the
+     padding goes outside it (content-box). A rounded canvas shows its drawing only inside its
+     rounded corners, so the medallions are round only if the mascot fits inside the circle, and
+     otherwise rounded squares like the slots (tests/colours.test.mjs) */
+  --slot-bg: radial-gradient(circle at 50% 40%, #fdf3e1 0%, #f1dfc0 70%, #e7cfa4 100%);
+  --slot-border: #b98c58;
+  --slot-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+  --slot-empty-bg: radial-gradient(circle at 50% 35%, #1d150f, #130d0a);
+  --slot-empty-border: #5e4632;
+  --slot-empty-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.55);
+  --slot-ink: #4a2f1b;
+  --face-bg: radial-gradient(circle at 50% 42%, #fff4de 0%, #f3dcb3 65%, #e6c793 100%);
+  --face-ring: 0 0 0 1px rgba(255, 214, 160, 0.22), 0 2px 4px rgba(0, 0, 0, 0.45);
+  --face-pad: 3px;
+  --face-box: content-box;
+  --face-radius: 10px;
+  --mascot-radius: 10px;
+  --row-icon-size: 42px;
+  --pic-bg: var(--slot-bg);
+  --pic-ring: 0 0 0 2.5px var(--slot-border);
+  --pic-pad: 3px;
+  --pic-box: content-box;
+  --pic-radius: 10px;
+  /* logos: today's rounded squares, on porcelain */
+  --brand-logo-bg: var(--face-bg);
+  --brand-logo-pad: 3px;
+  --auth-logo-bg: var(--face-bg);
+  --auth-logo-pad: 6px;
+  --auth-logo-radius: 18px;
+  --logo-preview-bg: var(--face-bg);
+  /* fields and keypad */
+  --field-bg: #140e0a;
+  --field-border: #8a705c;
+  --key-bg: #2c2118;
+  --key-border: #3d2e22;
+  --key-ledge: #0f0a07;
+  --amount-zero: #b9a68b;
+  /* notices and badges */
+  --warn-bg: #3a2a12;
+  --warn-border: #8a6a2a;
+  --warn-ink: #f5d48a;
+  --ok-bg: #1c2a1e;
+  --ok-border: #3f6b48;
+  --ok-ink: #9fd8a8;
+  --bad-bg: #3a1c17;
+  --bad-border: #7a3a2e;
+  --bad-ink: #f4a58e;
+  /* toasts */
+  --toast-bg: #2c2118;
+  --toast-border: #5e4632;
+  --toast-ink: #f4e7d0;
+  --toast-shadow: 0 4px 0 #0f0a07, 0 10px 26px rgba(0, 0, 0, 0.5);
+  --toast-error-bg: #5a271d;
+  --toast-error-border: #8e3f30;
+  --toast-error-ink: #fbe3da;
+  --toast-error-shadow: 0 4px 0 #3a1c17, 0 10px 26px rgba(0, 0, 0, 0.5);
+}
+
+/* The café's own rules: only where a variable cannot do it. Each matches everything inside a
+   café page, light theme cards included. */
+/* The dialog scrim, written out for the reason .dialog::backdrop is (above). */
+[data-theme="cafe"] .dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
+/* A locked theme card keeps its own ground, so the Pastry shop and Bakery cards stay light on
+   this dark page; only what is on it fades. */
+[data-theme="cafe"] .theme-card:has(input:disabled) { opacity: 1; }
+[data-theme="cafe"] .theme-card:has(input:disabled) > * { opacity: 0.65; }
+/* Forced colours put a system colour behind the canvases: the balance and CRUMB take the
+   system's text colour rather than stay cream. */
+@media (forced-colors: active) {
+  [data-theme="cafe"] { --digit: CanvasText; --wordmark: CanvasText; }
 }

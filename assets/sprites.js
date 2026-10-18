@@ -770,6 +770,246 @@ const Pixel = (function () {
       "....XXXX....",
       "............",
     ] },
+    /* 熱咖啡 Hot Coffee */
+    hotcoffee: { palette: { X: "#4A2A14", c: "#7A4A28", w: "#FFFAF0", s: "#7A6858", d: "#90613C" }, steam: "s", rows: [
+      "...s...s....",
+      "....s...s...",
+      "....s...s...",
+      "...s...s....",
+      ".XXXXXXXXX..",
+      ".XcccccccXdd",
+      ".XwwwwwwwX.d",
+      ".XwwwwwwwX.d",
+      ".XwwwwwwwXd.",
+      "..XwwwwwX...",
+      "ddddddddddd.",
+      "............",
+    ] },
+    /* 意式濃縮 Espresso */
+    espresso: { palette: { X: "#4A2A14", w: "#FFFAF0", r: "#DCA352", k: "#7A4420", d: "#90613C" }, rows: [
+      "............",
+      "............",
+      "............",
+      "............",
+      "....XXXX....",
+      "...XrrkrXX..",
+      "...XkrrrX.X.",
+      "...XwwwwXX..",
+      ".dddddddddd.",
+      "............",
+      "............",
+      "............",
+    ] },
+    /* 拿鐵 Latte */
+    latte: { palette: { X: "#4A2A14", w: "#FFFAF0", c: "#A86A3A", f: "#FFF1DC" }, rows: [
+      "...XXXXX....",
+      "..XwwwwwX...",
+      ".XwcccccwX..",
+      "XwcffcffcwXX",
+      "XwcfffffcwwX",
+      "XwcfffffcwwX",
+      "XwccfffccwwX",
+      "XwcccfcccwXX",
+      ".XwcccccwX..",
+      "..XwwwwwX...",
+      "...XXXXX....",
+      "............",
+    ] },
+    /* 卡布奇諾 Cappuccino */
+    cappuccino: { palette: { X: "#4A2A14", w: "#FFFAF0", f: "#F3DDB5", k: "#7A4A2A", d: "#90613C" }, rows: [
+      "............",
+      "...XXXX.....",
+      ".XXkfkkXX...",
+      "XfkffffkfX..",
+      "XffffkfffX..",
+      "XXXXXXXXXX..",
+      "XwwwwwwwwXXX",
+      "XwwwwwwwwX.X",
+      ".XwwwwwwXXX.",
+      "..XXXXXX....",
+      "dddddddddddd",
+      ".dddddddddd.",
+    ] },
+    /* 摩卡 Mocha */
+    mocha: { palette: { X: "#3E2212", m: "#7E4A2C", w: "#FFF6E6", k: "#5C2E14", h: "#A66E48" }, rows: [
+      ".....XX.....",
+      "...XXwwXX...",
+      "..XkkkwwwX..",
+      ".XwwwwkkkwX.",
+      ".XwkkkwwkwX.",
+      "..XXkXXkXX..",
+      "...XkmmkXX..",
+      "...XkmmkX.X.",
+      "...XhmmmX.X.",
+      "...XhmmmXX..",
+      "...XhmmmX...",
+      "....XXXX....",
+    ] },
+    /* 焦糖瑪奇朵 Caramel Macchiato */
+    macchiato: { palette: { X: "#6B3F17", w: "#FFF8EC", c: "#96582F", y: "#C77A28", g: "#D2E3E6" }, rows: [
+      "..XXXXXXX...",
+      "..XywwwyX...",
+      "..XwywywX...",
+      "..XywywyX...",
+      "..XwywywX...",
+      "..XgccccX...",
+      "..XgccccX...",
+      "..XgccccX...",
+      "..XgwccwX...",
+      "..XgwwwwX...",
+      "..XgwwwwX...",
+      "..XXXXXXX...",
+    ] },
+    /* 冰咖啡 Iced Coffee */
+    icedcoffee: { palette: { X: "#4A2A14", c: "#9A6235", i: "#E2F2F4", I: "#A9CBD2", s: "#D9443A" }, rows: [
+      ".........s..",
+      "........s...",
+      "..XXXXXsXX..",
+      "..XiicsiiX..",
+      "..XIIscIIX..",
+      "..XcsiiccX..",
+      "..XccIIccX..",
+      "..XccccccX..",
+      "..XccccccX..",
+      "..XccccccX..",
+      "..XccccccX..",
+      "..XXXXXXXX..",
+    ] },
+    /* 冷萃 Cold Brew */
+    coldbrew: { palette: { X: "#3A2010", k: "#5C3418", w: "#E4F1F6", b: "#2F6A9E", h: "#8A6040" }, rows: [
+      "...XXXXX....",
+      "...XbbbX....",
+      "...XXXXX....",
+      "...XhkkX....",
+      "..XhkkkkX...",
+      ".XhwkwkwkX..",
+      ".XhkwwwkkX..",
+      ".XhwwkwwkX..",
+      ".XhkwwwkkX..",
+      ".XhwkwkwkX..",
+      ".XhkkkkkkX..",
+      ".XXXXXXXXX..",
+    ] },
+    /* 義式咖啡機 Espresso Machine */
+    espressomachine: { palette: { X: "#3A2010", r: "#B5483A", t: "#5C3418", w: "#FFFAF0", m: "#A4AAB1" }, rows: [
+      "XXXXXXXXXXX.",
+      "XrrrrrmmrrX.",
+      "XrrrrrmmrrX.",
+      "XrrXXXXXXXX.",
+      "XrrX.XmmmX..",
+      "XrrX.XXXXXXX",
+      "XrrX...t....",
+      "XrrX.XtttX..",
+      "XrrX.XwwwXX.",
+      "XrrX.XwwwX..",
+      "XrrrmmmmmmmX",
+      "XXXXXXXXXXXX",
+    ] },
+    /* 咖啡豆 Coffee Beans */
+    coffeebeans: { palette: { X: "#4A2A14", p: "#C89A62", k: "#A87A48", b: "#5C3418", c: "#E8C48A" }, rows: [
+      ".XX.XXX.....",
+      "XbcXbbcX....",
+      "XbbbbcbX....",
+      "XkkkkkkX....",
+      "XkppppXXXX..",
+      "XkpppXbbcbX.",
+      "XkppXbbbcbbX",
+      "XkppXbbbcbbX",
+      "XkppXbbcbbbX",
+      "XkppXbbcbbbX",
+      "XkpppXbcbbX.",
+      "XXXXXXXXXX..",
+    ] },
+    /* 摩卡壺 Moka Pot */
+    mokapot: { palette: { X: "#3A3530", m: "#A4AAB1", g: "#DCE4E8", k: "#5C3418", w: "#FFF1D6" }, rows: [
+      ".....XX.....",
+      "...XXmmXX...",
+      "..XgmmmmmX..",
+      "..XXXXXXXX..",
+      "...XgmmmX...",
+      ".XXXgmmmXXX.",
+      "XgmmmmmmmmmX",
+      ".XXXXXXXXXX.",
+      "..XgkkkkkX..",
+      "..XgkkkkkX..",
+      "..XgwwwwwX..",
+      "..XXXXXXXX..",
+    ] },
+    /* 手沖 Pour-over */
+    pourover: { palette: { X: "#4A2A14", d: "#F7F1E6", k: "#6B3A1E", g: "#DCE6E4" }, rows: [
+      "XXXXXXXXXXX.",
+      "XdddddddddX.",
+      ".XdddddddX..",
+      "..XdddddX...",
+      "...XdddX....",
+      ".XXXXXXXXX..",
+      "..XggkggX...",
+      ".XgggkgggXX.",
+      ".XgggggggX.X",
+      ".XkkkkkkkX.X",
+      "..XkkkkkXXX.",
+      "...XXXXX....",
+    ] },
+    /* 外帶咖啡 Takeaway Coffee */
+    takeaway: { palette: { X: "#4A2A14", r: "#8A5E3A", w: "#FFFAF0", s: "#C08A52" }, rows: [
+      "...XXX......",
+      ".XXrrrXXXXX.",
+      "XrrrrrrrrrrX",
+      "XXXXXXXXXXXX",
+      ".XwwwwwwwwX.",
+      ".XwwwwwwwwX.",
+      "..XssssssX..",
+      "..XssssssX..",
+      "..XssssssX..",
+      "...XwwwwX...",
+      "...XwwwwX...",
+      "...XXXXXX...",
+    ] },
+    /* 咖啡湯力 Espresso Tonic */
+    espressotonic: { palette: { X: "#4A2A14", t: "#B6DAD3", c: "#7A4426", o: "#F0962E", w: "#FFFDF8" }, rows: [
+      ".......XXX..",
+      "......XoooX.",
+      "XXXXXXowowoX",
+      "XwcccXoowooX",
+      "XwcccXowowoX",
+      "XwccccXoooX.",
+      "XwctcctXXX..",
+      "XwttcttX....",
+      "XwtttwtX....",
+      "XwtwtttX....",
+      "XwttttwX....",
+      "XXXXXXXX....",
+    ] },
+    /* 法壓壺 French Press */
+    frenchpress: { palette: { X: "#3A2010", k: "#5C3418", g: "#DCE6E4", m: "#A4AAB1", n: "#2E2A28" }, rows: [
+      "....nnn.....",
+      ".....n......",
+      ".....n......",
+      ".XXXXnXXXX..",
+      ".XmmmnmmmX..",
+      "..XggnggXnn.",
+      "..XgkkkkX.n.",
+      "..XgkkkkX.n.",
+      "..XgkkkkX.n.",
+      "..XgkkkkXnn.",
+      "..XmmmmmX...",
+      "..XXXXXXX...",
+    ] },
+    /* 咖啡冰沙 Coffee Frappé */
+    frappe: { palette: { X: "#4A2A14", c: "#B07A4C", w: "#FFF4E2", d: "#C2DCE4", s: "#3D7DC4" }, rows: [
+      ".....ss.....",
+      ".....ss.....",
+      "...XXssXX...",
+      "..XdwsswwX..",
+      ".XdwwsswwwX.",
+      ".XwwwsswwwX.",
+      "XXXXXXXXXXXX",
+      ".XdccccccdX.",
+      ".XdccccccdX.",
+      "..XdccccdX..",
+      "..XdccccdX..",
+      "..XXXXXXXX..",
+    ] },
   };
 
   /* Rotation order. Collecting one full lap = $1650 of gift cards received.
@@ -832,16 +1072,40 @@ const Pixel = (function () {
     donut: { zh: "甜甜圈", en: "Donut", cn: "甜甜圈" },
     tiramisu: { zh: "提拉米蘇", en: "Tiramisu", cn: "提拉米苏" },
     madeleine: { zh: "瑪德蓮", en: "Madeleine", cn: "玛德琳" },
+    hotcoffee: { zh: "熱咖啡", en: "Hot Coffee", cn: "热咖啡" },
+    espresso: { zh: "意式濃縮", en: "Espresso", cn: "意式浓缩" },
+    latte: { zh: "拿鐵", en: "Latte", cn: "拿铁" },
+    cappuccino: { zh: "卡布奇諾", en: "Cappuccino", cn: "卡布奇诺" },
+    mocha: { zh: "摩卡", en: "Mocha", cn: "摩卡" },
+    macchiato: { zh: "焦糖瑪奇朵", en: "Caramel Macchiato", cn: "焦糖玛奇朵" },
+    icedcoffee: { zh: "冰咖啡", en: "Iced Coffee", cn: "冰咖啡" },
+    coldbrew: { zh: "冷萃", en: "Cold Brew", cn: "冷萃" },
+    espressomachine: { zh: "義式咖啡機", en: "Espresso Machine", cn: "意式咖啡机" },
+    coffeebeans: { zh: "咖啡豆", en: "Coffee Beans", cn: "咖啡豆" },
+    mokapot: { zh: "摩卡壺", en: "Moka Pot", cn: "摩卡壶" },
+    pourover: { zh: "手沖", en: "Pour-over", cn: "手冲" },
+    takeaway: { zh: "外帶咖啡", en: "Takeaway Coffee", cn: "外带咖啡" },
+    espressotonic: { zh: "咖啡湯力", en: "Espresso Tonic", cn: "咖啡汤力" },
+    frenchpress: { zh: "法壓壺", en: "French Press", cn: "法压壶" },
+    frappe: { zh: "咖啡冰沙", en: "Coffee Frappé", cn: "咖啡冰沙" },
   };
 
   /* Collection themes: one sketchbook (SPRITES), several lists. A team picks one.
-   *   mascot    one of its rotation's keys, drawn in the header, the intro and the icons
-   *   rotation  the public demo's order; a theme's card draws its first three
-   *   limited   collectible only in the self-hosted app
-   *   version   raise it by one when the theme's keys change
+   *   mascot      one of its rotation's keys, drawn in the header, the intro and the icons
+   *   rotation    the public demo's order; a theme's card draws its first three
+   *   limited     collectible only in the self-hosted app
+   *   version     raise it by one when the theme's keys change
+   *   background  optional, #RRGGBB: the page colour of a theme with colours of its own, equal
+   *               to its --bg in app/app.css and assets/style.css. Its icons are drawn on it
+   *               and the browser bar takes it. Not written into the list file.
    * A theme's keys (themes/<id>.json) are rotation followed by limited. Once released, a
    * key stays in its theme for good (docs/THEMES.md). label is the theme's name and card
-   * the line under its card; {count} is filled in from the number of keys, never typed. */
+   * the line under its card; {count} is filled in from the number of keys, never typed.
+   * A mascot may have steam: steam: "s" on its sprite names the palette symbol its steam is
+   * drawn with, exactly 2 wisps over 4 rows. A tap on the mascot, the intro and, in the public
+   * demo, a spend move it by STEAM_STEPS, unless motion is reduced; everywhere else it stands
+   * still, shown in full, and so it does in a theme where the drawing is an ordinary item. Only
+   * a theme's mascot may have steam. */
   const THEMES = {
     default: {
       mascot: "laopo",
@@ -858,6 +1122,15 @@ const Pixel = (function () {
       version: 1,
       label: { en: "Bakery", "zh-CN": "面包店" },
       card: { en: "Bakery · {count} breads and cakes", "zh-CN": "面包店 · {count} 款面包和蛋糕" },
+    },
+    cafe: {
+      mascot: "hotcoffee",
+      rotation: ["hotcoffee", "latte", "tiramisu", "icedcoffee", "cappuccino", "croissant", "mocha", "pourover", "madeleine", "takeaway", "frenchpress", "cinnamonroll", "espresso", "coldbrew", "porttart", "coffeebeans", "frappe", "swissroll", "mokapot", "macchiato", "blackforest", "espressotonic", "espressomachine", "strawberrycake"],
+      limited: [],
+      version: 1,
+      label: { en: "Café", "zh-CN": "咖啡店" },
+      card: { en: "Café · {count} coffees and sweets", "zh-CN": "咖啡店 · {count} 款咖啡和甜点" },
+      background: "#160F0A",
     },
   };
 
@@ -941,18 +1214,69 @@ const Pixel = (function () {
     };
   }
 
-  /* bite: 0 = whole. Towards 1 it carves a growing circle out of the top-right. */
-  function drawSprite(canvas, sprite, pixelSize, bite) {
+  /* A mascot's steam: the rows of a wisp shown at each step of its cycle, numbered 0-3 from the
+   * top of the steam (the top row of all its cells). A wisp rises from its bottom row up, then
+   * clears from the bottom up; it never moves sideways. The app and the demo read the table
+   * and the step's length from here. */
+  const STEAM_STEPS = [[3], [2, 3], [1, 2, 3], [0, 1, 2, 3], [0, 1, 2], [0, 1], [0], []];
+  const STEAM_STEP_MS = 120;
+
+  /* The cells drawn with a sprite's steam symbol, as wisps: cells touching by an edge or a
+   * corner are one wisp. Wisps left to right by their leftmost column; each wisp's cells as
+   * { x, y } in the grid, top to bottom, then left to right. None without steam. */
+  function steamWisps(sprite) {
+    if (!sprite || !sprite.steam || !sprite.palette[sprite.steam]) return [];
+    const loose = [];
+    for (let y = 0; y < sprite.rows.length; y += 1) {
+      for (let x = 0; x < sprite.rows[y].length; x += 1) {
+        if (sprite.rows[y][x] === sprite.steam) loose.push({ x, y });
+      }
+    }
+    const wisps = [];
+    while (loose.length > 0) {
+      const wisp = [loose.shift()];
+      for (let i = 0; i < wisp.length; i += 1) {
+        for (let j = loose.length - 1; j >= 0; j -= 1) {
+          if (Math.abs(loose[j].x - wisp[i].x) <= 1 && Math.abs(loose[j].y - wisp[i].y) <= 1) wisp.push(loose.splice(j, 1)[0]);
+        }
+      }
+      wisps.push(wisp.sort((a, b) => a.y - b.y || a.x - b.x));
+    }
+    const leftmost = wisp => Math.min(...wisp.map(cell => cell.x));
+    return wisps.sort((a, b) => leftmost(a) - leftmost(b) || a[0].y - b[0].y);
+  }
+
+  /* The steam cells a whole-number step hides, as "x,y". 8 steps make a cycle and wisp k shows
+   * the rows of step + 4k: the left wisp leads and the right one is half a cycle from it. */
+  function hiddenSteam(sprite, step) {
+    const hidden = new Set();
+    if (!Number.isInteger(step)) return hidden;
+    const wisps = steamWisps(sprite);
+    let top = Infinity;
+    for (const wisp of wisps) for (const cell of wisp) top = Math.min(top, cell.y);
+    wisps.forEach((wisp, k) => {
+      const shown = STEAM_STEPS[(((step + 4 * k) % 8) + 8) % 8];
+      for (const cell of wisp) if (!shown.includes(cell.y - top)) hidden.add(cell.x + ',' + cell.y);
+    });
+    return hidden;
+  }
+
+  /* bite: 0 = whole. Towards 1 it carves a growing circle out of the top-right.
+   * step: left out, the whole drawing, as before steam existed. A whole number (any, it goes
+   * round the cycle) hides the steam STEAM_STEPS hides at that step; a drawing without steam is
+   * whole at every step. It stays centred on the whole drawing, so the cup never moves. */
+  function drawSprite(canvas, sprite, pixelSize, bite, step) {
     const width = sprite.rows[0].length * pixelSize;
     const height = sprite.rows.length * pixelSize;
     const ctx = setupCanvas(canvas, width, height);
     if (!ctx) return;
     const { dx, dy } = offset(sprite);
+    const hidden = hiddenSteam(sprite, step);
     for (let y = 0; y < sprite.rows.length; y += 1) {
       const row = sprite.rows[y];
       for (let x = 0; x < row.length; x += 1) {
         const color = sprite.palette[row[x]];
-        if (!color) continue;
+        if (!color || hidden.has(x + ',' + y)) continue;
         ctx.fillStyle = color;
         ctx.fillRect((x + dx) * pixelSize, (y + dy) * pixelSize, pixelSize, pixelSize);
       }
@@ -1007,5 +1331,5 @@ const Pixel = (function () {
     return THEMES[themeId].rotation.concat(THEMES[themeId].limited);
   }
 
-  return { SPRITES, CYCLE, LIMITED, NAMES, THEMES, DIGITS, LETTERS, offset, drawSprite, drawText, drawNumber, forSlot, themeKeys };
+  return { SPRITES, CYCLE, LIMITED, NAMES, THEMES, DIGITS, LETTERS, STEAM_STEPS, STEAM_STEP_MS, offset, drawSprite, drawText, drawNumber, forSlot, themeKeys, steamWisps };
 })();

@@ -1,0 +1,154 @@
+{
+  "themeId": "cafe",
+  "version": 1,
+  "source": "assets/sprites.js",
+  "mascot": "hotcoffee",
+  "keys": [
+    "hotcoffee",
+    "latte",
+    "tiramisu",
+    "icedcoffee",
+    "cappuccino",
+    "croissant",
+    "mocha",
+    "pourover",
+    "madeleine",
+    "takeaway",
+    "frenchpress",
+    "cinnamonroll",
+    "espresso",
+    "coldbrew",
+    "porttart",
+    "coffeebeans",
+    "frappe",
+    "swissroll",
+    "mokapot",
+    "macchiato",
+    "blackforest",
+    "espressotonic",
+    "espressomachine",
+    "strawberrycake"
+  ],
+  "names": {
+    "hotcoffee": {
+      "en": "Hot Coffee",
+      "zh-Hant": "熱咖啡",
+      "zh-CN": "热咖啡"
+    },
+    "latte": {
+      "en": "Latte",
+      "zh-Hant": "拿鐵",
+      "zh-CN": "拿铁"
+    },
+    "tiramisu": {
+      "en": "Tiramisu",
+      "zh-Hant": "提拉米蘇",
+      "zh-CN": "提拉米苏"
+    },
+    "icedcoffee": {
+      "en": "Iced Coffee",
+      "zh-Hant": "冰咖啡",
+      "zh-CN": "冰咖啡"
+    },
+    "cappuccino": {
+      "en": "Cappuccino",
+      "zh-Hant": "卡布奇諾",
+      "zh-CN": "卡布奇诺"
+    },
+    "croissant": {
+      "en": "Croissant",
+      "zh-Hant": "牛角包",
+      "zh-CN": "牛角包"
+    },
+    "mocha": {
+      "en": "Mocha",
+      "zh-Hant": "摩卡",
+      "zh-CN": "摩卡"
+    },
+    "pourover": {
+      "en": "Pour-over",
+      "zh-Hant": "手沖",
+      "zh-CN": "手冲"
+    },
+    "madeleine": {
+      "en": "Madeleine",
+      "zh-Hant": "瑪德蓮",
+      "zh-CN": "玛德琳"
+    },
+    "takeaway": {
+      "en": "Takeaway Coffee",
+      "zh-Hant": "外帶咖啡",
+      "zh-CN": "外带咖啡"
+    },
+    "frenchpress": {
+      "en": "French Press",
+      "zh-Hant": "法壓壺",
+      "zh-CN": "法压壶"
+    },
+    "cinnamonroll": {
+      "en": "Cinnamon Roll",
+      "zh-Hant": "肉桂卷",
+      "zh-CN": "肉桂卷"
+    },
+    "espresso": {
+      "en": "Espresso",
+      "zh-Hant": "意式濃縮",
+      "zh-CN": "意式浓缩"
+    },
+    "coldbrew": {
+      "en": "Cold Brew",
+      "zh-Hant": "冷萃",
+      "zh-CN": "冷萃"
+    },
+    "porttart": {
+      "en": "Portuguese Egg Tart",
+      "zh-Hant": "葡式蛋撻",
+      "zh-CN": "葡式蛋挞"
+    },
+    "coffeebeans": {
+      "en": "Coffee Beans",
+      "zh-Hant": "咖啡豆",
+      "zh-CN": "咖啡豆"
+    },
+    "frappe": {
+      "en": "Coffee Frappé",
+      "zh-Hant": "咖啡冰沙",
+      "zh-CN": "咖啡冰沙"
+    },
+    "swissroll": {
+      "en": "Swiss Roll",
+      "zh-Hant": "瑞士卷",
+      "zh-CN": "瑞士卷"
+    },
+    "mokapot": {
+      "en": "Moka Pot",
+      "zh-Hant": "摩卡壺",
+      "zh-CN": "摩卡壶"
+    },
+    "macchiato": {
+      "en": "Caramel Macchiato",
+      "zh-Hant": "焦糖瑪奇朵",
+      "zh-CN": "焦糖玛奇朵"
+    },
+    "blackforest": {
+      "en": "Black Forest Cake",
+      "zh-Hant": "黑森林蛋糕",
+      "zh-CN": "黑森林蛋糕"
+    },
+    "espressotonic": {
+      "en": "Espresso Tonic",
+      "zh-Hant": "咖啡湯力",
+      "zh-CN": "咖啡汤力"
+    },
+    "espressomachine": {
+      "en": "Espresso Machine",
+      "zh-Hant": "義式咖啡機",
+      "zh-CN": "意式咖啡机"
+    },
+    "strawberrycake": {
+      "en": "Strawberry Cake",
+      "zh-Hant": "草莓蛋糕",
+      "zh-CN": "草莓蛋糕"
+    }
+  }
+}

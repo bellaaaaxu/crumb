@@ -70,9 +70,10 @@
   ];
 
   /* ---------------------------------------------------------------- shops
-   * The demo shows either collection theme. Every sentence that names the goods
-   * comes from here (spec §7); the rest of the page is the same in both. The
-   * Pastry shop's lines are the page's original wording, word for word. */
+   * The demo shows one of the three collection themes. Every sentence that names
+   * the goods comes from here; the rest of the page is the same in all three. The
+   * Pastry shop's lines are the page's original wording, word for word, and the
+   * Bakery shares its four about the oven. fill() puts in {name} and {amount}. */
 
   var TEXT = {
     default: {
@@ -86,6 +87,10 @@
       keepRule: '$50 received = 1 pastry',
       hideRule: '“Egg Tart is in the oven”',
       cabinet: 'The pastry cabinet',
+      intro: 'Today’s perks are out of the oven!',
+      unlocked: '{amount} added — {name} came out of the oven!',
+      tourGrant: '<b>{name}</b> comes out of the oven.',
+      inOven: '<b>{name}</b> is in the oven',
     },
     bakery: {
       mascot: 'Mascot: bitten toast',
@@ -98,6 +103,26 @@
       keepRule: '$50 received = 1 bake',
       hideRule: '“Croissant is in the oven”',
       cabinet: 'The bakery case',
+      intro: 'Today’s perks are out of the oven!',
+      unlocked: '{amount} added — {name} came out of the oven!',
+      tourGrant: '<b>{name}</b> comes out of the oven.',
+      inOven: '<b>{name}</b> is in the oven',
+    },
+    cafe: {
+      mascot: 'Mascot: hot coffee',
+      tourFirst: '<b>Sam</b> is six months in. Six coffees and sweets on the shelf, $84.25 to spend.',
+      tourLast: '<b>Alex</b>, two years in: nineteen coffees and sweets, in an order nobody else has.',
+      spent: 'the shelf keeps every cup and plate ☕',
+      stepGrant: 'watch a coffee come up at the counter',
+      stepSwitch: 'different coffees, same rule',
+      keep: 'Spend your whole balance and your coffees stay.',
+      keepRule: '$50 received = 1 coffee or sweet',
+      hideRule: '“Latte is coming right up”',
+      cabinet: 'The café counter',
+      intro: 'Today’s perks are hot and ready!',
+      unlocked: '{amount} added — your {name} is ready!',
+      tourGrant: 'Here comes <b>{name}</b>.',
+      inOven: '<b>{name}</b> is coming right up',
     },
   };
 
@@ -113,6 +138,11 @@
       'icons-hide': ['cupcake'],
       'icons-vary': ['donut', 'pretzel', 'mango', 'bagel'],
     },
+    cafe: {
+      'icons-keep': ['hotcoffee', 'latte', 'tiramisu'],
+      'icons-hide': ['pourover'],
+      'icons-vary': ['icedcoffee', 'madeleine', 'coffeebeans', 'frenchpress'],
+    },
   };
 
   /* ---------------------------------------------------------------- helpers */
@@ -122,6 +152,15 @@
   var reduced = function () {
     return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   };
+
+  /* A sentence of TEXT with its {words} put in: each {word} that `values` has, the
+   * others left as they are. The values are names from the sprite table and amounts,
+   * never anything a visitor typed. */
+  function fill(template, values) {
+    return template.replace(/\{(\w+)\}/g, function (whole, word) {
+      return Object.prototype.hasOwnProperty.call(values, word) ? String(values[word]) : whole;
+    });
+  }
 
   function daysAgoIso(days) {
     return new Date(Date.now() - days * 86400000).toISOString();
@@ -341,15 +380,17 @@
 
     if (rollFrame !== null) { cancelAnimationFrame(rollFrame); rollFrame = null; }
 
+    /* Read once: every frame of a roll is drawn in the colour the page had when it began. */
+    var digit = token('--digit');
     if (reduced() || from === cents) {
-      Pixel.drawNumber(canvas, money(cents), 9, '#4a2f1b');
+      Pixel.drawNumber(canvas, money(cents), 9, digit);
     } else {
       var startedAt = null;
       var step = function (ts) {
         if (startedAt === null) startedAt = ts;
         var p = Math.min((ts - startedAt) / 600, 1);
         var eased = 1 - Math.pow(1 - p, 3);
-        Pixel.drawNumber(canvas, ((from + (cents - from) * eased) / 100).toFixed(2), 9, '#4a2f1b');
+        Pixel.drawNumber(canvas, ((from + (cents - from) * eased) / 100).toFixed(2), 9, digit);
         rollFrame = p < 1 ? requestAnimationFrame(step) : null;
       };
       rollFrame = requestAnimationFrame(step);
@@ -386,7 +427,7 @@
     $('oven-caption').innerHTML = '';
     $('oven-caption').appendChild(pastryCanvas(next, 2));
     var label = document.createElement('span');
-    label.innerHTML = '<b>' + Pixel.NAMES[next].en + '</b> is in the oven';
+    label.innerHTML = fill(TEXT[themeId].inOven, { name: Pixel.NAMES[next].en });
     $('oven-caption').appendChild(label);
   }
 
@@ -559,21 +600,27 @@
 
     var el = document.createElement('div');
     el.className = 'oven';
-    el.appendChild(pastryCanvas(mascotKey(), 8));
+    var picture = pastryCanvas(mascotKey(), 8);
+    el.appendChild(picture);
     var t = document.createElement('p');
     t.className = 'oven-text';
-    t.textContent = 'Today’s perks are out of the oven!';
+    t.textContent = TEXT[themeId].intro;
     var s = document.createElement('p');
     s.className = 'oven-sub';
     s.textContent = 'tap to skip';
     el.appendChild(t);
     el.appendChild(s);
     $('phone').appendChild(el);
+    /* A mascot drawn with steam steams while the intro shows; any other stands still.
+     * setTheme takes the intro away without dismissing it, and the steam then stops by
+     * itself, its canvas gone from the page. */
+    var steaming = steamMascot(picture, mascotSprite(), 8, Infinity);
 
     var done = false;
     var dismiss = function () {
       if (done) return;
       done = true;
+      steaming.cancel();
       el.classList.add('leaving');
       window.setTimeout(function () { el.remove(); }, 420);
     };
@@ -623,10 +670,18 @@
 
   var shuttering = false;
 
-  /* The shop's name in the page's pixel letters, which are capitals only: "Pastry shop"
-   * is written PASTRY SHOP, "Bakery" BAKERY. */
+  /* The shop's name as the sign spells it. The page's pixel letters are capitals with no
+   * accents, so the accent goes first: split from its letter (NFD), it is the one thing
+   * left outside plain printable ASCII, and goes. "Pastry shop" is PASTRY SHOP, "Bakery"
+   * BAKERY and "Café" CAFE (an É would be drawn as a gap). */
+  function signText(id) {
+    return Pixel.THEMES[id].label.en.normalize('NFD').replace(/[^ -~]/g, '').toUpperCase();
+  }
+
+  /* The name in the sign's own colour (--sign-ink in style.css), the same in every shop:
+   * the new name is drawn before the shop changes. */
   function drawSign(canvas, id) {
-    Pixel.drawText(canvas, Pixel.THEMES[id].label.en.toUpperCase(), SIGN_PIXEL, token('--ink'));
+    Pixel.drawText(canvas, signText(id), SIGN_PIXEL, token('--sign-ink'));
   }
 
   /* From the narrowest point until the restock, the shelf stays out of sight
@@ -735,17 +790,84 @@
     runCues(cues, finish);
   }
 
-  /* ---------------------------------------------------------------- mascot bite */
+  /* ---------------------------------------------------------------- mascot motion
+   *
+   * After a spend the header's mascot is bitten and grows back, or, if it is drawn with
+   * steam (the café's cup: biting a cup makes no sense), it steams for one cycle. A tap
+   * on a mascot with steam steams it too. Which of the two is decided once, by the
+   * mascot on show when it starts. The one started last is mascotMotion, and a switch
+   * of shop (setTheme) stops it first: nothing of one shop's mascot is ever drawn over
+   * the next one's. A new cycle of steam stops the one running; a new bite lets any bite
+   * still running go on, as in 0.3, and carries it, so that stopping the new one stops
+   * them all. */
 
-  /* The mascot is looked up at every frame, so a switch of shop in the middle of
-   * a bite carries on with the new one and grows back as the new one. */
+  var mascotMotion = null;
+
+  function stopMascotMotion() {
+    if (mascotMotion) mascotMotion.cancel();
+    mascotMotion = null;
+  }
+
+  /* A sprite's steam on its canvas, by the step table in sprites.js: the first step at
+   * once, then one every Pixel.STEAM_STEP_MS, and after `cycles` cycles (Infinity: until
+   * cancelled) the whole drawing again. A canvas that has left the page ends it, drawing
+   * nothing more. With motion reduced, or for a sprite without steam, nothing happens:
+   * the canvas keeps the whole drawing. */
+  function steamMascot(canvas, sprite, size, cycles) {
+    var timer = null;
+    var cancel = function () {
+      if (timer !== null) window.clearInterval(timer);
+      timer = null;
+    };
+    if (reduced() || !sprite.steam || !canvas.isConnected) return { cancel: cancel };
+    var last = cycles * Pixel.STEAM_STEPS.length;
+    var step = 0;
+    Pixel.drawSprite(canvas, sprite, size, 0, step);
+    timer = window.setInterval(function () {
+      if (!canvas.isConnected) {
+        cancel();
+        return;
+      }
+      step += 1;
+      if (step < last) {
+        Pixel.drawSprite(canvas, sprite, size, 0, step);
+        return;
+      }
+      Pixel.drawSprite(canvas, sprite, size, 0);
+      cancel();
+    }, Pixel.STEAM_STEP_MS);
+    return { cancel: cancel };
+  }
+
   function biteMascot() {
     var canvas = $('mascot-canvas');
+    var sprite = mascotSprite();
+    if (sprite.steam) {
+      stopMascotMotion();
+      mascotMotion = steamMascot(canvas, sprite, 3, 1);
+      return;
+    }
     var DEPTH = 0.55;
+    var frame = null;
+    var timer = null;
+    var earlier = mascotMotion;
+    mascotMotion = {
+      cancel: function () {
+        if (earlier) earlier.cancel();
+        earlier = null;
+        if (frame !== null) cancelAnimationFrame(frame);
+        if (timer !== null) window.clearTimeout(timer);
+        frame = null;
+        timer = null;
+      },
+    };
 
     var restore = function () {
-      window.setTimeout(function () {
-        Pixel.drawSprite(canvas, mascotSprite(), 3, 0);
+      timer = window.setTimeout(function () {
+        timer = null;
+        /* Every bite runs as long as the others, so the one carried has ended by now. */
+        earlier = null;
+        Pixel.drawSprite(canvas, sprite, 3, 0);
         canvas.classList.remove('regrow');
         void canvas.offsetWidth;
         canvas.classList.add('regrow');
@@ -753,25 +875,26 @@
     };
 
     if (reduced()) {
-      Pixel.drawSprite(canvas, mascotSprite(), 3, DEPTH);
+      Pixel.drawSprite(canvas, sprite, 3, DEPTH);
       restore();
       return;
     }
 
     var started = null;
     var step = function (ts) {
+      frame = null;
       if (started === null) started = ts;
       var p = Math.min((ts - started) / 240, 1);
-      Pixel.drawSprite(canvas, mascotSprite(), 3, p * DEPTH);
+      Pixel.drawSprite(canvas, sprite, 3, p * DEPTH);
       if (p < 1) {
-        requestAnimationFrame(step);
+        frame = requestAnimationFrame(step);
       } else {
         var b = canvas.getBoundingClientRect();
         crumbs(b.left + b.width * 0.78, b.top + b.height * 0.3, 6);
         restore();
       }
     };
-    requestAnimationFrame(step);
+    frame = requestAnimationFrame(step);
   }
 
   /* ---------------------------------------------------------------- actions */
@@ -818,7 +941,7 @@
         window.setTimeout(function () { confetti(c.x, c.y); }, 220);
       }
       var key = Pixel.forSlot(current().id, after - 1, themeId);
-      toast('$' + dollars + '.00 added — ' + Pixel.NAMES[key].en + ' came out of the oven!');
+      toast(fill(TEXT[themeId].unlocked, { amount: '$' + dollars + '.00', name: Pixel.NAMES[key].en }));
     } else {
       toast('$' + dollars + '.00 added to ' + current().name + '’s credit');
     }
@@ -916,11 +1039,13 @@
 
   /* Drawn rather than typed: an arrow glyph would come from whatever font the
    * browser had, and be the one shape on the page that isn't on the grid. */
-  var CHEVRON = { palette: { X: '#8a6a4c' }, rows: ['X.....X', 'XX...XX', '.XX.XX.', '..XXX..'] };
+  var CHEVRON_ROWS = ['X.....X', 'XX...XX', '.XX.XX.', '..XXX..'];
 
+  /* CRUMB and the chevron, in the colours the stylesheet has when they are drawn
+   * (--wordmark, --chevron). renderTheme() draws them, so they follow every switch. */
   function renderWordmark() {
-    Pixel.drawText($('wordmark'), 'CRUMB', 7, '#4a2f1b');
-    Pixel.drawSprite($('more-arrow'), CHEVRON, 3, 0);
+    Pixel.drawText($('wordmark'), 'CRUMB', 7, token('--wordmark'));
+    Pixel.drawSprite($('more-arrow'), { palette: { X: token('--chevron') }, rows: CHEVRON_ROWS }, 3, 0);
   }
 
   function renderCardIcons() {
@@ -985,11 +1110,14 @@
     return 'data:image/svg+xml,' + encodeURIComponent(svg + '</svg>');
   }
 
-  /* Everything outside the person on screen that depends on the shop: the
-   * switch, the mascot in the header and on the app icon, its accessible name,
-   * the tab icon, the counts, the words that name the goods, the cards and the
-   * cabinet. The counts come from the theme's list, never typed in. */
+  /* Everything outside the person on screen that depends on the shop: the page's
+   * colours (data-theme on <html>, which style.css reads), the switch, CRUMB and the
+   * chevron, the mascot in the header and on the app icon, its accessible name, the
+   * tab icon, the counts, the words that name the goods, the cards and the cabinet.
+   * The colours change first, so the canvases and the tab icon are drawn in the new
+   * shop's. The counts come from the theme's list, never typed in. */
   function renderTheme() {
+    document.documentElement.setAttribute('data-theme', themeId);
     var words = TEXT[themeId];
     var keys = Pixel.themeKeys(themeId);
     var rotation = Pixel.THEMES[themeId].rotation;
@@ -999,6 +1127,7 @@
       btn.setAttribute('aria-pressed', String(btn.dataset.shop === themeId));
     });
 
+    renderWordmark();
     Pixel.drawSprite($('mascot-canvas'), mascotSprite(), 3, 0);
     Pixel.drawSprite($('app-icon'), mascotSprite(), 7, 0);
     $('mascot').setAttribute('aria-label', words.mascot);
@@ -1096,7 +1225,7 @@
     later(3300, function () {
       var coming = Pixel.NAMES[Pixel.forSlot(current().id, collectedCount(current()), themeId)].en;
       grant(50);
-      say('<b>' + coming + '</b> comes out of the oven.', 1);
+      say(fill(TEXT[themeId].tourGrant, { name: coming }), 1);
     });
 
     later(6600, function () {
@@ -1170,11 +1299,13 @@
    * are; only what fills the shelves changes. A tour that is playing starts again
    * from its first scene, with the tour's own people and balances, as every loop
    * of it does. Whatever names the old shop's goods goes: the name tip, the oven
-   * intro and the toast. A page opened with a remembered shop never comes through
-   * here: the wiring draws that shop from the start. */
+   * intro and the toast. The old mascot's bite or steam stops before anything is
+   * drawn. A page opened with a remembered shop never comes through here: the
+   * wiring draws that shop from the start. */
 
   function setTheme(id) {
     if (!known(id) || id === themeId) return;
+    stopMascotMotion();
     themeId = id;
     rememberTheme(id);
     hideName();
@@ -1278,7 +1409,6 @@
 
   /* ---------------------------------------------------------------- wiring */
 
-  renderWordmark();
   renderTheme();
 
   renderAll({ dropFrom: 0 });
@@ -1328,11 +1458,20 @@
     renderLog();
   });
 
+  /* A tap shakes the mascot. One drawn with steam then steams for a cycle (a second tap
+   * starts it over), with no crumbs: a cup spilling crumbs makes no sense. Any other
+   * spills crumbs, as it always has. */
   $('mascot').addEventListener('click', function (e) {
     var el = e.currentTarget;
     el.classList.remove('crack');
     void el.offsetWidth;
     el.classList.add('crack');
+    var sprite = mascotSprite();
+    if (sprite.steam) {
+      stopMascotMotion();
+      mascotMotion = steamMascot($('mascot-canvas'), sprite, 3, 1);
+      return;
+    }
     var c = centreOf(el);
     crumbs(c.x, c.y);
   });

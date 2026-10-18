@@ -1,9 +1,10 @@
 # Operating Crumb
 
 How to keep a Crumb instance safe once it is running: backups, restores, upgrades (including
-from 0.1 to 0.2 and from 0.2 to 0.3), a theme this version does not include, rollbacks, a
-locked-out owner, and disk space; and switching how people spend, changing the collection
-theme, putting a mistaken entry right, and how a treat to several people is recorded.
+from 0.1 to 0.2, from 0.2 to 0.3 and from 0.3 to 0.4, and straight from 0.1 or 0.2 to 0.4), a
+theme this version does not include, rollbacks, a locked-out owner, and disk space; and
+switching how people spend, changing the collection theme, putting a mistaken entry right, and
+how a treat to several people is recorded.
 The commands assume the Docker Compose setup
 from [DEPLOYMENT.md](DEPLOYMENT.md) and are run in the project folder. With HTTPS,
 `init-secrets --origin` put `COMPOSE_FILE=compose.yaml:compose.https.yaml` in `.env`, so
@@ -201,12 +202,40 @@ Back up first, as for any upgrade. Once the update has run, 0.2 refuses the data
 schema is newer), so going back means restoring the backup made before it (see
 [Rolling back](#rolling-back)).
 
+### Upgrading from 0.3 to 0.4
+
+Crumb 0.4 adds a third collection theme, the **Café**, and changes nothing in the database: no
+update runs on the first start, the database stays at schema version 3 (the backup command
+prints `schema 3` before and after), and every team keeps its theme, its shelves and its
+icons. The footer of the signed-in pages says which version is running (Crumb 0.3.0 or Crumb
+0.4.0). A team that has not sent its first treat yet can switch to the Café in Settings (see
+[Changing the collection theme](#changing-the-collection-theme)).
+
+Crumb 0.1 and 0.2 can be upgraded straight to 0.4. The first start then runs the same updates
+as 0.3 would: migration 003 on a 0.2 database, migrations 002 and 003 on a 0.1 database (see
+[Upgrading from 0.2 to 0.3](#upgrading-from-02-to-03) and
+[Upgrading from 0.1 to 0.2](#upgrading-from-01-to-02)). Existing teams are on the Pastry shop,
+and one that has already sent a treat stays there: the theme is fixed after the first treat,
+so it cannot move to the Café. Going back to 0.1 or 0.2 means restoring the backup made before
+the upgrade (see [Rolling back](#rolling-back)).
+
+Going back from 0.4 to 0.3:
+
+- **A team on the Pastry shop or the Bakery**: 0.3 opens the database as it is, so put the old
+  image back with steps 1, 2 and 4 of [Rolling back](#rolling-back) (no restore needed).
+- **A team on the Café**: 0.3 does not include the Café, so it refuses the database and does
+  not start (see [Unknown theme](#unknown-theme)). If the team has not sent a treat yet, switch
+  it to the Pastry shop or the Bakery in Settings first, then go back as above. Otherwise go
+  back by restoring the backup made before the upgrade, with every step of
+  [Rolling back](#rolling-back): everything recorded since that backup is lost.
+
 ### Unknown theme
 
 Each version of Crumb includes a fixed set of collection themes. A database whose team uses a
-theme this version does not include — one last used by a newer Crumb with more themes, for
-example — is refused instead of guessed at, and Crumb does not start. `docker compose logs
-crumb` shows, with the theme's id in place of `{id}`:
+theme the running version does not include — a team on the Café, which came with 0.4, opened
+by Crumb 0.3, for example — is refused instead of guessed at, and Crumb does not start.
+`docker compose logs crumb` shows, with the theme's id in place of `{id}` (`cafe` in that
+example):
 
 ```
 Crumb cannot start: This database uses the collection theme "{id}", which this version of Crumb does not include. Run a newer Crumb, or restore a backup made by this version.
@@ -238,6 +267,10 @@ same way ([Unknown theme](#unknown-theme)). So:
    (see Restoring). The restored copy keeps the backup's older database version, so the old
    image can open it.
 4. `docker compose up -d --no-build`
+
+Going back from 0.4 to 0.3 is different: the database version is the same, so a team on the
+Pastry shop or the Bakery needs no restore. See
+[Upgrading from 0.3 to 0.4](#upgrading-from-03-to-04), also for a team on the Café.
 
 ## An owner is locked out
 
@@ -289,25 +322,35 @@ the Team page.
 
 ## Changing the collection theme
 
-A team's collection theme — the Pastry shop or the Bakery — decides the pictures on everyone's
-shelf, the mascot, the browser tab and home-screen icons, and a few sentences about the
-collection. It is chosen at setup (the Pastry shop unless the owner picks another). Until the
-first treat, an owner can change it under **Settings → Rewards → Collection theme**: tapping a
-card selects it, and **Save settings** applies it. Any entry in the ledger then fixes it,
-together with the unlock step: the cards are greyed out, and the server refuses a change.
-Teams upgraded from 0.2 that had already sent a treat stay on the Pastry shop.
+A team's collection theme — the Pastry shop, the Bakery or the Café — decides the pictures on
+everyone's shelf, the mascot, the browser tab and home-screen icons, and a few sentences about
+the collection; the Café also brings colours of its own. It is chosen at setup (the Pastry shop
+unless the owner picks another). Until the first treat, an owner can change it under
+**Settings → Rewards → Collection theme**: tapping a card selects it, and **Save settings**
+applies it. Any entry in the ledger then fixes it, together with the unlock step: the cards are
+greyed out, and the server refuses a change. Teams upgraded from 0.2 that had already sent a
+treat stay on the Pastry shop.
+
+The Café is always dark: every page its team sees, the sign-in page included, whatever the
+phone or computer is set to. The Pastry shop and the Bakery are always light, and so is the
+setup page, whichever theme is picked there, as there is no team yet. On the setup page and in
+Settings, each theme's card shows that theme's own colours.
 
 Nobody has unlocked anything before the first treat, so a change touches no one's shelf. It
 does touch benefit icons: in the same save, every benefit (active or not) whose icon the new
 theme does not have loses its icon, and Settings says how many, for example "Theme changed. 2
 benefit icon(s) aren’t in this theme, so they were removed. You can pick new ones." instead of
-"Settings saved.". Icons the two themes share are kept. Pick new icons on the Team page. The
-activity log records the change; its detail (`GET /api/admin/audit`) has the old and the new
-theme and how many icons were removed.
+"Settings saved.". Icons the old and the new theme share are kept. Pick new icons on the Team
+page. The activity log records the change; its detail (`GET /api/admin/audit`) has the old and
+the new theme and how many icons were removed.
 
-The page that saved the change switches its tab icon right away; other pages already open
-switch the next time they load. An icon already on a phone's home screen keeps its old picture
-until it is removed and added to the home screen again.
+The page that saved the change switches its colours and its tab icon right away, without a
+reload; other pages already open switch both the next time they load. Each browser remembers
+its team's theme and starts the next page in it, so a café page is dark from the first moment;
+a browser opening Crumb for the first time, or one that has not seen a change yet, shows the
+light colours or its old theme's for the moment the page takes to load. An icon already on a
+phone's home screen keeps its old picture until it is removed and added to the home screen
+again.
 
 ## Putting a mistaken entry right
 

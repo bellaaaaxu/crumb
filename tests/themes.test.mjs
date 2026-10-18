@@ -12,7 +12,9 @@ import {
 } from '../server/themes.mjs';
 import { fixture } from './helpers.mjs';
 
-const UNKNOWN_THEME = 'This database uses the collection theme "cafe", which this version of Crumb does not include. ' +
+// A theme this version does not ship is "nosuchtheme" in every test: scripts/theme-manifest.mjs
+// refuses that id, so no release can ever turn these tests into tests of a real theme.
+const UNKNOWN_THEME = 'This database uses the collection theme "nosuchtheme", which this version of Crumb does not include. ' +
   'Run a newer Crumb, or restore a backup made by this version.';
 const themesDir = new URL('../themes/', import.meta.url);
 
@@ -21,7 +23,7 @@ test('the server reads every theme list file in themes/, the default theme first
   assert.deepEqual([...THEME_IDS].sort(), files.map(name => name.slice(0, -'.json'.length)));
   assert.equal(DEFAULT_THEME, 'default');
   assert.equal(THEME_IDS[0], DEFAULT_THEME);
-  assert.ok(THEME_IDS.includes('bakery'), 'Bakery ships');
+  assert.deepEqual(THEME_IDS, ['default', 'bakery', 'cafe'], 'Pastry shop first, then the others by id, the order of the cards (design section 9)');
   assert.deepEqual([...THEMES.keys()], THEME_IDS);
   for (const id of THEME_IDS) {
     // What the server loads is the committed file, as it is (spec §9).
@@ -33,12 +35,15 @@ test('the server reads every theme list file in themes/, the default theme first
   }
   assert.equal(THEMES.get('default').mascot, 'laopo');
   assert.equal(THEMES.get('bakery').mascot, 'toastbite');
+  assert.equal(THEMES.get('cafe').mascot, 'hotcoffee');
 });
 
 test('only the shipped themes are known', () => {
   assert.equal(themeById('default'), THEMES.get('default'));
   assert.equal(themeById('bakery'), THEMES.get('bakery'));
-  for (const id of ['cafe', 'Default', '', undefined, null, '__proto__', 'constructor', 'toString'])
+  assert.equal(themeById('cafe'), THEMES.get('cafe'));
+  assert.equal(themeById('cafe')?.themeId, 'cafe', 'Café ships');
+  for (const id of ['nosuchtheme', 'Default', '', undefined, null, '__proto__', 'constructor', 'toString'])
     assert.equal(themeById(id), undefined, String(id));
 });
 
@@ -66,11 +71,11 @@ test('a team is on the theme it chose', t => {
 
 test('a theme this version does not ship is refused, never swapped for the default', t => {
   const { db } = fixture(t);
-  db.prepare(`UPDATE organization SET theme = 'cafe' WHERE id = 1`).run();
-  assert.equal(orgThemeId(db), 'cafe');
+  db.prepare(`UPDATE organization SET theme = 'nosuchtheme' WHERE id = 1`).run();
+  assert.equal(orgThemeId(db), 'nosuchtheme');
   assert.throws(() => orgTheme(db), { name: 'AppError', status: 500, code: 'THEME_UNKNOWN', message: UNKNOWN_THEME });
   assert.throws(() => checkDatabaseTheme(db), { code: 'THEME_UNKNOWN', message: UNKNOWN_THEME });
-  const error = unknownThemeError('cafe');
+  const error = unknownThemeError('nosuchtheme');
   assert.ok(error instanceof AppError);
   assert.deepEqual({ status: error.status, code: error.code, message: error.message },
     { status: 500, code: 'THEME_UNKNOWN', message: UNKNOWN_THEME });

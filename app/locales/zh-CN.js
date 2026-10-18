@@ -96,8 +96,10 @@ export default {
   'setup.threshold': '每累计多少解锁一件收藏',
   'setup.thresholdCredit': '一个金额，比如 50.00。谁收到的下午茶每攒够这么多，就多一件点心。',
   'setup.thresholdCredit.bakery': '一个金额，比如 50.00。谁收到的下午茶每攒够这么多，就多出炉一件。',
+  'setup.thresholdCredit.cafe': '一个金额，比如 50.00。谁收到的下午茶每攒够这么多，就多上一份咖啡或甜点。',
   'setup.thresholdPoints': '一个整数，比如 100。谁收到的下午茶每攒够这么多，就多一件点心。',
   'setup.thresholdPoints.bakery': '一个整数，比如 100。谁收到的下午茶每攒够这么多，就多出炉一件。',
+  'setup.thresholdPoints.cafe': '一个整数，比如 100。谁收到的下午茶每攒够这么多，就多上一份咖啡或甜点。',
   'setup.spending': '大家怎么花',
   'setup.ownerGroup': '你的所有者账户',
   'setup.yourName': '你的名字',
@@ -128,6 +130,7 @@ export default {
   'me.lifetime': '一共收到',
   'me.collection': '我的收藏柜',
   'me.inOven': '{name} 正在烤箱里',
+  'me.inOven.cafe': '{name} 马上就好',
   'me.complete': '全部 {total} 件都到齐啦。下午茶照样算数。',
   'me.benefits': '福利',
   'me.noBenefits': '还没有福利，管理员会添加。',
@@ -164,6 +167,7 @@ export default {
   'dailyZero.4': '今天也要吃好，不影响。',
 
   'intro.title': '今天的下午茶出炉啦',
+  'intro.title.cafe': '今天的下午茶上桌啦',
   'intro.skip': '点一下跳过',
 
   'spend.title': '拿了多少？',
@@ -236,6 +240,7 @@ export default {
   'grant.alreadySentMany': '这一批刚才已经记上了，没重复。',
   'grant.unlocked': '顺便烤出了 {count} 件新点心。',
   'grant.unlocked.bakery': '顺便又烤好了 {count} 件。',
+  'grant.unlocked.cafe': '顺便又上了 {count} 份。',
 
   'members.invite': '邀请成员',
   'members.inviteIntro': 'Crumb 不发邮件。你会得到一个一次性链接，由你自己发给对方。',
@@ -280,6 +285,7 @@ export default {
   'members.roleSame': '这已经是对方现在的角色，请选择另一个。',
   'members.roleDetail.member': '看自己的下午茶和点心，自己花。',
   'members.roleDetail.member.bakery': '看自己的下午茶和面包蛋糕，自己花。',
+  'members.roleDetail.member.cafe': '看自己的下午茶和咖啡甜点，自己花。',
   'members.roleDetail.admin': '还能请下午茶、管福利和申请、管人。',
   'members.roleDetail.owner': '管理员能做的都能做，还能修改设置和角色、管理管理员和其他所有者。',
   'members.roleNewLink': '之前的链接已失效，请为对方生成新的链接。',
@@ -335,6 +341,7 @@ export default {
   'revoke.what': '{date} 请 {name} 的 {amount}。',
   'revoke.explain': '会加一笔冲回去的记录，原来那笔照旧留着、标成已收回。已经出炉的点心不会收走。',
   'revoke.explain.bakery': '会加一笔冲回去的记录，原来那笔照旧留着、标成已收回。已经出炉的面包和蛋糕不会收走。',
+  'revoke.explain.cafe': '会加一笔冲回去的记录，原来那笔照旧留着、标成已收回。已经上过的咖啡和甜点不会收走。',
   'revoke.submit': '收回',
   'revoke.done': '收回了请 {name} 的那次。',
 

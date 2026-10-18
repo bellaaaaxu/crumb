@@ -21,8 +21,16 @@ const THEMES_DIR = join(root, 'themes');
 const GRID = 12;
 /* Sprite keys and theme ids alike: they end up in members' rows, file names and URLs. */
 const ID = /^[a-z][a-z0-9]{1,31}$/;
+/* The id every test uses for "a theme this version does not ship" (a database or a page from a
+ * newer Crumb). No theme may ever take it, or those tests would quietly test a real theme. */
+const NEVER_SHIPS = 'nosuchtheme';
 /* The languages a theme's name and card text come in. */
 const LOCALES = ['en', 'zh-CN'];
+/* A palette colour, and a theme's background. */
+const COLOUR = /^#[0-9A-Fa-f]{6}$/;
+/* A mascot's steam: its rows and its wisps (assets/sprites.js, STEAM_STEPS). */
+const STEAM_ROWS = 4;
+const STEAM_WISPS = 2;
 
 function fail(message) {
   throw new Error(`assets/sprites.js: ${message}`);
@@ -35,7 +43,7 @@ function checkSprite(key, sprite) {
   if (!sprite || typeof sprite.palette !== 'object' || !Array.isArray(sprite.rows)) fail(`${key} needs a palette and rows`);
   for (const [symbol, colour] of Object.entries(sprite.palette)) {
     if (symbol.length !== 1 || symbol === '.') fail(`${key} palette symbol "${symbol}" must be one character other than "."`);
-    if (!/^#[0-9A-Fa-f]{6}$/.test(colour)) fail(`${key} palette colour "${colour}" must look like #A1B2C3`);
+    if (!COLOUR.test(colour)) fail(`${key} palette colour "${colour}" must look like #A1B2C3`);
   }
   if (sprite.rows.length !== GRID) fail(`${key} must have ${GRID} rows`);
   let painted = 0;
@@ -48,6 +56,28 @@ function checkSprite(key, sprite) {
     }
   });
   if (painted === 0) fail(`${key} has no painted cells`);
+}
+
+/* A drawing marked with steam: the symbol is one of its palette's; the steam fills exactly 4
+ * consecutive rows, in exactly 2 wisps (cells touching by an edge or a corner, as
+ * Pixel.steamWisps groups them), each with a cell in each of those rows; and the drawing is
+ * some theme's mascot. How a wisp curves is the drawing's own: not checked here. */
+function checkSteam(Pixel, key, mascots) {
+  const sprite = Pixel.SPRITES[key];
+  if (sprite.steam === undefined) return;
+  if (typeof sprite.steam !== 'string' || !Object.hasOwn(sprite.palette, sprite.steam)) {
+    fail(`${key}.steam must be one of its palette symbols`);
+  }
+  const wisps = Pixel.steamWisps(sprite);
+  const rows = [...new Set(wisps.flat().map(cell => cell.y))].sort((a, b) => a - b);
+  if (rows.length !== STEAM_ROWS || rows.at(-1) - rows[0] !== STEAM_ROWS - 1) {
+    fail(`${key}: the steam must fill exactly ${STEAM_ROWS} consecutive rows`);
+  }
+  for (const wisp of wisps) {
+    if (rows.some(row => !wisp.some(cell => cell.y === row))) fail(`${key}: each wisp of steam needs a cell in each of its ${STEAM_ROWS} rows`);
+  }
+  if (wisps.length !== STEAM_WISPS) fail(`${key}: the steam must be exactly ${STEAM_WISPS} wisps, not ${wisps.length}`);
+  if (!mascots.has(key)) fail(`${key} has steam but is no theme's mascot`);
 }
 
 /** The sprite table (Pixel), evaluated in an empty context: sprites.js touches no browser API
@@ -63,9 +93,10 @@ export function evaluateSprites(source) {
 function manifestOf(Pixel, themeId) {
   if (!Object.hasOwn(Pixel.THEMES, themeId)) fail(`no theme "${themeId}" in THEMES`);
   if (!ID.test(themeId)) fail(`theme id "${themeId}" must be 2 to 32 lowercase letters and digits, starting with a letter`);
+  if (themeId === NEVER_SHIPS) fail(`theme id "${themeId}" is kept for tests: it names a theme that never ships`);
   const where = `THEMES.${themeId}`;
   // A missing entry has no lists, so the first check below names it.
-  const { mascot, rotation, limited, version, label, card } = Pixel.THEMES[themeId] ?? {};
+  const { mascot, rotation, limited, version, label, card, background } = Pixel.THEMES[themeId] ?? {};
   if (!Array.isArray(rotation) || !Array.isArray(limited)) fail(`${where}.rotation and .limited must be lists of keys`);
   for (const list of [rotation, limited]) {
     const seen = new Set();
@@ -77,6 +108,10 @@ function manifestOf(Pixel, themeId) {
   for (const key of limited) if (rotation.includes(key)) fail(`${where} has "${key}" in both rotation and limited`);
   if (!rotation.includes(mascot)) fail(`${where}.mascot "${mascot}" must be in its rotation`);
   if (!Number.isInteger(version) || version < 1) fail(`${where}.version must be a positive whole number`);
+  // Optional: only a theme with colours of its own has one. It is not written into the list file.
+  if (background !== undefined && !(typeof background === 'string' && COLOUR.test(background))) {
+    fail(`${where}.background "${background}" must look like #A1B2C3`);
+  }
   for (const [field, texts] of [['label', label], ['card', card]]) {
     for (const locale of LOCALES) if (!hasText(texts?.[locale])) fail(`${where}.${field} needs "${locale}" text`);
   }
@@ -85,10 +120,12 @@ function manifestOf(Pixel, themeId) {
     if (/\p{Nd}/u.test(card[locale])) fail(`${where}.card.${locale} must not type a number: {count} is filled in from the list`);
   }
   const keys = [...rotation, ...limited];
+  const mascots = new Set(Object.values(Pixel.THEMES).map(entry => entry?.mascot));
   const names = {};
   for (const key of keys) {
     if (typeof key !== 'string' || !Object.hasOwn(Pixel.SPRITES, key)) fail(`"${key}" in ${where} is not drawn in SPRITES`);
     checkSprite(key, Pixel.SPRITES[key]);
+    checkSteam(Pixel, key, mascots);
     const name = Object.hasOwn(Pixel.NAMES, key) ? Pixel.NAMES[key] : undefined;
     if (!hasText(name?.en) || !hasText(name?.zh) || !hasText(name?.cn)) {
       fail(`${key} needs English (en), Traditional (zh) and Simplified (cn) names in NAMES`);

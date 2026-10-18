@@ -340,17 +340,17 @@ test('a team theme is 2 to 32 characters; which themes exist is up to the theme 
 });
 
 // The refusal's wording is pinned once, in tests/themes.test.mjs.
-const UNKNOWN_THEME = unknownThemeError('cafe').message;
+const UNKNOWN_THEME = unknownThemeError('nosuchtheme').message;
 
 test('a database whose team uses a theme this version does not include refuses to open', t => {
   const { db, path } = fixture(t);
-  db.prepare(`UPDATE organization SET theme = 'cafe' WHERE id = 1`).run();
+  db.prepare(`UPDATE organization SET theme = 'nosuchtheme' WHERE id = 1`).run();
   db.close();
   assert.throws(() => openDatabase(path), { code: 'THEME_UNKNOWN', message: UNKNOWN_THEME });
   // Refused, not repaired: the team still has the theme it came with.
   const raw = new Database(path);
   try {
-    assert.equal(raw.prepare('SELECT theme FROM organization').get().theme, 'cafe');
+    assert.equal(raw.prepare('SELECT theme FROM organization').get().theme, 'nosuchtheme');
   } finally {
     raw.close();
   }

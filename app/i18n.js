@@ -25,12 +25,14 @@ export function t(key, params = {}) {
 
 export const has = key => Object.hasOwn(DICTIONARIES[current], key) || Object.hasOwn(DICTIONARIES.en, key);
 
-/* The few sentences that name what the collection is made of follow the team's collection
- * theme. A theme may have its own version of each, in both locale files, keyed as the base key
- * plus `.<theme id>` (`grant.unlocked.bakery`); the Pastry shop (`default`) has none and uses
- * the base keys. tests/i18n.test.mjs checks that every such key has its base key with the same
- * placeholders, and that the app looks each key listed here up only through themed(). */
-export const THEMED_KEYS = ['setup.thresholdCredit', 'setup.thresholdPoints', 'grant.unlocked', 'revoke.explain', 'members.roleDetail.member'];
+/* The few sentences that name what the collection is made of, or how a new piece of it arrives
+ * (out of the oven, up at the counter), follow the team's collection theme. A theme may have its
+ * own version of each, in both locale files, keyed as the base key plus `.<theme id>`
+ * (`grant.unlocked.bakery`); the Pastry shop (`default`) has none and uses the base keys, and so
+ * does any theme for a key it has no version of. tests/i18n.test.mjs checks that every such key
+ * has its base key with the same placeholders, and that the app looks each key listed here up
+ * only through themed(). */
+export const THEMED_KEYS = ['setup.thresholdCredit', 'setup.thresholdPoints', 'grant.unlocked', 'revoke.explain', 'members.roleDetail.member', 'me.inOven', 'intro.title'];
 
 /* The theme's own version when there is one; the base sentence otherwise, also for a missing or
  * unknown theme id. Never look a theme's version up with t() alone: when nothing matches, t()
@@ -41,8 +43,10 @@ export function themed(key, themeId, params) {
 }
 
 /* A person's own choice wins; otherwise the organization's default.
- * The browser keeps this choice and, for this device only, three other things: that the
- * home-screen tip was dismissed (views/member.js); and, for the person signed in here now,
+ * The browser keeps this choice and, for this device only, four other things: the team's
+ * collection theme (crumb.theme, a theme id, so the page opens in its colours: main.js writes
+ * it, early-theme.js reads it; it is the team's, not a person's, and stays after signing out);
+ * that the home-screen tip was dismissed (views/member.js); and, for the person signed in here now,
  * the keys of their requests still waiting for an answer with a fingerprint of each change,
  * used for seven days at most (pending.js), and the balance, pastry count and total received
  * they last saw, which the page animates from (motion.js). The fingerprint of a small change,

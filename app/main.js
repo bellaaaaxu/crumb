@@ -3,9 +3,9 @@
 
 import { ApiError, forgetPendingFor, keepPendingOnlyFor, renewTokenWith, request, setActor, setCsrf } from './api.js';
 import { button, closeAllDialogs, el, inWeChat, openDialog, safeUrl, toast, uid } from './dom.js';
-import { LANGUAGES, getLocale, has, preferredLocale, rememberLocale, setLocale, t } from './i18n.js';
+import { LANGUAGES, getLocale, has, preferredLocale, rememberLocale, setLocale, t, themed } from './i18n.js';
 import { crackMascot, forgetSeen, keepSeenOnlyFor, ovenIntro } from './motion.js';
-import { iconHref, mascotKey, spriteCanvas, touchIconHref } from './pixels.js';
+import { iconHref, mascotKey, spriteCanvas, themeBackground, touchIconHref } from './pixels.js';
 import { renderAuth } from './views/auth.js';
 import { renderMember } from './views/member.js';
 import { renderAdmin } from './views/admin.js';
@@ -14,6 +14,13 @@ import { renderSettings } from './views/settings.js';
 /* Feedback about Crumb itself goes to the project, unless the organization set its own form. */
 const PROJECT_FEEDBACK = 'https://github.com/bellaaaaxu/crumb/issues/new/choose';
 const PROJECT_README = 'https://github.com/bellaaaaxu/crumb#readme';
+
+/* The team's collection theme, remembered on this device so early-theme.js can put it on the
+ * page before the first paint. Named like i18n.js's crumb.locale; a theme id, nothing personal. */
+const THEME_KEY = 'crumb.theme';
+/* The shape of a theme id, the same in early-theme.js and scripts/theme-manifest.mjs: 2 to 32
+ * lowercase letters and digits, starting with a letter. */
+const THEME_ID = /^[a-z][a-z0-9]{1,31}$/;
 
 const root = document.getElementById('app');
 /* `epoch` changes whenever who is signed in on this page changes, and with every sign-in made
@@ -53,9 +60,47 @@ function adoptSession(session) {
   keepPendingOnlyFor(session.user?.id);
   state.session = session;
   // Every session the page learns comes through here: on loading, after signing in or setting
-  // up, after Settings saves (ctx.refresh) and on signing out. So the tab icon follows from here.
-  applyThemeIcons(session.org?.theme);
+  // up, after Settings saves (ctx.refresh) and on signing out. So the team's theme follows from
+  // here: its colours, its record on this device, the tab icon and the browser bar.
+  applyTheme(session.org?.theme);
   return session;
+}
+
+/* Puts a team's collection theme on the page, by its id as the server gives it:
+ * - a well-formed id goes on <html data-theme> as it is, and is remembered on this device for
+ *   early-theme.js; anything else (no team yet, no theme, not a string, a malformed id) is
+ *   taken off and forgotten. The sprite table is not asked: the colours are in the stylesheet,
+ *   which has none for an id it does not know, so such a page is simply light;
+ * - the tab and home-screen icons follow, as they always have (applyThemeIcons);
+ * - a theme with colours of its own (a `background` in the sprite table: Café) colours the
+ *   browser bar with it; any other has no bar colour tag, so the bar keeps the browser's own.
+ * Storage may be blocked: then nothing is remembered and the page is still right (a throw here
+ * would stop the page from starting, since every load comes through adoptSession). */
+function applyTheme(themeId) {
+  const id = typeof themeId === 'string' && THEME_ID.test(themeId) ? themeId : null;
+  const html = document.documentElement;
+  if (id === null) html.removeAttribute('data-theme');
+  else if (html.getAttribute('data-theme') !== id) html.setAttribute('data-theme', id);
+  try {
+    if (id === null) window.localStorage.removeItem(THEME_KEY);
+    else window.localStorage.setItem(THEME_KEY, id);
+  } catch {
+    // storage blocked: nothing is remembered, and the next load starts light
+  }
+  applyThemeIcons(themeId);
+  // By the checked id: a malformed value is no theme at all, so it never colours the bar.
+  const colour = themeBackground(id);
+  let bar = document.head.querySelector('meta[name="theme-color"]');
+  if (colour === null) {
+    bar?.remove();
+    return;
+  }
+  if (!bar) {
+    bar = document.createElement('meta');
+    bar.setAttribute('name', 'theme-color');
+    document.head.append(bar);
+  }
+  if (bar.getAttribute('content') !== colour) bar.setAttribute('content', colour);
 }
 
 /* The tab and home-screen icons of a collection theme. The server answers favicon.svg and
@@ -299,10 +344,12 @@ function context(generation) {
     render,
     errorText,
     languagePicker,
-    /* Points the tab and home-screen icons at a theme's own files. Every session the page loads
-     * does this already; a view calls it when an answer of its own names the team's theme, as
-     * Settings' save does, so the icon follows even if the refresh after it fails. */
-    applyThemeIcons,
+    /* Puts a team's theme on the page: its colours, its record on this device, its tab and
+     * home-screen icons and the browser bar. Every session the page loads does this already; a
+     * view calls it when an answer of its own names the team's theme: Settings' save, so the page
+     * changes even if the refresh after it fails, and the Settings and member pages, which read
+     * the session and /api/me themselves and may learn of a theme changed elsewhere. */
+    applyTheme,
     async refresh() {
       await loadSession();
       render();
@@ -524,6 +571,9 @@ function render() {
 /* These files with no Crumb server behind them: the project's GitHub Pages site publishes the
  * whole repository, this folder included. Say what the page is instead of "try again". */
 function noServer() {
+  // Always light: a theme this browser remembers from a Crumb server at the same address is not
+  // this page's. Only taken off the page; nothing here writes or removes it.
+  document.documentElement.removeAttribute('data-theme');
   document.title = t('static.title');
   return el('main', { attrs: { id: 'main', class: 'auth', tabindex: '-1' } }, [
     el('div', { attrs: { class: 'auth-card' } }, [
@@ -554,7 +604,12 @@ async function boot() {
   // A sign-in link or the sign-in page goes straight to its form.
   if (state.session.user && !state.link) {
     state.entering = true;
-    await ovenIntro({ title: t('intro.title'), skip: t('intro.skip'), mascot: mascotKey(state.session.org?.theme) });
+    // The intro's title follows the team's theme, as the "next item" line does.
+    await ovenIntro({
+      title: themed('intro.title', state.session.org?.theme),
+      skip: t('intro.skip'),
+      mascot: mascotKey(state.session.org?.theme),
+    });
   }
   render();
   window.addEventListener('hashchange', () => {

@@ -27,6 +27,9 @@
 <meta name="twitter:image:alt" content="The Crumb wordmark in pixel type with the tagline Make appreciation something to keep (open source, self-hosted), above a shelf of twelve pixel pastries captioned Recognition unlocks a pastry that stays.">
 
 <link rel="icon" id="tab-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><rect width='12' height='12' fill='%23F2E7CE'/><rect x='4' y='1' width='4' height='10' fill='%23E0A73C'/><rect x='1' y='4' width='10' height='4' fill='%23E0A73C'/><rect x='3' y='3' width='6' height='6' fill='%23F3D488'/></svg>">
+<!-- Before the stylesheet, with no defer or async: it puts the shop this browser
+     remembers on <html> before the first paint, so the café never flashes light. -->
+<script src="assets/early-shop.js"></script>
 <link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
@@ -50,6 +53,7 @@
         <div class="shop-switch" id="shop-switch">
           <button type="button" data-shop="default" aria-pressed="true">Pastry shop</button>
           <button type="button" data-shop="bakery" aria-pressed="false">Bakery</button>
+          <button type="button" data-shop="cafe" aria-pressed="false">Café</button>
         </div>
       </div>
     </div>

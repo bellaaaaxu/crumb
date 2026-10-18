@@ -96,8 +96,10 @@ export default {
   'setup.threshold': 'Unlock a collectible every',
   'setup.thresholdCredit': 'An amount like 50.00. Every time someone’s treats add up to another step this size, a new pastry comes out of the oven.',
   'setup.thresholdCredit.bakery': 'An amount like 50.00. Every time someone’s treats add up to another step this size, a new bake comes out of the oven.',
+  'setup.thresholdCredit.cafe': 'An amount like 50.00. Every time someone’s treats add up to another step this size, another coffee or something sweet is served.',
   'setup.thresholdPoints': 'A whole number like 100. Every time someone’s treats add up to another step this size, a new pastry comes out of the oven.',
   'setup.thresholdPoints.bakery': 'A whole number like 100. Every time someone’s treats add up to another step this size, a new bake comes out of the oven.',
+  'setup.thresholdPoints.cafe': 'A whole number like 100. Every time someone’s treats add up to another step this size, another coffee or something sweet is served.',
   'setup.spending': 'How people spend',
   'setup.ownerGroup': 'Your owner account',
   'setup.yourName': 'Your name',
@@ -128,6 +130,7 @@ export default {
   'me.lifetime': 'Received so far',
   'me.collection': 'Your collection',
   'me.inOven': '{name} is in the oven',
+  'me.inOven.cafe': '{name} is coming right up',
   'me.complete': 'All {total} on the shelf. Treats still count, of course.',
   'me.benefits': 'Benefits',
   'me.noBenefits': 'No benefits yet. Your admin adds them.',
@@ -164,6 +167,7 @@ export default {
   'dailyZero.4': 'Eat well today, no matter what.',
 
   'intro.title': 'Today’s treats are out of the oven!',
+  'intro.title.cafe': 'Today’s treats are served!',
   'intro.skip': 'Tap to skip',
 
   'spend.title': 'How much did you grab?',
@@ -236,6 +240,7 @@ export default {
   'grant.alreadySentMany': 'That batch was already recorded, no doubles.',
   'grant.unlocked': 'And that baked {count} new pastry(ies).',
   'grant.unlocked.bakery': 'And {count} more came out of the oven.',
+  'grant.unlocked.cafe': 'And {count} more came up at the counter.',
 
   'members.invite': 'Invite someone',
   'members.inviteIntro': 'Crumb does not send email. You get a one-time link to send them yourself.',
@@ -280,6 +285,7 @@ export default {
   'members.roleSame': 'That is already their role. Choose a different one.',
   'members.roleDetail.member': 'Sees their own treats and pastries, and spends.',
   'members.roleDetail.member.bakery': 'Sees their own treats and bakes, and spends.',
+  'members.roleDetail.member.cafe': 'Sees their own treats, coffees and sweets, and spends.',
   'members.roleDetail.admin': 'Can also treat people, run benefits and requests, and look after members.',
   'members.roleDetail.owner': 'Everything an admin does, plus settings, roles, admins and other owners.',
   'members.roleNewLink': 'Their earlier link no longer works: make a new one for them.',
@@ -335,6 +341,7 @@ export default {
   'revoke.what': '{amount} to {name} on {date}.',
   'revoke.explain': 'A reversing entry goes in; the original stays, marked as taken back. Pastries already baked stay on the shelf.',
   'revoke.explain.bakery': 'A reversing entry goes in; the original stays, marked as taken back. Bread and cakes already baked stay on the shelf.',
+  'revoke.explain.cafe': 'A reversing entry goes in; the original stays, marked as taken back. Coffees and sweets already served stay on the shelf.',
   'revoke.submit': 'Take it back',
   'revoke.done': 'Took back the treat to {name}.',
 

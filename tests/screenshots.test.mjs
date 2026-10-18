@@ -1,12 +1,15 @@
-/* scripts/screenshots.mjs: where its pictures go. Importing it takes no pictures and starts no
- * server; the pictures themselves are taken by running it by hand (CONTRIBUTING.md). */
+/* scripts/screenshots.mjs: where its pictures go, and the logo its review pictures upload.
+ * Importing it takes no pictures and starts no server; the pictures themselves are taken by
+ * running it by hand (CONTRIBUTING.md). */
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { outputFolder } from '../scripts/screenshots.mjs';
+import sharp from 'sharp';
+import { normalizeLogo } from '../server/org.mjs';
+import { outputFolder, sampleLogo } from '../scripts/screenshots.mjs';
 
 const README_FOLDER = fileURLToPath(new URL('../assets/screenshots', import.meta.url));
 
@@ -56,4 +59,17 @@ test('--out is used as given and made if missing; Pastry shop without it writes 
     assert.equal(outputFolder('default', given), given);
     assert.equal(outputFolder('default'), README_FOLDER);
   });
+});
+
+// The review pictures upload it through Settings, as a person would: if the server turned it
+// down, no logo picture would be taken. Wider than tall, with see-through corners, it shows
+// how a logo that is not square sits on the ground behind it.
+test('the sample logo of the review pictures is one the server takes: wider than tall, with see-through corners', async () => {
+  const kept = await normalizeLogo(await sampleLogo());
+  assert.equal((await sharp(kept).metadata()).format, 'png');
+  const { data, info } = await sharp(kept).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  assert.ok(info.width > info.height, `${info.width}x${info.height}`);
+  const alphaAt = (x, y) => data[(y * info.width + x) * info.channels + 3];
+  assert.equal(alphaAt(0, 0), 0, 'the top-left corner is see-through');
+  assert.equal(alphaAt(Math.floor(info.width / 2), Math.floor(info.height / 2)), 255, 'the middle is drawn');
 });

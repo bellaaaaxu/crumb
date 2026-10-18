@@ -151,11 +151,11 @@ test('recover-owner does not give a password to an owner who never joined', t =>
 });
 
 // The refusal's wording is pinned once, in tests/themes.test.mjs.
-const UNKNOWN_THEME = unknownThemeError('cafe').message;
+const UNKNOWN_THEME = unknownThemeError('nosuchtheme').message;
 
 test('recover-owner refuses a database whose team uses a theme this version does not include', t => {
   const { db, owner, dir } = fixture(t);
-  db.prepare(`UPDATE organization SET theme = 'cafe' WHERE id = 1`).run();
+  db.prepare(`UPDATE organization SET theme = 'nosuchtheme' WHERE id = 1`).run();
   const before = db.prepare('SELECT password_hash FROM users WHERE id = ?').get(owner.id).password_hash;
   const result = run('recover-owner.mjs', ['--username', 'owner'], { env: { DATA_DIR: dir }, input: 'a completely new owner password\n' });
   assert.equal(result.status, 1);
@@ -166,7 +166,7 @@ test('recover-owner refuses a database whose team uses a theme this version does
 
 test('the server will not start on a database whose team uses a theme this version does not include', t => {
   const { db, dir } = fixture(t);
-  db.prepare(`UPDATE organization SET theme = 'cafe' WHERE id = 1`).run();
+  db.prepare(`UPDATE organization SET theme = 'nosuchtheme' WHERE id = 1`).run();
   // It refuses before the port opens; the timeout only matters if it wrongly starts.
   const server = spawnSync(process.execPath, [fileURLToPath(new URL('../server/main.mjs', import.meta.url))], {
     encoding: 'utf8',

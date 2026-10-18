@@ -29,6 +29,7 @@ const showsMascot = (page, selector, shop, size) => page.evaluate(([selector, sh
 const CARD_PICTURES = {
   default: { 'icons-keep': ['laopo', 'tart', 'bolo'], 'icons-hide': ['charsiu'], 'icons-vary': ['mochi', 'walnut', 'mango', 'taro'] },
   bakery: { 'icons-keep': ['toastbite', 'croissant', 'bolo'], 'icons-hide': ['cupcake'], 'icons-vary': ['donut', 'pretzel', 'mango', 'bagel'] },
+  cafe: { 'icons-keep': ['hotcoffee', 'latte', 'tiramisu'], 'icons-hide': ['pourover'], 'icons-vary': ['icedcoffee', 'madeleine', 'coffeebeans', 'frenchpress'] },
 };
 
 /* Whether the canvases in `selector` show exactly the drawings of `keys`, in that order, each
@@ -101,6 +102,7 @@ test('a first visit shows the Pastry shop, with the same numbers as before', asy
   await page.goto(DEMO);
   await expect(shopButton(page, 'Pastry shop')).toHaveAttribute('aria-pressed', 'true');
   await expect(shopButton(page, 'Bakery')).toHaveAttribute('aria-pressed', 'false');
+  await expect(shopButton(page, 'Café')).toHaveAttribute('aria-pressed', 'false');
   await expect(page.getByRole('button', { name: 'Mascot: wife cake', exact: true })).toBeVisible();
   await expect.poll(() => showsMascot(page, '#mascot-canvas', 'default', 3)).toBe(true);
   await expect.poll(() => showsMascot(page, '#app-icon', 'default', 7)).toBe(true);
@@ -262,14 +264,17 @@ test('a browser that refuses storage can still switch shops, and remembers nothi
   expect(errors).toEqual([]);
 });
 
-test('the shop switch stays inside a phone-width page', async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto(DEMO);
-  for (const name of ['Pastry shop', 'Bakery']) {
-    const box = await shopButton(page, name).boundingBox();
-    expect(box, name).not.toBeNull();
-    expect(box.x, name).toBeGreaterThanOrEqual(0);
-    expect(box.x + box.width, name).toBeLessThanOrEqual(390);
+test('the three shop buttons stay inside a phone-width page, which does not scroll sideways', async ({ page }) => {
+  for (const width of [390, 320]) {
+    await page.setViewportSize({ width, height: 844 });
+    await page.goto(DEMO);
+    for (const name of ['Pastry shop', 'Bakery', 'Café']) {
+      const box = await shopButton(page, name).boundingBox();
+      expect(box, `${name} at ${width}px`).not.toBeNull();
+      expect(box.x, `${name} at ${width}px`).toBeGreaterThanOrEqual(0);
+      expect(box.x + box.width, `${name} at ${width}px`).toBeLessThanOrEqual(width);
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth), `at ${width}px`).toBe(width);
   }
 });
 
@@ -279,6 +284,7 @@ test('the shop switch stays inside a phone-width page', async ({ page }) => {
 const listFile = id => JSON.parse(readFileSync(resolve(`themes/${id}.json`), 'utf8'));
 const PASTRY_LIST = listFile('default');
 const BAKERY_LIST = listFile('bakery');
+const CAFE_LIST = listFile('cafe');
 
 /* Where a person starts in a rotation, by 0.2's arithmetic (Pixel.forSlot): the sum of the
  * seed's character codes. Sam is #118, which sums to 154. */
@@ -286,10 +292,12 @@ const charSum = seed => [...seed].reduce((sum, char) => sum + char.charCodeAt(0)
 const fromSlot = (seed, rotation, count) =>
   Array.from({ length: count }, (_, index) => rotation[(index + charSum(seed)) % rotation.length]);
 const samInBakery = fromSlot('118', BAKERY_LIST.keys, 7);
+const samInCafe = fromSlot('118', CAFE_LIST.keys, 7);
 
 /* The mascot's accessible name in each shop. */
 const PASTRY_MASCOT = 'Mascot: wife cake';
 const BAKERY_MASCOT = 'Mascot: bitten toast';
+const CAFE_MASCOT = 'Mascot: hot coffee';
 
 /* What each shop draws for Sam's fresh demo: six on the shelf and one in the oven, the cabinet
  * in list order with the app-only ones dashed, and the pictures on the three cards. */
@@ -308,6 +316,13 @@ const DRAWINGS = {
     cabinet: BAKERY_LIST.keys,
     limited: [],
     cards: CARD_PICTURES.bakery,
+  },
+  cafe: {
+    shelf: samInCafe.slice(0, 6),
+    oven: samInCafe[6],
+    cabinet: CAFE_LIST.keys,
+    limited: [],
+    cards: CARD_PICTURES.cafe,
   },
 };
 
@@ -353,6 +368,10 @@ test('each shop draws its own shelf, cabinet and card pictures, and the Pastry s
     await expect(page.locator('#mascot')).toHaveAttribute('aria-label', BAKERY_MASCOT);
     await expect(page.locator('#phone .shutter')).toHaveCount(0);
     await expectDrawings(page, 'bakery');
+    await shopButton(page, 'Café').click();
+    await expect(page.locator('#mascot')).toHaveAttribute('aria-label', CAFE_MASCOT);
+    await expect(page.locator('#phone .shutter')).toHaveCount(0);
+    await expectDrawings(page, 'cafe');
     await shopButton(page, 'Pastry shop').click();
     await expect(page.locator('#mascot')).toHaveAttribute('aria-label', PASTRY_MASCOT);
     await expect(page.locator('#phone .shutter')).toHaveCount(0);
@@ -660,5 +679,738 @@ test('switching while the tour plays: the shutter runs, the tour starts again fr
   await expect(page.locator('#get-note')).toHaveText('Playing on its own');
   await expect(page.locator('body')).toHaveClass(/autoplay/);
   expect(await page.evaluate(() => window.__added)).toEqual({ ovens: 0, shutters: 1 });
+  expect(errors).toEqual([]);
+});
+
+/* ---------------------------------------------------------------- canvas colours (spec §8) */
+
+/* Four things outside the shelf are drawn on canvases in a colour the stylesheet gives, read
+ * when they are drawn: the balance (--digit), CRUMB (--wordmark), the chevron under the phone
+ * (--chevron) and the name on the shutter's sign (--sign-ink). A colour set on <html> here
+ * stands in for a shop with colours of its own: a canvas that takes it up reads its variable,
+ * and one that takes it up after a switch is drawn again at every switch. The light colours
+ * are pinned against 0.3.0 in canvas-colours.spec.mjs. */
+
+const CHEVRON_ROWS = ['X.....X', 'XX...XX', '.XX.XX.', '..XXX..'];
+const LIGHT_COLOURS = { '--digit': '#4a2f1b', '--wordmark': '#4a2f1b', '--chevron': '#8a6a4c' };
+const OTHER_COLOURS = { '--digit': '#123456', '--wordmark': '#234567', '--chevron': '#345678' };
+
+/* Sets colours on <html>, where the page reads them; null takes one off again. */
+const setColours = (page, colours) => page.evaluate(colours => {
+  for (const [name, value] of Object.entries(colours)) {
+    if (value === null) document.documentElement.style.removeProperty(name);
+    else document.documentElement.style.setProperty(name, value);
+  }
+}, colours);
+
+/* The balance, CRUMB and the chevron as the page shows them, and as its own pixel table draws
+ * them in the given colours (the balance being the amount #balance-text holds). */
+const canvasesShown = page => page.evaluate(() => ({
+  balance: document.getElementById('balance').toDataURL(),
+  wordmark: document.getElementById('wordmark').toDataURL(),
+  chevron: document.getElementById('more-arrow').toDataURL(),
+}));
+const canvasesDrawn = (page, colours) => page.evaluate(([colours, rows]) => {
+  const draw = paint => {
+    const canvas = document.createElement('canvas');
+    paint(canvas);
+    return canvas.toDataURL();
+  };
+  const amount = document.getElementById('balance-text').textContent.replace('$', '');
+  return {
+    balance: draw(canvas => Pixel.drawNumber(canvas, amount, 9, colours['--digit'])),
+    wordmark: draw(canvas => Pixel.drawText(canvas, 'CRUMB', 7, colours['--wordmark'])),
+    chevron: draw(canvas => Pixel.drawSprite(canvas, { palette: { X: colours['--chevron'] }, rows }, 3, 0)),
+  };
+}, [colours, CHEVRON_ROWS]);
+
+test('the balance, CRUMB and the chevron are drawn in the stylesheet\'s colours, and drawn again at every switch', async ({ browser }) => {
+  // Less motion: no tour, no shutter, and the balance drawn in one go.
+  const context = await browser.newContext({ reducedMotion: 'reduce' });
+  try {
+    const page = await context.newPage();
+    const errors = errorsOf(page);
+    await page.goto(DEMO);
+    expect(await canvasesShown(page)).toEqual(await canvasesDrawn(page, LIGHT_COLOURS));
+
+    await setColours(page, OTHER_COLOURS);
+    await shopButton(page, 'Bakery').click();
+    await expect(shopButton(page, 'Bakery')).toHaveAttribute('aria-pressed', 'true');
+    expect(await canvasesShown(page)).toEqual(await canvasesDrawn(page, OTHER_COLOURS));
+
+    await setColours(page, { '--digit': null, '--wordmark': null, '--chevron': null });
+    await shopButton(page, 'Pastry shop').click();
+    await expect(shopButton(page, 'Pastry shop')).toHaveAttribute('aria-pressed', 'true');
+    expect(await canvasesShown(page)).toEqual(await canvasesDrawn(page, LIGHT_COLOURS));
+    expect(errors).toEqual([]);
+  } finally {
+    await context.close();
+  }
+});
+
+/* Presses a shop button and reads the sign in the same instant: the shutter is down by then, its
+ * sign showing the name of the shop still on show. */
+const signAtPress = (page, shop) => page.evaluate(shop => {
+  document.querySelector(`#shop-switch [data-shop="${shop}"]`).click();
+  return document.querySelector('#phone .shutter-sign canvas').toDataURL();
+}, shop);
+const signDrawn = (page, name, colour) => page.evaluate(([name, colour]) => {
+  const canvas = document.createElement('canvas');
+  Pixel.drawText(canvas, name, 4, colour);
+  return canvas.toDataURL();
+}, [name, colour]);
+const shutterGone = page => page.waitForFunction(() => document.querySelector('#phone .shutter') === null, null, { timeout: 3000 });
+
+test('the shutter\'s sign is drawn in the sign\'s own colour, 0.3\'s dark brown, whatever the page\'s text colour', async ({ page }) => {
+  const errors = errorsOf(page);
+  await takeControl(page);
+  expect(await signAtPress(page, 'bakery')).toBe(await signDrawn(page, 'PASTRY SHOP', '#4a2f1b'));
+  await shutterGone(page);
+  // The page's text colour may change with the shop; the sign's never does (spec §8, assumption 9a).
+  await setColours(page, { '--ink': '#0a0b0c', '--sign-ink': '#456789' });
+  expect(await signAtPress(page, 'default')).toBe(await signDrawn(page, 'BAKERY', '#456789'));
+  await shutterGone(page);
+  expect(errors).toEqual([]);
+});
+
+/* ---------------------------------------------------------------- the café (spec §7, §8) */
+
+/* The third shop: everything that names the goods is the café's, its oven lines included (the
+ * "next item" line, the unlock toast, the intro and the tour's second line), and nothing visible
+ * there says "oven". The Pastry shop's and the Bakery's words do not change. */
+
+/* Whether the page's visible text says "oven" anywhere. */
+const saysOven = page => page.evaluate(() => /oven/i.test(document.body.innerText));
+
+test('in the Café the shelf, mascot, tab icon, words, cards, cabinet and numbers are the café’s, and nothing says oven', async ({ page }) => {
+  const errors = errorsOf(page);
+  await page.goto(DEMO);
+  await page.getByRole('button', { name: 'Take control', exact: true }).click();
+  await page.getByRole('button', { name: 'Reset the demo', exact: true }).click();
+  const { next, outline, steam, steamCells } = await page.evaluate(() => {
+    const cup = Pixel.SPRITES[Pixel.THEMES.cafe.mascot];
+    return {
+      next: Pixel.NAMES[Pixel.forSlot('118', 6, 'cafe')].en,
+      outline: cup.palette.X,
+      steam: cup.palette[cup.steam],
+      steamCells: cup.rows.join('').split('').filter(symbol => cup.palette[symbol] === cup.palette[cup.steam]).length,
+    };
+  });
+
+  await shopButton(page, 'Café').click();
+  await expect(shopButton(page, 'Café')).toHaveAttribute('aria-pressed', 'true');
+  await expect(shopButton(page, 'Pastry shop')).toHaveAttribute('aria-pressed', 'false');
+  await expect(shopButton(page, 'Bakery')).toHaveAttribute('aria-pressed', 'false');
+  // Sam's ledger is untouched; only what fills the shelf changes.
+  await expect(page.locator('#balance-text')).toHaveText('$84.25');
+  await expect(filled(page)).toHaveCount(6);
+  await expect(page.locator('#oven-caption')).toHaveText(`${next} is coming right up`);
+  await expect(page.locator('#oven-caption b')).toHaveText(next);
+  await expect(page.getByRole('button', { name: CAFE_MASCOT, exact: true })).toBeVisible();
+  await expect.poll(() => showsMascot(page, '#mascot-canvas', 'cafe', 3)).toBe(true);
+  await expect.poll(() => showsMascot(page, '#app-icon', 'cafe', 7)).toBe(true);
+  // The tab icon is Hot Coffee with all of its steam, on the same 14x14 grid as the others.
+  // Counted by colour, as the icon is written: the drawing may use the steam's colour elsewhere.
+  const icon = decodeURIComponent((await page.locator('#tab-icon').getAttribute('href')).slice('data:image/svg+xml,'.length));
+  expect(icon).toContain('viewBox="0 0 14 14"');
+  expect(icon).toContain(`fill="${outline}"`);
+  expect(icon.split(`fill="${steam}"`).length - 1).toBe(steamCells);
+
+  await expect(page.locator('#stat-collectibles')).toHaveText('24');
+  await expect(page.locator('#cabinet-count')).toHaveText('24');
+  await expect(page.locator('#cabinet .slot')).toHaveCount(24);
+  await expect(page.locator('#cabinet .slot.limited')).toHaveCount(0);
+  await expect(page.locator('#legend-rotation')).toHaveText('24');
+  await expect(page.locator('#legend-limited-line')).toBeHidden();
+  await expect(page.locator('#cabinet-title')).toHaveText('The café counter');
+  await expect(page.locator('#card-keep')).toHaveText('Spend your whole balance and your coffees stay.');
+  await expect(page.locator('#rule-keep')).toHaveText('$50 received = 1 coffee or sweet');
+  await expect(page.locator('#rule-hide')).toHaveText('“Latte is coming right up”');
+  await expect(page.locator('#step-grant')).toHaveText('watch a coffee come up at the counter');
+  await expect(page.locator('#step-switch')).toHaveText('different coffees, same rule');
+  await expectCardPictures(page, 'cafe');
+  expect(await saysOven(page), 'the café page says oven').toBe(false);
+
+  // A grant that unlocks the next item, then a spend: the café's words.
+  await page.locator('[data-grant="50"]').click();
+  await expect(page.locator('.toast')).toHaveText(`$50.00 added — your ${next} is ready!`);
+  expect(await saysOven(page), 'the unlock toast says oven').toBe(false);
+  await page.locator('#spend').click();
+  for (const key of ['5', '0', '0']) await page.locator('.sheet .key', { hasText: new RegExp(`^${key}$`) }).click();
+  await page.locator('#sheet-ok').click();
+  await expect(page.locator('.toast')).toHaveText('$5.00 taken off — the shelf keeps every cup and plate ☕');
+
+  // Reset plays the intro, in the café's words.
+  await page.getByRole('button', { name: 'Reset the demo', exact: true }).click();
+  await expect(page.locator('#phone .oven .oven-text')).toHaveText('Today’s perks are hot and ready!');
+  expect(await saysOven(page), 'the café intro says oven').toBe(false);
+  expect(errors).toEqual([]);
+});
+
+test('the tour’s second line comes from each shop’s own words, the café’s included', async ({ page }) => {
+  const errors = errorsOf(page);
+  const lines = {
+    default: name => `${name} comes out of the oven.`,
+    bakery: name => `${name} comes out of the oven.`,
+    cafe: name => `Here comes ${name}.`,
+  };
+  await page.goto(DEMO);
+  for (const [shop, line] of Object.entries(lines)) {
+    await page.evaluate(shop => localStorage.setItem('crumb_demo_theme', shop), shop);
+    await page.reload();
+    await expect(page.locator('#get-note')).toHaveText('Playing on its own');
+    // Sam's fresh demo: the tour's grant brings out his seventh item, slot 6.
+    const coming = await page.evaluate(shop => Pixel.NAMES[Pixel.forSlot('118', 6, shop)].en, shop);
+    await expect(page.locator('#caption-text'), shop).toHaveText(line(coming));
+    await expect(page.locator('#caption-text b'), shop).toHaveText(coming);
+  }
+  expect(errors).toEqual([]);
+});
+
+test('each shop’s intro, next-item line and unlock toast are its own words, and the toast says the amount pressed', async ({ page }) => {
+  const errors = errorsOf(page);
+  // The Pastry shop's and the Bakery's are 0.3's sentences, word for word.
+  const oven = {
+    intro: 'Today’s perks are out of the oven!',
+    next: name => `${name} is in the oven`,
+    unlocked: (amount, name) => `${amount} added — ${name} came out of the oven!`,
+  };
+  const words = {
+    default: oven,
+    bakery: oven,
+    cafe: {
+      intro: 'Today’s perks are hot and ready!',
+      next: name => `${name} is coming right up`,
+      unlocked: (amount, name) => `${amount} added — your ${name} is ready!`,
+    },
+  };
+  await page.goto(DEMO);
+  await page.getByRole('button', { name: 'Take control', exact: true }).click();
+  for (const [shop, line] of Object.entries(words)) {
+    await page.evaluate(shop => localStorage.setItem('crumb_demo_theme', shop), shop);
+    await page.reload();
+    await expect(page.locator('html'), shop).toHaveAttribute('data-theme', shop);
+    // Sam's fresh demo: six on the shelf and slot 6 next. $100 takes his $312.50 received to
+    // $412.50, eight items, and the toast names the last of them, slot 7.
+    await page.getByRole('button', { name: 'Reset the demo', exact: true }).click();
+    await expect(page.locator('#phone .oven .oven-text'), shop).toHaveText(line.intro);
+    const [next, last] = await page.evaluate(shop => [6, 7].map(slot => Pixel.NAMES[Pixel.forSlot('118', slot, shop)].en), shop);
+    await expect(page.locator('#oven-caption'), shop).toHaveText(line.next(next));
+    await expect(page.locator('#oven-caption b'), shop).toHaveText(next);
+    await page.locator('[data-grant="100"]').click();
+    await expect(filled(page), shop).toHaveCount(8);
+    await expect(page.locator('.toast'), shop).toHaveText(line.unlocked('$100.00', last));
+  }
+  expect(errors).toEqual([]);
+});
+
+test('switching to the Café while the tour plays starts it again from Sam, in the café’s words', async ({ page }) => {
+  const errors = errorsOf(page);
+  await page.goto(DEMO);
+  await expect(page.locator('#caption-text')).toContainText('comes out of the oven');
+  await shopButton(page, 'Café').click();
+  await expect(page.locator('#caption-text')).toHaveText('Sam is six months in. Six coffees and sweets on the shelf, $84.25 to spend.');
+  await expect(page.locator('#get-note')).toHaveText('Playing on its own');
+  await expect(page.locator('#balance-text')).toHaveText('$84.25');
+  const coming = await page.evaluate(() => Pixel.NAMES[Pixel.forSlot('118', 6, 'cafe')].en);
+  await expect(page.locator('#caption-text')).toHaveText(`Here comes ${coming}.`);
+  await expect(page.locator('#caption-text'))
+    .toHaveText('Alex, two years in: nineteen coffees and sweets, in an order nobody else has.', { timeout: 20_000 });
+  expect(errors).toEqual([]);
+});
+
+/* Runs in the page before its own scripts. At the first read of the demo's own state, which
+ * assets/app.js makes before it draws anything, notes the shop on <html> and the ground of the
+ * page and of the phone. */
+function watchFirstRead() {
+  const read = Storage.prototype.getItem;
+  window.__beforeApp = null;
+  Storage.prototype.getItem = function (key) {
+    if (key === 'crumb_demo_v1' && window.__beforeApp === null) {
+      window.__beforeApp = {
+        theme: document.documentElement.getAttribute('data-theme'),
+        page: getComputedStyle(document.body).backgroundColor,
+        phone: getComputedStyle(document.getElementById('phone')).backgroundColor,
+      };
+    }
+    return read.call(this, key);
+  };
+}
+
+test('the Café is remembered on reload, on the page before its script runs, kept by Reset the demo, and never shuttered in', async ({ page }) => {
+  const errors = errorsOf(page);
+  // assets/early-shop.js runs on the line before the stylesheet, with no defer or async.
+  expect(readFileSync(resolve('index.html'), 'utf8'))
+    .toMatch(/\n<script src="assets\/early-shop\.js"><\/script>\r?\n<link rel="stylesheet" href="assets\/style\.css">/);
+  await page.goto(DEMO);
+  await shopButton(page, 'Café').click();
+  await expect(page.getByRole('button', { name: CAFE_MASCOT, exact: true })).toBeVisible();
+  await page.addInitScript(countShutters);
+  await page.addInitScript(watchFirstRead);
+  await page.reload();
+  await expect(shopButton(page, 'Café')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('button', { name: CAFE_MASCOT, exact: true })).toBeVisible();
+  expect((await page.evaluate(() => window.__beforeApp)).theme).toBe('cafe');
+  await expect(page.locator('#caption-text')).toHaveText('Sam is six months in. Six coffees and sweets on the shelf, $84.25 to spend.');
+
+  await page.getByRole('button', { name: 'Take control', exact: true }).click();
+  await page.getByRole('button', { name: 'Reset the demo', exact: true }).click();
+  await expect(page.locator('#phone .oven .oven-text')).toHaveText('Today’s perks are hot and ready!');
+  await expect(shopButton(page, 'Café')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('#stat-collectibles')).toHaveText('24');
+  expect(await page.evaluate(() => localStorage.getItem('crumb_demo_theme'))).toBe('cafe');
+  expect(await page.evaluate(() => window.__shutters)).toBe(0);
+  expect(errors).toEqual([]);
+});
+
+test('before the page’s script runs only a well-formed shop id goes on <html>, and the script then puts on the shop it shows', async ({ page }) => {
+  const errors = errorsOf(page);
+  await page.addInitScript(watchFirstRead);
+  await page.goto(DEMO);
+  // A shop this page does not know: on <html> from the start, then the Pastry shop it falls back to.
+  await page.evaluate(() => localStorage.setItem('crumb_demo_theme', 'nosuchtheme'));
+  await page.reload();
+  expect((await page.evaluate(() => window.__beforeApp)).theme).toBe('nosuchtheme');
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'default');
+  await expect(shopButton(page, 'Pastry shop')).toHaveAttribute('aria-pressed', 'true');
+  // Not the shape of an id: never put on the page.
+  await page.evaluate(() => localStorage.setItem('crumb_demo_theme', 'Cafe"><b>'));
+  await page.reload();
+  expect((await page.evaluate(() => window.__beforeApp)).theme).toBeNull();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'default');
+  expect(errors).toEqual([]);
+});
+
+/* Presses a shop button and, in the tick the shop changes behind the shutter (the mascot's name
+ * turns to the new shop's), reads the sign, which by then shows the new shop's name. */
+const signAtSwap = (page, shop, mascotName) => page.evaluate(([shop, mascotName]) => new Promise(resolve => {
+  const mascot = document.getElementById('mascot');
+  new MutationObserver((records, observer) => {
+    if (mascot.getAttribute('aria-label') !== mascotName) return;
+    observer.disconnect();
+    resolve(document.querySelector('#phone .shutter-sign canvas').toDataURL());
+  }).observe(mascot, { attributes: true, attributeFilter: ['aria-label'] });
+  document.querySelector(`#shop-switch [data-shop="${shop}"]`).click();
+}), [shop, mascotName]);
+
+test('the shutter’s sign spells CAFE, in the sign’s own colour whichever shop is on show', async ({ page }) => {
+  const errors = errorsOf(page);
+  await takeControl(page);
+  // The pixel letters have no É: the accent goes, rather than leaving a gap.
+  expect(await signAtSwap(page, 'cafe', CAFE_MASCOT)).toBe(await signDrawn(page, 'CAFE', '#4a2f1b'));
+  await shutterGone(page);
+  // Drawn while the café is on show, the sign is still 0.3's dark brown (assumption 9a).
+  expect(await signAtPress(page, 'bakery')).toBe(await signDrawn(page, 'CAFE', '#4a2f1b'));
+  await shutterGone(page);
+  expect(await signAtSwap(page, 'cafe', CAFE_MASCOT)).toBe(await signDrawn(page, 'CAFE', '#4a2f1b'));
+  await shutterGone(page);
+  expect(errors).toEqual([]);
+});
+
+/* ---------------------------------------------------------------- the café's steam (spec §3, §8) */
+
+/* Hot Coffee steams where the other mascots are bitten or spill crumbs: one cycle on a tap and
+ * after a spend, all the time the intro shows; with reduced motion, never. A switch of shop stops
+ * whatever the old mascot was doing (assumption 41). Every step is compared with the same step
+ * drawn by the page's own pixel table, so these tests follow sprites.js's step table rather than
+ * repeating it. The steam runs on timers, so the page's clock is paused and moved on by hand. */
+
+/* The café's cup as the page's pixel table draws it at `size`: at one step of its steam, or whole
+ * when `step` is left out. */
+const cupAt = (page, size, step) => page.evaluate(([size, step]) => {
+  const canvas = document.createElement('canvas');
+  Pixel.drawSprite(canvas, Pixel.SPRITES[Pixel.THEMES.cafe.mascot], size, 0, step);
+  return canvas.toDataURL();
+}, [size, step]);
+const cupSteps = async (page, size, steps) => {
+  const drawings = [];
+  for (let at = 0; at < steps; at += 1) drawings.push(await cupAt(page, size, at));
+  return drawings;
+};
+const steamCycle = page => page.evaluate(() => ({ steps: Pixel.STEAM_STEPS.length, stepMs: Pixel.STEAM_STEP_MS }));
+const pictureOf = (page, selector) => page.evaluate(selector => document.querySelector(selector).toDataURL(), selector);
+
+/* Counts the particles (crumbs, confetti) put on the page from now on. */
+const countParticles = page => page.evaluate(() => {
+  window.__particles = 0;
+  new MutationObserver(records => {
+    for (const record of records) {
+      for (const node of record.addedNodes) if (node.nodeType === 1 && node.matches('.particle')) window.__particles += 1;
+    }
+  }).observe(document.body, { childList: true });
+});
+
+/* The café, the visitor driving and the opening intro gone. */
+async function cafeDriving(page) {
+  await page.goto(DEMO);
+  await page.evaluate(() => localStorage.setItem('crumb_demo_theme', 'cafe'));
+  await page.reload();
+  await page.getByRole('button', { name: 'Take control', exact: true }).click();
+  await expect(page.locator('#phone .oven')).toHaveCount(0);
+  await expect(page.locator('#mascot')).toHaveAttribute('aria-label', CAFE_MASCOT);
+}
+
+/* Keys in a spend of $5.00 and confirms it. */
+async function spendFive(page) {
+  await page.locator('#spend').click();
+  for (const key of ['5', '0', '0']) await page.locator('.sheet .key', { hasText: new RegExp(`^${key}$`) }).click();
+  await page.locator('#sheet-ok').click();
+}
+
+test('a tap on the café’s mascot shakes it and steams one cycle, with no crumbs; a second tap starts it over', async ({ page }) => {
+  const errors = errorsOf(page);
+  await cafeDriving(page);
+  const { steps, stepMs } = await steamCycle(page);
+  // Assumption 5: one cycle, 8 steps of 120 ms, about a second.
+  expect(steps * stepMs).toBe(960);
+  const whole = await cupAt(page, 3);
+  const step = await cupSteps(page, 3, steps);
+  expect(await pictureOf(page, '#mascot-canvas')).toBe(whole);
+  for (const [at, drawing] of step.entries()) expect(drawing, `step ${at} hides some steam`).not.toBe(whole);
+
+  await page.clock.install();
+  await page.clock.pauseAt(Date.now() + 1000);
+  await countParticles(page);
+  await page.locator('#mascot').click();
+  await expect(page.locator('#mascot')).toHaveClass(/crack/);
+  expect(await pictureOf(page, '#mascot-canvas')).toBe(step[0]);
+  for (let at = 1; at < steps; at += 1) {
+    await page.clock.runFor(stepMs);
+    expect(await pictureOf(page, '#mascot-canvas'), `step ${at}`).toBe(step[at]);
+  }
+  await page.clock.runFor(stepMs);
+  expect(await pictureOf(page, '#mascot-canvas')).toBe(whole);
+  await page.clock.runFor(steps * stepMs);
+  expect(await pictureOf(page, '#mascot-canvas')).toBe(whole);
+
+  // Tapped again part-way through, it starts over, and the cycle it cut short draws no more:
+  // that cycle's next step was due half a step after the tap.
+  await page.locator('#mascot').click();
+  await page.clock.runFor(2 * stepMs + stepMs / 2);
+  expect(await pictureOf(page, '#mascot-canvas')).toBe(step[2]);
+  await page.locator('#mascot').click();
+  expect(await pictureOf(page, '#mascot-canvas')).toBe(step[0]);
+  await page.clock.runFor(stepMs / 2);
+  expect(await pictureOf(page, '#mascot-canvas')).toBe(step[0]);
+  await page.clock.runFor(stepMs / 2);
+  expect(await pictureOf(page, '#mascot-canvas')).toBe(step[1]);
+  await page.clock.runFor((steps - 1) * stepMs);
+  expect(await pictureOf(page, '#mascot-canvas')).toBe(whole);
+  expect(await page.evaluate(() => window.__particles)).toBe(0);
+  expect(errors).toEqual([]);
+});
+
+test('after a spend in the Café the cup steams one cycle where the other shops bite', async ({ page }) => {
+  const errors = errorsOf(page);
+  await cafeDriving(page);
+  const { steps, stepMs } = await steamCycle(page);
+  const whole = await cupAt(page, 3);
+  const step = await cupSteps(page, 3, steps);
+  await page.clock.install();
+  await page.clock.pauseAt(Date.now() + 1000);
+  await countParticles(page);
+  await spendFive(page);
+  await expect(page.locator('.toast')).toHaveText('$5.00 taken off — the shelf keeps every cup and plate ☕');
+  expect(await pictureOf(page, '#mascot-canvas')).toBe(step[0]);
+  for (let at = 1; at < steps; at += 1) {
+    await page.clock.runFor(stepMs);
+    expect(await pictureOf(page, '#mascot-canvas'), `step ${at}`).toBe(step[at]);
+  }
+  await page.clock.runFor(stepMs);
+  expect(await pictureOf(page, '#mascot-canvas')).toBe(whole);
+  // Past the 900 ms a bitten mascot takes to grow back: nothing more is drawn.
+  await page.clock.runFor(1000);
+  expect(await pictureOf(page, '#mascot-canvas')).toBe(whole);
+  await expect(page.locator('#mascot-canvas')).not.toHaveClass(/regrow/);
+  expect(await page.evaluate(() => window.__particles)).toBe(0);
+  expect(errors).toEqual([]);
+});
+
+test('the café’s intro cup steams while the intro shows, and stops when it leaves', async ({ page }) => {
+  const errors = errorsOf(page);
+  await cafeDriving(page);
+  const { steps, stepMs } = await steamCycle(page);
+  const step = await cupSteps(page, 8, steps);
+  // A visitor who has taken over sees the intro on every load. The paused clock moves the
+  // intro on only as far as the test moves it.
+  await page.clock.install();
+  await page.clock.pauseAt(Date.now() + 1000);
+  await page.reload();
+  const intro = page.locator('#phone .oven');
+  await expect(intro).toBeVisible();
+  expect(await pictureOf(page, '#phone .oven canvas')).toBe(step[0]);
+  for (let at = 1; at < steps; at += 1) {
+    await page.clock.runFor(stepMs);
+    expect(await pictureOf(page, '#phone .oven canvas'), `step ${at}`).toBe(step[at]);
+  }
+  // It starts to leave at 0.9 s, as in 0.3, and its steam stops where it is: the next step was
+  // due at the end of the cycle.
+  await page.clock.runFor(900 - (steps - 1) * stepMs);
+  await expect(intro).toHaveClass(/leaving/);
+  await page.clock.runFor(steps * stepMs - 900);
+  expect(await pictureOf(page, '#phone .oven canvas')).toBe(step[steps - 1]);
+  await page.clock.runFor(900 + 420 - steps * stepMs);
+  await expect(intro).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+test('with reduced motion the café’s cup stays whole after a spend and a tap, and nothing spills', async ({ browser }) => {
+  const context = await browser.newContext({ reducedMotion: 'reduce' });
+  try {
+    const page = await context.newPage();
+    const errors = errorsOf(page);
+    await page.goto(DEMO);
+    await shopButton(page, 'Café').click();
+    await expect(page.locator('#mascot')).toHaveAttribute('aria-label', CAFE_MASCOT);
+    const whole = await cupAt(page, 3);
+    await countParticles(page);
+    await spendFive(page);
+    expect(await pictureOf(page, '#mascot-canvas')).toBe(whole);
+    await page.locator('#mascot').click();
+    expect(await pictureOf(page, '#mascot-canvas')).toBe(whole);
+    // Longer than a steam cycle, and than a bite's 900 ms to grow back.
+    await page.waitForTimeout(1200);
+    expect(await pictureOf(page, '#mascot-canvas')).toBe(whole);
+    expect(await page.evaluate(() => window.__particles)).toBe(0);
+    expect(errors).toEqual([]);
+  } finally {
+    await context.close();
+  }
+});
+
+/* Runs in the page. From now on notes every drawing on the header's mascot canvas or on an
+ * intro's canvas (when, where, which drawing, the bite and the steam step), every time the
+ * mascot canvas is given its regrow animation, and the moment the shop changes behind the
+ * shutter: the mascot's name turning to `mascotName`. Called again, it starts a new log. */
+function watchMascot(mascotName) {
+  window.__mascot = { name: mascotName, draws: [], regrows: [], swappedAt: null };
+  if (window.__watching) return;
+  window.__watching = true;
+  const draw = Pixel.drawSprite;
+  Pixel.drawSprite = function (canvas, sprite, size, bite, step) {
+    const where = canvas.id === 'mascot-canvas' ? 'header' : canvas.closest('.oven') ? 'intro' : null;
+    if (where) {
+      const key = Object.keys(Pixel.SPRITES).find(each => Pixel.SPRITES[each] === sprite) ?? null;
+      window.__mascot.draws.push({ at: performance.now(), where, key, bite: bite || 0, step: step ?? null });
+    }
+    return draw.apply(this, arguments);
+  };
+  const mascot = document.getElementById('mascot');
+  new MutationObserver(() => {
+    const log = window.__mascot;
+    if (log.swappedAt === null && mascot.getAttribute('aria-label') === log.name) log.swappedAt = performance.now();
+  }).observe(mascot, { attributes: true, attributeFilter: ['aria-label'] });
+  new MutationObserver(records => {
+    for (const record of records) {
+      if (record.target.classList.contains('regrow') && !/\bregrow\b/.test(record.oldValue ?? '')) window.__mascot.regrows.push(performance.now());
+    }
+  }).observe(document.getElementById('mascot-canvas'), { attributes: true, attributeFilter: ['class'], attributeOldValue: true });
+}
+const mascotLog = page => page.evaluate(() => window.__mascot);
+
+test('a switch stops the Pastry shop’s bite: none of it is drawn once the café is behind the shutter', async ({ page }) => {
+  const errors = errorsOf(page);
+  await takeControl(page);
+  await page.evaluate(watchMascot, CAFE_MASCOT);
+  // A spend starts the bite, and in the same instant the Café is pressed.
+  await page.evaluate(() => {
+    document.getElementById('spend').click();
+    for (const key of ['5', '0', '0']) [...document.querySelectorAll('.sheet .key')].find(each => each.textContent === key).click();
+    document.getElementById('sheet-ok').click();
+    document.querySelector('#shop-switch [data-shop="cafe"]').click();
+  });
+  await shutterGone(page);
+  // Past the bite's 240 ms and the 900 ms after it in which it would grow back.
+  await page.waitForTimeout(400);
+  const log = await mascotLog(page);
+  expect(log.swappedAt).not.toBeNull();
+  expect(log.draws.some(entry => entry.at < log.swappedAt && entry.key === 'laopo' && entry.bite > 0), 'the bite began').toBe(true);
+  expect(log.draws.filter(entry => entry.at > log.swappedAt)).toEqual([]);
+  expect(log.regrows.filter(at => at > log.swappedAt)).toEqual([]);
+  expect(await showsMascot(page, '#mascot-canvas', 'cafe', 3)).toBe(true);
+  expect(errors).toEqual([]);
+});
+
+test('a switch stops the Pastry shop’s bite part-way through its frames: none of it is drawn once the café is behind the shutter', async ({ page }) => {
+  const errors = errorsOf(page);
+  await takeControl(page);
+  await page.evaluate(watchMascot, CAFE_MASCOT);
+  // The Café is pressed with the keypad open, and the spend is confirmed 300 ms later, under the
+  // shutter: the bite's 240 ms of frames are still running when the shop changes, at about 383 ms.
+  await page.evaluate(() => new Promise(resolve => {
+    document.getElementById('spend').click();
+    for (const key of ['5', '0', '0']) [...document.querySelectorAll('.sheet .key')].find(each => each.textContent === key).click();
+    document.querySelector('#shop-switch [data-shop="cafe"]').click();
+    window.setTimeout(() => {
+      document.getElementById('sheet-ok').click();
+      resolve();
+    }, 300);
+  }));
+  await shutterGone(page);
+  // Past the end of the bite's frames (540 ms) and of the 900 ms after them in which it would
+  // grow back (1440 ms after the press).
+  await page.waitForTimeout(800);
+  const log = await mascotLog(page);
+  expect(log.swappedAt).not.toBeNull();
+  const bitten = log.draws.filter(entry => entry.at < log.swappedAt && entry.key === 'laopo' && entry.bite > 0);
+  expect(bitten.length, 'the bite began').toBeGreaterThan(0);
+  // Its deepest frame before the swap is short of the full 0.55: it was cut off mid-way.
+  expect(Math.max(...bitten.map(entry => entry.bite)), 'the bite was still running at the swap').toBeLessThan(0.55);
+  expect(log.draws.filter(entry => entry.at > log.swappedAt)).toEqual([]);
+  expect(log.regrows.filter(at => at > log.swappedAt)).toEqual([]);
+  expect(await showsMascot(page, '#mascot-canvas', 'cafe', 3)).toBe(true);
+  expect(errors).toEqual([]);
+});
+
+test('a switch stops the café’s steam, on the mascot and in the intro: none of it is drawn once the next shop is behind the shutter', async ({ page }) => {
+  const errors = errorsOf(page);
+  await cafeDriving(page);
+  await page.evaluate(watchMascot, PASTRY_MASCOT);
+  // A tap starts a cycle of steam (960 ms), and in the same instant the Pastry shop is pressed.
+  await page.evaluate(() => {
+    document.getElementById('mascot').click();
+    document.querySelector('#shop-switch [data-shop="default"]').click();
+  });
+  await shutterGone(page);
+  await page.waitForTimeout(300);
+  let log = await mascotLog(page);
+  expect(log.draws.some(entry => entry.at < log.swappedAt && entry.where === 'header' && entry.step !== null), 'the steam began').toBe(true);
+  expect(log.draws.filter(entry => entry.at > log.swappedAt)).toEqual([]);
+  expect(await showsMascot(page, '#mascot-canvas', 'default', 3)).toBe(true);
+
+  // Back in the café, Reset plays the intro, its cup steaming until the intro goes. The switch
+  // takes the intro away at once; its steam then stops by itself.
+  await shopButton(page, 'Café').click();
+  await shutterGone(page);
+  await page.evaluate(watchMascot, PASTRY_MASCOT);
+  await page.evaluate(() => {
+    document.getElementById('reset').click();
+    document.querySelector('#shop-switch [data-shop="default"]').click();
+  });
+  await shutterGone(page);
+  await page.waitForTimeout(300);
+  log = await mascotLog(page);
+  expect(log.draws.some(entry => entry.at < log.swappedAt && entry.where === 'intro' && entry.step !== null), 'the intro steamed').toBe(true);
+  expect(log.draws.filter(entry => entry.at > log.swappedAt)).toEqual([]);
+  expect(errors).toEqual([]);
+});
+
+/* ---------------------------------------------------------------- the café's colours (spec §5, §8) */
+
+/* The whole page takes the café's colours with data-theme on <html>: behind the shutter at the
+ * swap (the parts outside the phone change in plain view, assumption 8), at once with reduced
+ * motion, and from the first paint when the café is remembered. The colours themselves are
+ * checked in tests/colours.test.mjs and the canvases in canvas-colours.spec.mjs. */
+
+const DARK = 'rgb(22, 15, 10)';     // the café's --bg, #160f0a
+const LIGHT = 'rgb(242, 231, 206)'; // the light shops' --bg, #f2e7ce
+
+/* Runs in the page: presses a shop button and notes, at the press, in the tick the shop changes
+ * behind the shutter (the mascot's name turns to `mascotName`) and when the shutter has gone,
+ * whether the shutter is down, the shop on <html>, and the ground of the page and of the phone. */
+const coloursThroughSwitch = (page, shop, mascotName) => page.evaluate(([shop, mascotName]) => new Promise(resolve => {
+  const phone = document.getElementById('phone');
+  const mascot = document.getElementById('mascot');
+  const look = () => ({
+    door: phone.querySelector('.shutter') !== null,
+    theme: document.documentElement.getAttribute('data-theme'),
+    page: getComputedStyle(document.body).backgroundColor,
+    phone: getComputedStyle(phone).backgroundColor,
+  });
+  const seen = {};
+  new MutationObserver((records, observer) => {
+    if (mascot.getAttribute('aria-label') !== mascotName) return;
+    observer.disconnect();
+    seen.swap = look();
+  }).observe(mascot, { attributes: true, attributeFilter: ['aria-label'] });
+  new MutationObserver((records, observer) => {
+    if (!records.some(record => [...record.removedNodes].some(node => node.nodeType === 1 && node.matches('.shutter')))) return;
+    observer.disconnect();
+    seen.up = look();
+    resolve(seen);
+  }).observe(phone, { childList: true });
+  document.querySelector(`#shop-switch [data-shop="${shop}"]`).click();
+  seen.press = look();
+}), [shop, mascotName]);
+
+test('the colours change behind the shutter: the phone is dark when it rolls up on the Café, and light again when it leaves', async ({ page }) => {
+  const errors = errorsOf(page);
+  await takeControl(page);
+  expect(await coloursThroughSwitch(page, 'cafe', CAFE_MASCOT)).toEqual({
+    press: { door: true, theme: 'default', page: LIGHT, phone: LIGHT },
+    swap: { door: true, theme: 'cafe', page: DARK, phone: DARK },
+    up: { door: false, theme: 'cafe', page: DARK, phone: DARK },
+  });
+  expect(await coloursThroughSwitch(page, 'bakery', BAKERY_MASCOT)).toEqual({
+    press: { door: true, theme: 'cafe', page: DARK, phone: DARK },
+    swap: { door: true, theme: 'bakery', page: LIGHT, phone: LIGHT },
+    up: { door: false, theme: 'bakery', page: LIGHT, phone: LIGHT },
+  });
+  expect(errors).toEqual([]);
+});
+
+test('with reduced motion the switch to the Café is instant, and its colours come with it', async ({ browser }) => {
+  const context = await browser.newContext({ reducedMotion: 'reduce' });
+  try {
+    const page = await context.newPage();
+    const errors = errorsOf(page);
+    await page.addInitScript(countShutters);
+    await page.goto(DEMO);
+    // Pressed and read in the same instant; the colours once the 0.01 ms transition that
+    // style.css gives every element under reduced motion has run.
+    const atPress = await page.evaluate(async () => {
+      document.querySelector('#shop-switch [data-shop="cafe"]').click();
+      const label = document.getElementById('mascot').getAttribute('aria-label');
+      const theme = document.documentElement.getAttribute('data-theme');
+      const ended = document.getAnimations().filter(each => each instanceof CSSTransition).map(each => each.finished.catch(() => {}));
+      await Promise.all(ended);
+      return {
+        label,
+        theme,
+        page: getComputedStyle(document.body).backgroundColor,
+        phone: getComputedStyle(document.getElementById('phone')).backgroundColor,
+      };
+    });
+    expect(atPress).toEqual({ label: CAFE_MASCOT, theme: 'cafe', page: DARK, phone: DARK });
+    expect(await page.evaluate(() => window.__shutters)).toBe(0);
+    expect(errors).toEqual([]);
+  } finally {
+    await context.close();
+  }
+});
+
+test('a page opened on the Café is dark from its first paint, and draws its tab icon on the café’s ground', async ({ page }) => {
+  const errors = errorsOf(page);
+  await page.goto(DEMO);
+  await page.evaluate(() => localStorage.setItem('crumb_demo_theme', 'cafe'));
+  await page.addInitScript(watchFirstRead);
+  await page.reload();
+  await expect(page.locator('#mascot')).toHaveAttribute('aria-label', CAFE_MASCOT);
+  // Before assets/app.js has drawn anything, the page is already the café's.
+  expect(await page.evaluate(() => window.__beforeApp)).toEqual({ theme: 'cafe', page: DARK, phone: DARK });
+  const icon = decodeURIComponent((await page.locator('#tab-icon').getAttribute('href')).slice('data:image/svg+xml,'.length));
+  expect(icon).toContain('<rect width="14" height="14" fill="#160f0a"/>');
+  expect(errors).toEqual([]);
+});
+
+/* While the tour drives the demo the counter fades (style.css, --tour-fade): visibly not the
+ * visitor's yet. The Pastry shop and the Bakery keep 0.2's 0.72; the café fades less, so its
+ * text stays readable on the dark counter. */
+test('while the tour plays the counter fades as before in the Pastry shop and the Bakery, and less in the Café', async ({ page }) => {
+  const errors = errorsOf(page);
+  await page.goto(DEMO);
+  const fadeIn = async shop => {
+    await page.evaluate(shop => localStorage.setItem('crumb_demo_theme', shop), shop);
+    await page.reload();
+    await expect(page.locator('body')).toHaveClass(/autoplay/);
+    return page.locator('#counter').evaluate(node => getComputedStyle(node).opacity);
+  };
+  expect(await fadeIn('default')).toBe('0.72');
+  expect(await fadeIn('bakery')).toBe('0.72');
+  expect(await fadeIn('cafe')).toBe('0.8');
+  // Once the visitor drives, the counter is theirs and does not fade at all.
+  await page.getByRole('button', { name: 'Take control', exact: true }).click();
+  await expect(page.locator('body')).not.toHaveClass(/autoplay/);
+  expect(await page.locator('#counter').evaluate(node => getComputedStyle(node).opacity)).toBe('1');
   expect(errors).toEqual([]);
 });

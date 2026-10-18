@@ -1037,26 +1037,37 @@ test('an admin is not offered the home screen either', async ({ browser }) => {
   }
 });
 
-test('with browser storage blocked, My Crumb still works and the tip can still be dismissed', async ({ browser }) => {
-  const fx = await provision(browser, { mode: 'points' });
-  try {
-    const { body } = await fx.api.request('POST', `/api/admin/members/${fx.memberId}/signin-link`);
-    const context = await browser.newContext();
-    await context.addInitScript(() => {
-      const blocked = () => { throw new DOMException('blocked', 'SecurityError'); };
-      Object.defineProperty(window, 'localStorage', { get: blocked, configurable: true });
-    });
-    const page = await context.newPage();
-    await page.goto(body.signinUrl);
-    await page.getByRole('button', { name: 'Sign in on this device', exact: true }).click();
-    await expect(page.getByTestId('available-balance')).toBeVisible();
-    await tip(page).getByRole('button', { name: 'Got it', exact: true }).click();
-    await expect(tip(page)).toHaveCount(0);
-    await context.close();
-  } finally {
-    await fx.close();
-  }
-});
+/* Also on a café team: the page keeps the team's theme on the device (crumb.theme), and with
+ * storage blocked it keeps nothing and still puts the theme on the page. Nothing may throw:
+ * early-theme.js reads storage before any other script, on every load. */
+for (const theme of [undefined, 'cafe']) {
+  const team = theme === undefined ? '' : ', also on a café team';
+  test(`with browser storage blocked, My Crumb still works and the tip can still be dismissed${team}`, async ({ browser }) => {
+    const fx = await provision(browser, { mode: 'points', theme });
+    try {
+      const { body } = await fx.api.request('POST', `/api/admin/members/${fx.memberId}/signin-link`);
+      const context = await browser.newContext();
+      await context.addInitScript(() => {
+        const blocked = () => { throw new DOMException('blocked', 'SecurityError'); };
+        Object.defineProperty(window, 'localStorage', { get: blocked, configurable: true });
+      });
+      const page = await context.newPage();
+      const errors = [];
+      page.on('pageerror', error => errors.push(error.message));
+      await page.goto(body.signinUrl);
+      await page.getByRole('button', { name: 'Sign in on this device', exact: true }).click();
+      await expect(page.getByTestId('available-balance')).toBeVisible();
+      if (theme) await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
+      await tip(page).getByRole('button', { name: 'Got it', exact: true }).click();
+      await expect(tip(page)).toHaveCount(0);
+      // Nothing on the page threw, early-theme.js included: it reads storage before any other script.
+      expect(errors).toEqual([]);
+      await context.close();
+    } finally {
+      await fx.close();
+    }
+  });
+}
 
 test('opened from the home screen, Crumb does not suggest adding it again', async ({ browser }) => {
   const fx = await provision(browser, { mode: 'points' });

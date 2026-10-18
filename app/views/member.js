@@ -4,10 +4,10 @@
 
 import { keyFor, request, requestAll, settleKey, unconfirmedSince, wasRefused } from '../api.js';
 import { button, el, formError, openedAsHomeScreenApp, toast, uid } from '../dom.js';
-import { formatDate, getLocale, t } from '../i18n.js';
+import { formatDate, getLocale, t, themed } from '../i18n.js';
 import { formatUnits, isAlmostThere, unitsToInput } from '../format.js';
 import { bump, lastSeen, reducedMotion, rememberSeen, rollNumber } from '../motion.js';
-import { pixelNumber, spriteCanvas } from '../pixels.js';
+import { colourToken, pixelNumber, spriteCanvas } from '../pixels.js';
 import { openAmountSheet } from '../sheet.js';
 import { badge, historyTitle, kindLabel, loading, pager, signedAmount, unconfirmedNotice } from './shared.js';
 
@@ -24,10 +24,11 @@ function dailyLine(me) {
   return me.balance.availableUnits > 0 ? t(`daily.${(day % DAILY) + 1}`) : t(`dailyZero.${(day % DAILY_ZERO) + 1}`);
 }
 
-/* Splits a template like "{name} is in the oven" around the name, so the name can be bold
+/* Splits a sentence like "{name} is in the oven", already looked up in the page's language and
+ * the team's theme with its {name} left in, around that {name}, so the name can be bold
  * wherever each language puts it. */
-function boldName(key, name) {
-  const [before, after] = t(key, { name: '\u0000' }).split('\u0000');
+function boldName(template, name) {
+  const [before, after] = template.split('{name}');
   return [before, el('b', { text: name }), after].filter(part => part !== '');
 }
 
@@ -45,7 +46,10 @@ function showBalance(canvas, from, to, org) {
   const cols = longest * 3 + Math.max(0, longest - 1);
   const room = Math.max(160, (canvas.parentElement?.clientWidth || 300) - 24);
   const size = Math.max(4, Math.min(9, Math.floor(room / cols)));
-  rollNumber(canvas, from, to, (target, units) => pixelNumber(target, numberText(units, org), size, '#4a2f1b'));
+  // The digits' colour is the theme's (--digit in app.css), read once per roll: every frame
+  // draws in it.
+  const colour = colourToken('--digit');
+  rollNumber(canvas, from, to, (target, units) => pixelNumber(target, numberText(units, org), size, colour));
 }
 
 function slot(item, dropAt) {
@@ -79,7 +83,7 @@ function mainTile(me, money, seen) {
   const number = el('div', { attrs: { class: 'big-number' } }, [canvas, spoken]);
   let caption;
   if (theme.complete) caption = el('p', { text: t('me.complete', { total: theme.size }), attrs: { class: 'oven-caption complete' } });
-  else caption = el('p', { attrs: { class: 'oven-caption' } }, [spriteCanvas(theme.next.spriteKey, 2), el('span', {}, boldName('me.inOven', nameIn(theme.next.names)))]);
+  else caption = el('p', { attrs: { class: 'oven-caption' } }, [spriteCanvas(theme.next.spriteKey, 2), el('span', {}, boldName(themed('me.inOven', theme.id), nameIn(theme.next.names)))]);
   // The page's one h1, for moving by heading; the tile shows the name, so it is not seen.
   const titleId = uid('me-title');
   const tile = el('section', { attrs: { class: 'tile main-tile', 'aria-labelledby': titleId } }, [
@@ -471,6 +475,9 @@ export async function renderMember(main, ctx) {
     return;
   }
   if (!ctx.isCurrent()) return;
+  // This page reads the team's theme in /api/me, not through main.js, and is drawn again when
+  // the team's settings change: it may be the first to learn of a theme changed elsewhere.
+  ctx.applyTheme(me.theme.id);
   const money = units => formatUnits(units, me.org, getLocale());
   const seen = lastSeen(me.user.id);
   const tileParts = mainTile(me, money, seen);
