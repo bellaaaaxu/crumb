@@ -34,11 +34,40 @@ export function parseColour(text) {
   throw new Error(`Not a colour these tests can read: ${text}`);
 }
 
+/* The CSS colour names, and currentcolor: words parseColour cannot read. */
+const NAMED = ('aliceblue antiquewhite aqua aquamarine azure beige bisque black blanchedalmond blue '
+  + 'blueviolet brown burlywood cadetblue chartreuse chocolate coral cornflowerblue cornsilk crimson '
+  + 'cyan darkblue darkcyan darkgoldenrod darkgray darkgreen darkgrey darkkhaki darkmagenta '
+  + 'darkolivegreen darkorange darkorchid darkred darksalmon darkseagreen darkslateblue darkslategray '
+  + 'darkslategrey darkturquoise darkviolet deeppink deepskyblue dimgray dimgrey dodgerblue firebrick '
+  + 'floralwhite forestgreen fuchsia gainsboro ghostwhite gold goldenrod gray green greenyellow grey '
+  + 'honeydew hotpink indianred indigo ivory khaki lavender lavenderblush lawngreen lemonchiffon '
+  + 'lightblue lightcoral lightcyan lightgoldenrodyellow lightgray lightgreen lightgrey lightpink '
+  + 'lightsalmon lightseagreen lightskyblue lightslategray lightslategrey lightsteelblue lightyellow '
+  + 'lime limegreen linen magenta maroon mediumaquamarine mediumblue mediumorchid mediumpurple '
+  + 'mediumseagreen mediumslateblue mediumspringgreen mediumturquoise mediumvioletred midnightblue '
+  + 'mintcream mistyrose moccasin navajowhite navy oldlace olive olivedrab orange orangered orchid '
+  + 'palegoldenrod palegreen paleturquoise palevioletred papayawhip peachpuff peru pink plum '
+  + 'powderblue purple rebeccapurple red rosybrown royalblue saddlebrown salmon sandybrown seagreen '
+  + 'seashell sienna silver skyblue slateblue slategray slategrey snow springgreen steelblue tan teal '
+  + 'thistle tomato turquoise violet wheat white whitesmoke yellow yellowgreen currentcolor').split(' ');
+
+/* A colour token: what parseColour reads (#hex, rgb()/rgba(), transparent), or a colour form it
+ * cannot (another colour function, one level of nesting deep, or a colour name), so that
+ * parseColour throws on it instead of it being left out. */
+const COLOUR_TOKEN = new RegExp(
+  '#[0-9a-f]{3,8}\\b'
+  + '|\\b(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch|color|color-mix|light-dark)\\((?:[^()]|\\([^()]*\\))*\\)'
+  + `|(?<![\\w#-])(?:transparent|${NAMED.join('|')})(?![\\w-])`,
+  'gi');
+
 /* Every colour in a value, in order: the one colour of a plain value, or each stop of a
- * gradient (of several gradients, too). [] when there is none (none, a length). Put var() in
- * first: an unresolved variable has no colour to find. */
+ * gradient (of several gradients, too). [] when there is none (none, a length). A colour form
+ * parseColour cannot read throws, so a stop is never left out unmeasured. Put var() in first:
+ * an unresolved variable has no colour to find. Anything inside url() is not looked at. */
 export function stops(value) {
-  return (String(value).match(/#[0-9a-f]{3,8}\b|rgba?\([^()]*\)|\btransparent\b/gi) ?? []).map(parseColour);
+  const text = String(value).replace(/url\((?:"[^"]*"|'[^']*'|[^()]*)\)/gi, 'url()');
+  return (text.match(COLOUR_TOKEN) ?? []).map(parseColour);
 }
 
 /* Relative luminance, 0 (black) to 1 (white). */
