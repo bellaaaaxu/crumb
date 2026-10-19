@@ -122,6 +122,17 @@ const APP_ADDITIONS = [
   },
 ];
 
+/* The one change made to light on purpose since 0.3.0, kept apart from the list above because
+ * it does change how a page looks: in 0.3.0 the red border of a field with a mistake in it
+ * lost to the rule that draws a text, number or password field's border, so only a select or
+ * a textarea turned red. This rule, as specific as that one and after it, makes those fields
+ * red too (0.4.1). tests/e2e/light-unchanged.spec.mjs allows the same, and only it. */
+const INVALID_FIELD_RED = {
+  selectors: [".field input:not([type='checkbox']):not([type='radio']):not([type='file'])[aria-invalid='true']"],
+  declarations: { 'border-color': '#b83f33' },
+  why: 'a field with a mistake in it shows the red border 0.3.0 meant it to have',
+};
+
 /* Declarations today's assets/style.css adds that also apply in light, written as the light
  * set resolves them, each with the reason it changes nothing there. */
 const DEMO_ADDITIONS = [
@@ -164,7 +175,7 @@ const SHEETS = [
     now: 'app/app.css',
     then: 'tests/fixtures/0.3.0/app.css',
     scriptVariables: ['--header-height'], // set by toast() in app/dom.js
-    additions: APP_ADDITIONS,
+    additions: [...APP_ADDITIONS, INVALID_FIELD_RED],
   },
   {
     now: 'assets/style.css',

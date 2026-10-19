@@ -363,6 +363,8 @@ const APP_TEXT = [
 const APP_NON_TEXT = [
   ['--focus', ['--bg', '--page-art', '--tile', '--lamp-bg', '--paper', '--chosen', '--field-bg', '--warn-bg', '--bar-bg']],
   ['--field-border', ['--tile', '--field-bg', '--paper', '--chosen']],
+  // The border of a field with a mistake in it (.field [aria-invalid='true']).
+  ['--minus', ['--tile', '--field-bg', '--paper', '--chosen']],
   ['--frame', ['--tile', '--chosen', '--bg']],
   ['--slot-border', ['--tile', '--lamp-bg']],
 ];

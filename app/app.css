@@ -374,6 +374,8 @@ details.invite > p { margin-bottom: 10px; }
 .field input[type='file'] { max-width: 100%; font-size: 0.9rem; }
 .field textarea { resize: vertical; min-height: 4.5em; }
 .field [aria-invalid='true'] { border-color: var(--minus); }
+/* A text, number or password field: as specific as the rule that gives it its border, so red wins. */
+.field input:not([type='checkbox']):not([type='radio']):not([type='file'])[aria-invalid='true'] { border-color: var(--minus); }
 .field input:not([type='checkbox']):not([type='radio']):not([type='file']):disabled, .field select:disabled, .field textarea:disabled {
   background: var(--paper); color: var(--ink-soft); border-style: dashed; cursor: not-allowed;
 }
