@@ -1,4 +1,4 @@
-# Release checklist — Crumb 0.4.0
+# Release checklist — Crumb 0.4.1
 
 One row for each requirement of
 [the design behind 0.1](superpowers/specs/2026-09-27-crumb-self-hosted-design.md) and each
@@ -11,15 +11,18 @@ round", one row for each part of
 [the café design](superpowers/specs/2026-10-06-crumb-cafe-theme-design.md). How and where the
 checks ran is in [VALIDATION.md](VALIDATION.md).
 
-The café round was checked on a fresh clone of the development branch on 2026-10-17, whose code
-is the code of this release: the commit cloned was `ce41879` ("docs: the Café in the guides; version 0.4.0; screenshots retaken"). CI has not run on it.
+The café round, released as 0.4.0, was checked on a fresh clone of the development branch on
+2026-10-17: the commit cloned was `ce41879` ("docs: the Café in the guides; version 0.4.0; screenshots retaken"); and in CI on
+its pull request (`b4c3f62`) and on `main` (`c3a0278`). 0.4.1 fixes three things found after
+that release; it was checked with `npm test` and the browser tests on the branch `fix/0.4.1`
+(see "Version 0.4.1" below).
 The themes round, released as 0.3.0, was checked on a fresh clone of `9849c31` on 2026-10-05
 and in CI on its pull request (`057cd38`) and on `main` (`5247e73`). The one-page round,
 released as 0.2.0, was checked on a fresh clone of `2ddc69b` on 2026-10-01 and in CI on its
 pull request (`1fb57ee`) and on `main` (`bbfda7f`).
 
-The café round is released as Crumb 0.4.0; its database is still at schema 3. "0.3.0" on this
-page means the release at merge commit `5247e73`; "0.2.0" the release at merge commit
+The café round is released as Crumb 0.4.0, and its fixes as 0.4.1; the database is still at
+schema 3. "0.4.0" on this page means the release at merge commit `c3a0278`; "0.3.0" means the release at merge commit `5247e73`; "0.2.0" the release at merge commit
 `bbfda7f`, with its database at schema 2; and "0.1" the first release, commit `643e237`, with
 its database at schema 1.
 
@@ -149,9 +152,10 @@ checklist and VALIDATION.md changed before 0.3.0 was released, so its code is th
 Checked on a fresh clone of the development branch `feature/cafe` on 2026-10-17, on one Windows
 computer, in Chromium only (`npm test` 342 passed and 2 skipped of 344, theme lists
 current, process drill 20 of 20, browser tests 216 of 216). The commit cloned was `ce41879`
-("docs: the Café in the guides; version 0.4.0; screenshots retaken"); since that run only this checklist and VALIDATION.md have changed, so its code is
-the code of this release. CI has not run on this round (the branch has not been pushed), so
-nothing here ran on Linux or in the container.
+("docs: the Café in the guides; version 0.4.0; screenshots retaken"); after that run only this checklist and VALIDATION.md changed before
+0.4.0 was released, so its code is the code of 0.4.0. Both CI jobs passed on the pull request's last commit `b4c3f62` and on the
+merge commit `c3a0278` on `main`: the tests on Linux with none skipped, and the container
+drill (VALIDATION.md, "Results in CI").
 
 | Requirement | Status | Evidence |
 | --- | --- | --- |
@@ -171,12 +175,25 @@ nothing here ran on Linux or in the container.
 | No server change, no migration | Passed | In the run above: nothing under `server/` changed since 0.3.0; `tests/db.test.mjs` (a database at schema 3 opens as it is) |
 | Going from 0.1 or 0.2 straight to 0.4 | Partly | `tests/db.test.mjs` (the migration tests: a schema 1 database runs 002 and 003, a 0.2.0 database runs 003, and both open on `default` with their data intact). A real deployment of 0.1, 0.2 or 0.3 upgraded by the 0.4 image, with or without Docker: **not verified** |
 | No page trips the CSP, at both widths | Passed (Chromium only) | `tests/e2e/accessibility.spec.mjs` (also on a café team: no sideways scrolling, no CSP violations). That this check fails when a café page breaks the policy: **not verified** (see VALIDATION.md, "Not verified") |
-| The public demo's café | Passed (Chromium only) | E2E in `tests/e2e/demo.spec.mjs` (three buttons at phone width; everything Café's after a switch, no console errors, no visible "oven"; colours changed behind the shutter; the same sign colour in all three shops; reduced motion; no frame of the old shop's motion; remembered and dark from the first paint; kept by "Reset the demo"; the tour from Sam) and `tests/e2e/canvas-colours.spec.mjs`. On GitHub Pages: **not verified** until merged |
+| The public demo's café | Passed (Chromium only) | E2E in `tests/e2e/demo.spec.mjs` (three buttons at phone width; everything Café's after a switch, no console errors, no visible "oven"; colours changed behind the shutter; the same sign colour in all three shops; reduced motion; no frame of the old shop's motion; remembered and dark from the first paint; kept by "Reset the demo"; the tour from Sam) and `tests/e2e/canvas-colours.spec.mjs`. On GitHub Pages: opened in Chromium after merging, on 2026-10-18, and switched to Café (mascot label "Mascot: hot coffee") with no console errors |
 | The 16 new drawings | Reviewed by eye | In two batches of eight, Hot Coffee in the first, before they were final (§13 of the café design, gate 1): the first approved on 2026-10-16, the second on 2026-10-17. The drawings in the commit cloned are exactly the approved ones, compared during the run with the approval record kept outside the repository |
 | Café's pages, theme cards and the demo | Reviewed by eye | Taken from the fresh clone of `ce41879` and shown to the maintainer with every colour and porcelain ground the design leaves as a choice, approved on 2026-10-17 (§13 of the café design, gate 3); the demo's switch between the three shops was shown served on this computer from the same commit. None of these pictures is kept in the repository, where the README stays on Pastry shop |
 | Version 0.4.0 | Passed | `tests/docs.test.mjs` (the lock file and both READMEs follow `package.json`), `tests/auth.test.mjs` (the session reports it), in the run above. The footer in the README screenshots retaken by `scripts/screenshots.mjs` reads "Crumb 0.4.0 is open-source software (MIT).", checked in those screenshots during the run |
 | Documents | Partly | Automated: `tests/docs.test.mjs` (local links resolve, every README image exists and has an alt text) and `tests/source.test.mjs` (no invisible characters). Not automated: what README (EN/ZH), THEMES.md, OPERATIONS.md, DEPLOYMENT.md and CONTRIBUTING.md say; their new sentences were shown to the maintainer and approved before they were committed |
-| CI and the container drill for this round | Not verified | The branch has not been pushed; Docker is not installed on the computer that ran the fresh clone. |
+| CI and the container drill for this round | Passed | Both jobs passed on the pull request's last commit `b4c3f62` and on the merge commit `c3a0278` on `main`: the tests on Linux with none skipped, and the container drill (VALIDATION.md, "Results in CI"). |
+
+## Version 0.4.1
+
+Checked on 2026-10-19 on the branch `fix/0.4.1`, on one Windows computer, in Chromium only
+(`npm test` 343 passed and 2 skipped of 345, theme lists current, browser tests 221 of 221).
+
+| Requirement | Status | Evidence |
+| --- | --- | --- |
+| A field with a mistake in it has a red border | Passed (Chromium only) | E2E in `tests/e2e/invalid-field.spec.mjs` (a text field on Settings in Pastry shop, Bakery and Café, and the setup page's password field); `tests/colours.test.mjs` (the red border at least 3:1 on the field and around it; the café's is 9.68:1 on its field) |
+| Pastry shop and Bakery otherwise unchanged from 0.3.0 | Passed (Chromium only) | `tests/light-styles.test.mjs` and E2E in `tests/e2e/light-unchanged.spec.mjs`, which allow the red border, and only it, as a change; the static check now also counts rules written for Pastry shop or Bakery |
+| The contrast helper reads every colour it is given | Passed | `tests/colours.test.mjs` (an `hsl()`, `oklch()`, `color-mix()` or named colour stops the check) |
+| The screenshot script cleans up | Passed | `tests/screenshots.test.mjs`; run once with no browser installed, it left no server or temporary folder behind |
+| Version 0.4.1 | Passed | `tests/docs.test.mjs`, `tests/auth.test.mjs`. The footer in the README screenshots retaken by `scripts/screenshots.mjs` reads "Crumb 0.4.1 is open-source software (MIT)." |
 
 ## Before calling this version ready for real benefits
 
@@ -191,8 +208,9 @@ nothing here ran on Linux or in the container.
 - [x] The themes round: push the branch, open a pull request, get both CI jobs green (the
       tests on Linux and the container drill), and record that run in VALIDATION.md (green on
       `057cd38` and on `5247e73`, recorded with the café round).
-- [ ] The café round: push the branch, open a pull request, get both CI jobs green (the
-      tests on Linux and the container drill), and record that run in VALIDATION.md.
+- [x] The café round: push the branch, open a pull request, get both CI jobs green (the
+      tests on Linux and the container drill), and record that run in VALIDATION.md (green on
+      `b4c3f62` and on `c3a0278`, recorded with 0.4.1).
 - [ ] The one-page round on a real phone: the member page in both spending modes, the keypad,
       the name menu, and the intro with and without reduced motion.
 - [ ] Upgrade a copy of a real instance of 0.1 (invented data) with the 0.2
