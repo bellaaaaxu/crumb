@@ -234,8 +234,10 @@ async function main({ theme, out, all: captureAll }) {
   const crumb = await startCrumb(() => time.now);
   const { origin, setupToken } = crumb;
 
-  const browser = await chromium.launch();
+  // Inside the try: if Chromium cannot start, or cannot close, Crumb and its temp folder still go.
+  let browser;
   try {
+    browser = await chromium.launch();
     const { owner, people } = await seedSampleTeam({ origin, setupToken, password: PASSWORD, time, theme });
 
     const outDir = outputFolder(theme, out);
@@ -343,7 +345,7 @@ async function main({ theme, out, all: captureAll }) {
       await captureReviewViews({ browser, theme, shoot, shootPart });
     }
   } finally {
-    await browser.close();
+    await browser?.close().catch(() => {});
     await crumb.close();
   }
 }
