@@ -47,7 +47,7 @@ export default {
   'auth.password': '密码',
   'auth.newPassword': '新密码',
   'auth.confirmPassword': '确认密码',
-  'auth.passwordHint': '至少 12 个字符（最多 128 个）。',
+  'auth.passwordHint': '至少 12 个字符。',
   'auth.mismatch': '两次输入的密码不一致。',
   'auth.missing': '请输入用户名和密码。',
   'auth.signIn': '登录',

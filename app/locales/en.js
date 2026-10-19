@@ -47,7 +47,7 @@ export default {
   'auth.password': 'Password',
   'auth.newPassword': 'New password',
   'auth.confirmPassword': 'Confirm password',
-  'auth.passwordHint': 'At least 12 characters (up to 128).',
+  'auth.passwordHint': 'At least 12 characters.',
   'auth.mismatch': 'The two passwords do not match.',
   'auth.missing': 'Enter your username and password.',
   'auth.signIn': 'Sign in',
