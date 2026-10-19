@@ -11,8 +11,16 @@ import { normalise, parseCss, splitSelectors, substitute, variablesOf } from './
 
 const read = path => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
 
+/* The themes with colours of their own: those with a page colour (THEMES.<id>.background) in
+ * the sprite table. Pastry shop and Bakery have none, so their rules are counted. */
+const Pixel = new Function(`${read('assets/sprites.js')}\nreturn Pixel;`)();
+const OWN_COLOURS = Object.keys(Pixel.THEMES).filter(id => Pixel.THEMES[id].background !== undefined);
+
 /* A rule that applies only inside a theme with colours of its own. */
-const themedOnly = selector => /^\[data-theme=(["'])[^"']*\1\]/.test(selector);
+const themedOnly = selector => {
+  const theme = /^\[data-theme=(["'])([^"']*)\1\]/.exec(selector);
+  return theme !== null && OWN_COLOURS.includes(theme[2]);
+};
 
 /* The light set: the custom properties of the top-level :root rules (0.3.0 has one) and of
  * :root, [data-theme] (today's light set), in source order. */
@@ -165,6 +173,15 @@ const SHEETS = [
     additions: DEMO_ADDITIONS,
   },
 ];
+
+test('only rules for a theme with colours of its own are left out', () => {
+  assert.deepEqual(OWN_COLOURS, ['cafe']);
+  assert.equal(themedOnly('[data-theme="cafe"] .tile'), true);
+  assert.equal(themedOnly('[data-theme=\'cafe\'] .tile'), true);
+  assert.equal(themedOnly('[data-theme="bakery"] .tile'), false);
+  assert.equal(themedOnly('[data-theme="default"] .tile'), false);
+  assert.equal(themedOnly('.tile'), false);
+});
 
 test('the reader sees the whole of 0.3.0\'s app stylesheet', () => {
   const rules = parseCss(read('tests/fixtures/0.3.0/app.css'));
