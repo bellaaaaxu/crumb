@@ -1,6 +1,6 @@
 # Validation report
 
-What has been checked for Crumb 0.4.0, how, where — and what has **not** been checked.
+What has been checked for Crumb 0.4.1, how, where — and what has **not** been checked.
 Nothing here is marked as passing unless it was actually run. The per-requirement view is in
 [RELEASE-CHECKLIST.md](RELEASE-CHECKLIST.md).
 
@@ -32,10 +32,11 @@ named under "Earlier runs during development" below.
 - **Checked on one Windows computer:** every unit, API, concurrency and browser test (in
   Chromium) and the operations drill with real server processes, from a fresh clone of the
   café branch at `ce41879` (see "Results from a fresh clone (local)").
-- **Checked in CI** (GitHub Actions, Linux), for 0.1, 0.2.0 and 0.3.0: the same tests with
-  none skipped, and the container drill — the Docker image was built and taken through setup,
-  restart, backup, restore into a new volume, owner recovery and rollback. **CI has not run on
-  the café round:** the branch has not been pushed.
+- **Checked in CI** (GitHub Actions, Linux), for 0.1, 0.2.0, 0.3.0 and 0.4.0: the same tests
+  with none skipped, and the container drill — the Docker image was built and taken through
+  setup, restart, backup, restore into a new volume, owner recovery and rollback.
+- **Checked for 0.4.1** on one Windows computer: `npm test` and the browser tests (in
+  Chromium) on the branch `fix/0.4.1` (see "Version 0.4.1").
 - **Checked by hand on one iPhone,** for 0.1: signing in by QR code with the camera and through
   WeChat, and the home-screen icon (see "Real phone check").
 - **Shown to the maintainer and approved,** for the café round: the 16 new drawings, in two
@@ -51,9 +52,8 @@ named under "Earlier runs during development" below.
   002 ran only on schema 1 files the tests build), and any real phone. For the themes round:
   upgrading a real deployment of 0.2 (migration 003 ran only on schema 2 files the tests
   build), and any real phone (the Bakery icon on a home screen included). For the café round:
-  CI and the container drill, upgrading a real deployment of 0.3, any real phone (the dark
-  pages, the café icon on a home screen and the browser bar's colour included), browsers older
-  than the tests' Chromium, and the demo's three shops on GitHub Pages.
+  upgrading a real deployment of 0.3, any real phone (the dark pages, the café icon on a home
+  screen and the browser bar's colour included), and browsers older than the tests' Chromium.
 - **Reviewed by AI only:** seven review passes up to 0.1 (six by Claude agents, one by
   ChatGPT), the review of the one-page round described under "The review fixes", for the
   themes round a review of each task against the design and for code quality, a review of a
@@ -61,16 +61,16 @@ named under "Earlier runs during development" below.
   with three independent checks of each finding, all by Claude agents; and for the café round
   a review of each task's code against the design and for code quality, with a fix round and a second review where a review found a problem, all by Claude agents. No human code review and no professional security audit has happened yet, of any
   round.
-- So Crumb 0.4.0 is **not yet validated for managing a real team's benefits.** What is still
+- So Crumb 0.4.1 is **not yet validated for managing a real team's benefits.** What is still
   needed is at the end of the checklist.
 
 ## Environment
 
 | | Local | CI |
 | --- | --- | --- |
-| Commit | The development branch `feature/cafe`, from a fresh clone (see "Results from a fresh clone (local)"). The commit cloned was `ce41879` ("docs: the Café in the guides; version 0.4.0; screenshots retaken"). The 0.3.0 record, a fresh clone of `9849c31`, and the records before it are kept below. | 0.1: `67a174b`, [run 36412250215](https://github.com/bellaaaaxu/crumb/actions/runs/36412250215). 0.2.0: the pull request's last commit `1fb57ee`, [run 36983236954](https://github.com/bellaaaaxu/crumb/actions/runs/36983236954), and the merge commit `bbfda7f` on `main`, [run 36984318360](https://github.com/bellaaaaxu/crumb/actions/runs/36984318360). 0.3.0: the pull request's last commit `057cd38`, [run 37433938374](https://github.com/bellaaaaxu/crumb/actions/runs/37433938374), and the merge commit `5247e73` on `main`, [run 37434828326](https://github.com/bellaaaaxu/crumb/actions/runs/37434828326). Not run on `feature/cafe`. |
-| Date | 2026-10-17 (the fresh clone of `ce41879`); 2026-10-05 (the 0.3.0 record); 2026-10-01 (the 0.2.0 records); 2026-09-30 and 2026-10-01 (the earlier runs during development of 0.2.0) | 2026-09-28 (0.1); 2026-10-02 (0.2.0); 2026-10-06 (0.3.0) |
-| Machine | Windows 11 Pro 10.0.26200 | GitHub Actions `ubuntu-24.04`, x64 (image 20260920.314.1 for 0.1, 20260927.320.1 for 0.2.0 and 0.3.0) |
+| Commit | The development branch `feature/cafe`, from a fresh clone (see "Results from a fresh clone (local)"). The commit cloned was `ce41879` ("docs: the Café in the guides; version 0.4.0; screenshots retaken"). The 0.3.0 record, a fresh clone of `9849c31`, and the records before it are kept below. | 0.1: `67a174b`, [run 36412250215](https://github.com/bellaaaaxu/crumb/actions/runs/36412250215). 0.2.0: the pull request's last commit `1fb57ee`, [run 36983236954](https://github.com/bellaaaaxu/crumb/actions/runs/36983236954), and the merge commit `bbfda7f` on `main`, [run 36984318360](https://github.com/bellaaaaxu/crumb/actions/runs/36984318360). 0.3.0: the pull request's last commit `057cd38`, [run 37433938374](https://github.com/bellaaaaxu/crumb/actions/runs/37433938374), and the merge commit `5247e73` on `main`, [run 37434828326](https://github.com/bellaaaaxu/crumb/actions/runs/37434828326). 0.4.0: the pull request's last commit `b4c3f62`, [run 39098953289](https://github.com/bellaaaaxu/crumb/actions/runs/39098953289), and the merge commit `c3a0278` on `main`, [run 39108290066](https://github.com/bellaaaaxu/crumb/actions/runs/39108290066). |
+| Date | 2026-10-17 (the fresh clone of `ce41879`); 2026-10-05 (the 0.3.0 record); 2026-10-01 (the 0.2.0 records); 2026-09-30 and 2026-10-01 (the earlier runs during development of 0.2.0) | 2026-09-28 (0.1); 2026-10-02 (0.2.0); 2026-10-06 (0.3.0); 2026-10-18 (0.4.0) |
+| Machine | Windows 11 Pro 10.0.26200 | GitHub Actions `ubuntu-24.04`, x64 (image 20260920.314.1 for 0.1, 20260927.320.1 for 0.2.0 and 0.3.0, 20261012.334.1 for 0.4.0) |
 | Node.js | 24.14.0, npm 11.9.0 | 24.14.0 for the tests; 24.21.0 inside the image (0.1) |
 | SQLite, images | 3.53.4 (better-sqlite3 13.0.3); sharp 0.35.5 with libvips 8.18.7 | the same packages |
 | Browser | Chromium 153.0.8010.12 (Playwright 1.63.0) | Chromium 153.0.8010.12 (Playwright 1.63.0) |
@@ -81,13 +81,13 @@ named under "Earlier runs during development" below.
 A new clone of the development branch `feature/cafe` into an empty temporary folder, with no
 files carried over (deleted afterwards), on 2026-10-17, on the computer and with the versions
 under "Environment". The commit cloned was `ce41879` ("docs: the Café in the guides; version 0.4.0; screenshots retaken"). Its code is
-the code of this release; only this report and the release checklist have changed since.
+the code of 0.4.0; what 0.4.1 changes is under "Version 0.4.1".
 Merging the branch with a merge commit keeps `ce41879` on `main` as it is.
 
 | Step | Command | Result |
 | --- | --- | --- |
 | Install the locked dependencies | `npm ci` | passed — 84 packages, nothing compiled (see `.npmrc`) |
-| Unit, API, concurrency and operations tests | `npm test` | 344 tests: 342 passed, **2 skipped** (file permissions and umask, which Windows does not have; both passed in CI for 0.1, 0.2.0 and 0.3.0) |
+| Unit, API, concurrency and operations tests | `npm test` | 344 tests: 342 passed, **2 skipped** (file permissions and umask, which Windows does not have; both passed in CI for 0.1, 0.2.0, 0.3.0 and 0.4.0) |
 | Theme lists | `node scripts/theme-manifest.mjs --check` | current: `default` 39 keys, `bakery` 24 keys, `cafe` 24 keys |
 | Pastry shop's and Bakery's list files and icons | `git diff --quiet 5247e73 HEAD -- themes/default.json themes/bakery.json app/favicon.svg app/icons/icon-180.png app/icons/icon-192.png app/icons/icon-512.png app/icons/bakery` | unchanged since 0.3.0, byte for byte |
 | The server | `git diff --quiet 5247e73 HEAD -- server` | unchanged since 0.3.0 |
@@ -136,6 +136,25 @@ On 2026-10-17 the maintainer was shown these pictures, taken from the fresh clon
 public demo's switch between the three shops, served on this computer from the same commit
 (§13 of the café design, gate 3, and its assumption 42), and approved them. None of these
 pictures is kept in the repository: the README shows Pastry shop.
+
+### Version 0.4.1
+
+0.4.1 fixes three things found after 0.4.0 was released:
+
+- A text, number or password field with a mistake in it now has a red border in every
+  theme; before, only a select or a textarea did. A browser test checks it in Pastry shop,
+  Bakery and Café. The café's red is 9.68:1 on its field.
+- The test guards: the check that Pastry shop and Bakery are unchanged now also counts rules
+  written for those two themes; the contrast helper stops on a colour it cannot read
+  instead of leaving it out; and both checks allow the red border, and only it, as a change
+  from 0.3.0.
+- `scripts/screenshots.mjs` closes its server and temporary folder even when the browser
+  fails to start.
+
+The version is 0.4.1 in `package.json` and `package-lock.json`, and the README screenshots
+were retaken for the footer. Checked on 2026-10-19 on the branch `fix/0.4.1`, on the
+computer under "Environment": `npm test` 345 tests, 343 passed and 2 skipped (file
+permissions); the theme lists current; Playwright 221 of 221 in Chromium.
 
 ### The 0.3.0 record: the fresh clone of `9849c31`
 
@@ -389,8 +408,15 @@ merge commit `5247e73` on `main`
 lists current, the process drill passed, Playwright 105 passed, and the container drill
 passed.
 
-The café round has had **no CI run**: `feature/cafe` has not been pushed, so neither the
-Linux test job (with the two file-permission tests) nor the container drill has run on it.
+For 0.4.0 both jobs passed on the pull request's last commit, `b4c3f62`
+([run 39098953289](https://github.com/bellaaaaxu/crumb/actions/runs/39098953289)), and on the
+merge commit `c3a0278` on `main`
+([run 39108290066](https://github.com/bellaaaaxu/crumb/actions/runs/39108290066), image
+20261012.334.1). In the run on `c3a0278`: `npm test` 344 of 344 with none skipped, the three
+theme lists current, Playwright 216 passed, and the container drill passed. After the merge,
+the published demo was opened in Chromium on 2026-10-18 and switched to Café (mascot label
+"Mascot: hot coffee") with no console errors; for 0.3.0 it was opened on 2026-10-17 and
+switched to Bakery, also with no console errors.
 
 ## What the tests cover
 
@@ -724,9 +750,6 @@ password screening.
 - **The fallback for file systems without hard links** in backup and restore, and a temporary
   file that cannot be deleted afterwards (for example, held by a virus scanner).
 - **A human code review and a professional security audit.**
-- **The café round in CI:** the Linux test job (where the two file-permission tests run)
-  and the container drill have not run on `feature/cafe`; it has not been pushed. Docker
-  is not installed on the computer that ran the fresh clone.
 - **Upgrading a real deployment of 0.1:** migration 002 has run only on schema 1 database
   files that the unit tests build from `001-initial.sql`, and on new databases, where 001 and
   002 run one after the other. Pulling 0.2 and rebuilding the image over a running instance of
@@ -742,10 +765,6 @@ password screening.
 - **The themes round on real phones:** a Bakery team's pages, the tab icon, the home-screen
   icon (and that an icon already on a home screen keeps its old picture until it is added
   again), and the demo's switch and shutter were checked in Chromium only.
-- **The demo's switch on GitHub Pages:** for 0.3.0, the published demo was opened in
-  Chromium on 2026-10-17, after merging, and switched to Bakery with no console errors. The
-  café round's switch between three shops was checked with the page opened straight from disk
-  and served on this computer, in Chromium; the published page only after merging.
 - **Upgrading a real deployment of 0.3:** 0.4 adds no migration, and a database at schema 3
   opens as it is in the unit tests. Pulling 0.4 and rebuilding the image over a running
   instance of 0.3, and going back to 0.3 with a Pastry shop or Bakery team as OPERATIONS.md

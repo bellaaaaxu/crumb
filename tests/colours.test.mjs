@@ -363,6 +363,8 @@ const APP_TEXT = [
 const APP_NON_TEXT = [
   ['--focus', ['--bg', '--page-art', '--tile', '--lamp-bg', '--paper', '--chosen', '--field-bg', '--warn-bg', '--bar-bg']],
   ['--field-border', ['--tile', '--field-bg', '--paper', '--chosen']],
+  // The border of a field with a mistake in it (.field [aria-invalid='true']).
+  ['--minus', ['--tile', '--field-bg', '--paper', '--chosen']],
   ['--frame', ['--tile', '--chosen', '--bg']],
   ['--slot-border', ['--tile', '--lamp-bg']],
 ];
@@ -463,6 +465,18 @@ test('the colour arithmetic gives the figures WCAG contrast checkers give', () =
   assert.deepEqual(blend(parseColour('#000'), parseColour('#fff'), 0.5), { r: 127.5, g: 127.5, b: 127.5, a: 1 });
   assert.throws(() => contrast(parseColour('rgba(0, 0, 0, 0.5)'), parseColour('#fff')), /see-through/);
   assert.throws(() => parseColour('white'), /Not a colour/);
+  // A stop in a form the helper cannot read is never left out unmeasured: it throws.
+  for (const value of [
+    'linear-gradient(#221912, hsl(30 20% 60%))',
+    'linear-gradient(#221912, hsla(30, 20%, 60%, 0.5))',
+    'linear-gradient(#221912 0%, oklch(70% 0.1 60) 100%)',
+    'linear-gradient(#221912, color-mix(in srgb, #fff 40%, #221912))',
+    'linear-gradient(to right, #221912, white)',
+    'currentColor',
+  ]) assert.throws(() => stops(value), /Not a colour/, value);
+  assert.deepEqual(stops('url("assets/tan-red.png"), linear-gradient(to right, #000, transparent)').map(asRgb),
+    ['rgb(0, 0, 0)', 'rgb(0, 0, 0)']);
+  assert.deepEqual(stops('0 6px 0 rgba(122, 74, 38, 0.18) inset').map(asRgb), ['rgb(122, 74, 38)']);
 });
 
 colourSetTests({ file: 'app/app.css', text: APP_TEXT, nonText: APP_NON_TEXT });

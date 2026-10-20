@@ -11,8 +11,16 @@ import { normalise, parseCss, splitSelectors, substitute, variablesOf } from './
 
 const read = path => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
 
+/* The themes with colours of their own: those with a page colour (THEMES.<id>.background) in
+ * the sprite table. Pastry shop and Bakery have none, so their rules are counted. */
+const Pixel = new Function(`${read('assets/sprites.js')}\nreturn Pixel;`)();
+const OWN_COLOURS = Object.keys(Pixel.THEMES).filter(id => Pixel.THEMES[id].background !== undefined);
+
 /* A rule that applies only inside a theme with colours of its own. */
-const themedOnly = selector => /^\[data-theme=(["'])[^"']*\1\]/.test(selector);
+const themedOnly = selector => {
+  const theme = /^\[data-theme=(["'])([^"']*)\1\]/.exec(selector);
+  return theme !== null && OWN_COLOURS.includes(theme[2]);
+};
 
 /* The light set: the custom properties of the top-level :root rules (0.3.0 has one) and of
  * :root, [data-theme] (today's light set), in source order. */
@@ -114,6 +122,17 @@ const APP_ADDITIONS = [
   },
 ];
 
+/* The one change made to light on purpose since 0.3.0, kept apart from the list above because
+ * it does change how a page looks: in 0.3.0 the red border of a field with a mistake in it
+ * lost to the rule that draws a text, number or password field's border, so only a select or
+ * a textarea turned red. This rule, as specific as that one and after it, makes those fields
+ * red too (0.4.1). tests/e2e/light-unchanged.spec.mjs allows the same, and only it. */
+const INVALID_FIELD_RED = {
+  selectors: [".field input:not([type='checkbox']):not([type='radio']):not([type='file'])[aria-invalid='true']"],
+  declarations: { 'border-color': '#b83f33' },
+  why: 'a field with a mistake in it shows the red border 0.3.0 meant it to have',
+};
+
 /* Declarations today's assets/style.css adds that also apply in light, written as the light
  * set resolves them, each with the reason it changes nothing there. */
 const DEMO_ADDITIONS = [
@@ -156,7 +175,7 @@ const SHEETS = [
     now: 'app/app.css',
     then: 'tests/fixtures/0.3.0/app.css',
     scriptVariables: ['--header-height'], // set by toast() in app/dom.js
-    additions: APP_ADDITIONS,
+    additions: [...APP_ADDITIONS, INVALID_FIELD_RED],
   },
   {
     now: 'assets/style.css',
@@ -165,6 +184,15 @@ const SHEETS = [
     additions: DEMO_ADDITIONS,
   },
 ];
+
+test('only rules for a theme with colours of its own are left out', () => {
+  assert.deepEqual(OWN_COLOURS, ['cafe']);
+  assert.equal(themedOnly('[data-theme="cafe"] .tile'), true);
+  assert.equal(themedOnly('[data-theme=\'cafe\'] .tile'), true);
+  assert.equal(themedOnly('[data-theme="bakery"] .tile'), false);
+  assert.equal(themedOnly('[data-theme="default"] .tile'), false);
+  assert.equal(themedOnly('.tile'), false);
+});
 
 test('the reader sees the whole of 0.3.0\'s app stylesheet', () => {
   const rules = parseCss(read('tests/fixtures/0.3.0/app.css'));

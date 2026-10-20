@@ -593,6 +593,33 @@ test('this Chromium applies :hover, :active, :focus-visible and :disabled forced
   }
 });
 
+/* The one change made to light on purpose since 0.3.0 (0.4.1). In 0.3.0 the red border of a
+ * field with a mistake in it lost to the rule that draws a text, number or password field's
+ * border, so such a field kept its usual border (--field-border, #e4d2ae). Now it turns red
+ * (--minus, #b83f33), as a select or a textarea already did. Allowed: exactly that change, on
+ * the four border colours of an input, in the scenes that make mistakes in such fields. Any
+ * other difference in those scenes, and every difference elsewhere, still fails.
+ * tests/light-styles.test.mjs allows the same rule, and only it. */
+const INVALID_FIELD_RED = {
+  scenes: [
+    'Settings, nothing fixed yet, two mistakes',
+    'Team page, a person, a link, a benefit form, a batch, the treat dialog with a mistake',
+    'setup page, a theme card chosen, mistakes',
+  ],
+  line: / > input:nth-child\(\d+\) border-(?:top|right|bottom|left)-color: rgb\(228, 210, 174\) -> rgb\(184, 63, 51\)$/,
+};
+const allowed = (scene, line) => INVALID_FIELD_RED.scenes.includes(scene.name) && INVALID_FIELD_RED.line.test(line);
+
+test('the red border of a field with a mistake is allowed in the scenes that make one, and only there', () => {
+  for (const name of INVALID_FIELD_RED.scenes) expect(SCENES.map(scene => scene.name), name).toContain(name);
+  const line = 'body > dialog.dialog:nth-child(4) > form.stack:nth-child(2) > div.field:nth-child(2) > input:nth-child(3) border-top-color: rgb(228, 210, 174) -> rgb(184, 63, 51)';
+  expect(allowed({ name: INVALID_FIELD_RED.scenes[0] }, line)).toBe(true);
+  expect(allowed({ name: 'demo on a phone' }, line)).toBe(false);
+  expect(allowed({ name: INVALID_FIELD_RED.scenes[0] }, line.replace('input:', 'select:'))).toBe(false);
+  expect(allowed({ name: INVALID_FIELD_RED.scenes[0] }, line.replace('border-top-color', 'color'))).toBe(false);
+  expect(allowed({ name: INVALID_FIELD_RED.scenes[0] }, line.replace('rgb(184, 63, 51)', 'rgb(184, 63, 52)'))).toBe(false);
+});
+
 for (const scene of SCENES) {
   for (const theme of THEMES) {
     const label = `${theme}: ${scene.name}`;
@@ -603,7 +630,7 @@ for (const scene of SCENES) {
         keep(record);
         return;
       }
-      const changed = differences(baselineScene(label), record);
+      const changed = differences(baselineScene(label), record).filter(line => !allowed(scene, line));
       expect(changed, `${label}: computed colours differ from 0.3.0's`).toEqual([]);
     });
   }
