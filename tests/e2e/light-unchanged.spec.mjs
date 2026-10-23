@@ -15,7 +15,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import sharp from 'sharp';
 import { PASSWORD, askFor, keyIn, nameMenu, openPerson, provision, startCrumb } from './fixtures.mjs';
 import { client, orgInput } from '../helpers.mjs';
-import { baselineText, differences, packScenes, recordStyles, unpackScenes } from './style-recorder.mjs';
+import { COLOUR_PROPERTIES, baselineText, differences, packScenes, recordStyles, unpackScenes } from './style-recorder.mjs';
 
 const RECORDING = process.env.CRUMB_RECORD_LIGHT_STYLES;
 const BASELINE = fileURLToPath(new URL('../fixtures/light-styles-0.3.0.json', import.meta.url));
@@ -132,6 +132,30 @@ async function memberWithCredit(browser, theme, { viewport } = {}) {
   await page.reload();
   await expect(page.getByTestId('available-balance')).toHaveText('$62.50');
   return { fx, page };
+}
+
+/* The Settings page has one field the 0.3.0 page did not: the usage note, in the middle of the
+ * form, so every element after it sits one place further on and takes another key. It is built
+ * like the welcome message (a label, a hint, a textarea and a hidden error under one .field),
+ * so it is first shown to compute the same colours as that field, then taken out, and the
+ * record names the same elements as 0.3.0's. Recording the baseline runs in 0.3.0, which has
+ * no such field. */
+async function recordSettings(page, label) {
+  if (RECORDING) return recordStyles(page, label);
+  const { note, welcome } = await page.evaluate(properties => {
+    const parts = name => {
+      const wrapper = document.querySelector(`textarea[name="${name}"]`).closest('.field');
+      return { wrapper, nodes: [wrapper, ...wrapper.querySelectorAll('label, p.field-hint, textarea, p.field-error')] };
+    };
+    const colours = nodes => nodes.map(node => properties.map(property => getComputedStyle(node).getPropertyValue(property)));
+    const usage = parts('usageNote');
+    const result = { note: colours(usage.nodes), welcome: colours(parts('welcome').nodes) };
+    usage.wrapper.remove();
+    return result;
+  }, COLOUR_PROPERTIES);
+  expect(welcome).toHaveLength(5);
+  expect(note, 'the usage note looks like the welcome message').toEqual(welcome);
+  return recordStyles(page, label);
 }
 
 async function keypad(browser, theme, label, digits, viewport) {
@@ -344,7 +368,7 @@ const SCENES = [
         await page.getByRole('button', { name: 'Save settings', exact: true }).click();
         await expect(page.getByLabel('Organization name')).toHaveAttribute('aria-invalid', 'true');
         await expect(page.getByLabel('Feedback link for Crumb')).toHaveAttribute('aria-invalid', 'true');
-        return await recordStyles(page, label);
+        return await recordSettings(page, label);
       } finally {
         await fx.close();
       }
@@ -366,7 +390,7 @@ const SCENES = [
         await expect(page.locator('input[name="theme"]:not(:disabled)')).toHaveCount(0);
         await expect(page.locator('.logo-preview')).toBeVisible();
         await expect(page.locator('.topbar .brand-logo')).toBeVisible();
-        return await recordStyles(page, label);
+        return await recordSettings(page, label);
       } finally {
         await fx.close();
       }
