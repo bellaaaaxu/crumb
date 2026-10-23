@@ -358,10 +358,12 @@ test('the café member page, its log, shelf, menu and keypad, and its toasts pas
     expect(menuStops).toEqual(['select.language-select', 'button.btn.btn-quiet']);
 
     // Keying in an entry: the action button, the keypad empty, with an amount, and over.
-    expect((await fx.api.request('PATCH', '/api/org', { spending: 'self' })).status).toBe(200);
+    // The team writes a usage note for the page: its title and its text are measured with the rest.
+    expect((await fx.api.request('PATCH', '/api/org', { spending: 'self', usageNote: 'Any drink from the counter.\nOnce a day.' })).status).toBe(200);
     await page.reload();
     await expect(page.getByRole('button', { name: 'I grabbed something', exact: true })).toBeVisible();
-    await walk(page, 'member page, keying in', failures, { canaries: ['.act', '.actions-hint'] });
+    await expect(page.getByRole('region', { name: 'How to use it', exact: true })).toBeVisible();
+    await walk(page, 'member page, keying in', failures, { canaries: ['.act', '.actions-hint', '.usage-title', '.usage-text'] });
     await page.getByRole('button', { name: 'I grabbed something', exact: true }).click();
     await walk(page, 'keypad at zero', failures, { root: 'dialog[open]', canaries: ['.sheet-amount.zero', '.key', '.sheet-available'] });
     // The keypad opens on its first key; past Cancel (Confirm is greyed out) the keyboard rests on

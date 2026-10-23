@@ -120,6 +120,27 @@ const APP_ADDITIONS = [
     declarations: { color: '#fff3dc' },
     why: 'an error toast is also a .toast, whose text is this same colour',
   },
+  {
+    selectors: ['.usage-note'],
+    declarations: {
+      background: '#fbf3e0', 'border-radius': '14px', padding: '12px 16px 14px', 'box-shadow': 'inset 0 0 0 2px #e4d2ae',
+    },
+    why: 'only elements 0.3.0 did not have; a team without a usage note renders none of them',
+  },
+  {
+    selectors: ['.usage-title'],
+    declarations: {
+      'font-size': '0.75rem', 'letter-spacing': '0.14em', 'font-weight': '800', color: '#7a4a26', 'margin-bottom': '6px',
+    },
+    why: 'only elements 0.3.0 did not have; a team without a usage note renders none of them',
+  },
+  {
+    selectors: ['.usage-text'],
+    declarations: {
+      'font-size': '0.9rem', 'line-height': '1.6', 'white-space': 'pre-line', 'overflow-wrap': 'anywhere', color: '#4a2f1b',
+    },
+    why: 'only elements 0.3.0 did not have; a team without a usage note renders none of them',
+  },
 ];
 
 /* The one change made to light on purpose since 0.3.0, kept apart from the list above because

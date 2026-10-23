@@ -184,10 +184,21 @@ function spendArea(ctx, me, money, tileParts, replaceLog) {
       },
     });
   };
+  // The owner's few lines on what the balance can be used for, as plain text with its line
+  // breaks. Nothing at all when there is none, so the page is as it was.
+  let note = null;
+  if (org.usageNote) {
+    const titleId = uid('usage');
+    note = el('section', { attrs: { class: 'usage-note', 'aria-labelledby': titleId } }, [
+      el('h2', { text: t('me.usageTitle'), attrs: { id: titleId, class: 'usage-title' } }),
+      el('p', { text: org.usageNote, attrs: { class: 'usage-text' } }),
+    ]);
+  }
   return [
     button(t('me.spend'), { kind: 'primary', attrs: { class: 'btn btn-primary act' }, on: { click: open } }),
     hint,
-  ];
+    note,
+  ].filter(Boolean);
 }
 
 /* ---------------------------------------------------------------- spending: confirmed */

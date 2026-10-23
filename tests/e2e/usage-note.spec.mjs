@@ -1,11 +1,26 @@
 /* The usage note: a few lines the owner writes on Settings about what the balance can be used
- * for. The field counts characters the way the server and the database do (Unicode code
+ * for, shown on the member page under "I grabbed something" when the team records its own
+ * spending. The field counts characters the way the server and the database do (Unicode code
  * points of the trimmed text), so it has no maxlength, and the check happens on Save. Every
  * person, team and note here is invented. */
 import { test, expect } from '@playwright/test';
-import { provision } from './fixtures.mjs';
+import { keyIn, provision } from './fixtures.mjs';
 
 const TOO_LONG = 'Keep it to 200 characters or fewer.';
+
+let requests = 0;
+const key = () => ({ 'idempotency-key': `e2e-usage-note-${String(++requests).padStart(4, '0')}` });
+
+/* The owner changes the team's settings through the API, as a second device would. */
+const ownerSets = async (fx, fields) => {
+  const answer = await fx.api.request('PATCH', '/api/org', fields);
+  expect(answer.status, JSON.stringify(answer.body)).toBe(200);
+};
+
+/* The note as a screen reader finds it: a region named by its title. */
+const noteRegion = page => page.getByRole('region', { name: 'How to use it', exact: true });
+
+const NOTE = 'Any drink from the counter.\nOnce a day.\n<b>hi</b> https://example.com';
 
 const openSettings = async (fx) => {
   await fx.ownerPage.goto(`${fx.origin}/#/settings`);
@@ -117,6 +132,218 @@ test('the field counts as the server does: 200 characters save, 201 are stopped 
     await expect(page.getByLabel('How to use the balance', { exact: true })).toHaveValue('Any drink from the counter.');
     // Counted at the end, so a request the refused saves wrongly sent would show up here.
     expect(sent).toHaveLength(fits.length + 1);
+  } finally {
+    await fx.close();
+  }
+});
+
+/* ------------------------------------------------------------------ on the member page */
+
+const jotButton = page => page.getByRole('button', { name: 'I grabbed something', exact: true });
+
+test('with no usage note the member page is as before', async ({ browser }) => {
+  const fx = await provision(browser, { mode: 'points', spending: 'self' });
+  try {
+    await ownerSets(fx, { welcome: 'Thanks for stopping by.' });
+    const page = fx.memberPage;
+    await page.reload();
+    await expect(jotButton(page)).toBeVisible();
+    await expect(page.locator('.usage-note')).toHaveCount(0);
+    await expect(page.getByRole('region', { name: 'How to use it' })).toHaveCount(0);
+    // After the tile: the button, the daily line, the log, the welcome line, and nothing else.
+    const after = await page.locator('main > .main-tile ~ *').evaluateAll(nodes =>
+      nodes.map(node => `${node.tagName.toLowerCase()}.${[...node.classList].join('.')}`));
+    expect(after).toEqual(['button.btn.btn-primary.act', 'p.actions-hint', 'section.quest', 'p.daily']);
+
+    // Spaces and blank lines are no note: the server saves them as empty.
+    await ownerSets(fx, { usageNote: '  \n \n  ' });
+    await page.reload();
+    await expect(jotButton(page)).toBeVisible();
+    await expect(page.locator('.usage-note')).toHaveCount(0);
+  } finally {
+    await fx.close();
+  }
+});
+
+test('a usage note shows under the button and the daily line, line by line, as plain text', async ({ browser }) => {
+  const fx = await provision(browser, { mode: 'points', spending: 'self' });
+  try {
+    await ownerSets(fx, { usageNote: NOTE });
+    const page = fx.memberPage;
+    await page.reload();
+    const region = noteRegion(page);
+    await expect(region).toBeVisible();
+    await expect(region.getByRole('heading', { name: 'How to use it', level: 2 })).toBeVisible();
+
+    // Directly after the daily line, before the log.
+    await expect(page.locator('.actions-hint + .usage-note + .quest')).toHaveCount(1);
+    const hint = await page.locator('.actions-hint').boundingBox();
+    const box = await region.boundingBox();
+    const log = await page.locator('.quest').boundingBox();
+    expect(box.y).toBeGreaterThanOrEqual(hint.y + hint.height);
+    expect(log.y).toBeGreaterThanOrEqual(box.y + box.height);
+
+    // Plain text with its line breaks: three lines, the markup and the link printed as typed.
+    const text = region.locator('.usage-text');
+    expect(await text.evaluate(node => node.innerText)).toBe(NOTE);
+    const lines = await text.evaluate(node => node.getBoundingClientRect().height / parseFloat(getComputedStyle(node).lineHeight));
+    expect(Math.round(lines)).toBe(3);
+    await expect(region.locator('b, a')).toHaveCount(0);
+    expect(await text.evaluate(node => node.children.length)).toBe(0);
+  } finally {
+    await fx.close();
+  }
+});
+
+test('a team that confirms what people spend does not see the note, and sees it again after switching back', async ({ browser }) => {
+  const fx = await provision(browser, { mode: 'points', spending: 'self' });
+  try {
+    await ownerSets(fx, { usageNote: 'Any drink from the counter.\nOnce a day.' });
+    const page = fx.memberPage;
+    await page.reload();
+    await expect(noteRegion(page)).toBeVisible();
+
+    // Confirming: the page is the benefit list, and the note is nowhere on it.
+    await ownerSets(fx, { spending: 'confirm' });
+    await page.reload();
+    await expect(page.getByRole('heading', { name: 'Benefits' })).toBeVisible();
+    await expect(page.locator('.usage-note')).toHaveCount(0);
+    await expect(page.getByText('Any drink from the counter.')).toHaveCount(0);
+
+    // Switching the mode kept the note: back to recording it is there as written.
+    await ownerSets(fx, { spending: 'self' });
+    await page.reload();
+    await expect(jotButton(page)).toBeVisible();
+    await expect(noteRegion(page).locator('.usage-text')).toHaveText('Any drink from the counter.\nOnce a day.');
+  } finally {
+    await fx.close();
+  }
+});
+
+test('the keypad does not repeat the note', async ({ browser }) => {
+  const fx = await provision(browser, { mode: 'points', spending: 'self' });
+  try {
+    await ownerSets(fx, { usageNote: 'Any drink from the counter.\nOnce a day.' });
+    const page = fx.memberPage;
+    await page.reload();
+    await expect(noteRegion(page)).toBeVisible();
+    await jotButton(page).click();
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByRole('group', { name: 'Amount keypad' })).toBeVisible();
+    await expect(dialog).not.toContainText('Any drink from the counter.');
+    await expect(dialog).not.toContainText('Once a day.');
+    await expect(dialog.getByText('How to use it')).toHaveCount(0);
+  } finally {
+    await fx.close();
+  }
+});
+
+test('a 200-character note and a long unbroken link fit a 375-pixel phone', async ({ browser }) => {
+  const fx = await provision(browser, { mode: 'points', spending: 'self' });
+  try {
+    const page = fx.memberPage;
+    await page.setViewportSize({ width: 375, height: 667 });
+    const notes = [
+      // Two hundred characters of ordinary words.
+      `${'Ask first. '.repeat(18)}Ok`,
+      // A 120-character link in a sentence.
+      `Menu: https://example.com/${'a'.repeat(100)}`,
+      // The worst case: one unbroken 200-character word of the widest letter.
+      'W'.repeat(200),
+    ];
+    expect([...notes[0]]).toHaveLength(200);
+    expect(notes[1].split(' ')[1]).toHaveLength(120);
+    expect([...notes[2]]).toHaveLength(200);
+    for (const usageNote of notes) {
+      await ownerSets(fx, { usageNote });
+      await page.reload();
+      const region = noteRegion(page);
+      await expect(region).toBeVisible();
+      expect(await region.locator('.usage-text').evaluate(node => node.innerText)).toBe(usageNote);
+      const fits = await page.evaluate(() => ({
+        page: [document.documentElement.scrollWidth, document.documentElement.clientWidth],
+        note: [document.querySelector('.usage-note').scrollWidth, document.querySelector('.usage-note').clientWidth],
+      }));
+      expect(fits.page[0], `the page for “${usageNote.slice(0, 20)}…”`).toBeLessThanOrEqual(fits.page[1]);
+      expect(fits.note[0], `the note for “${usageNote.slice(0, 20)}…”`).toBeLessThanOrEqual(fits.note[1]);
+    }
+  } finally {
+    await fx.close();
+  }
+});
+
+test('the note takes space only below the daily line', async ({ browser }) => {
+  const fx = await provision(browser, { mode: 'points', spending: 'self' });
+  try {
+    const page = fx.memberPage;
+    const boxes = async () => {
+      await page.reload();
+      await expect(jotButton(page)).toBeVisible();
+      return { button: await jotButton(page).boundingBox(), hint: await page.locator('.actions-hint').boundingBox() };
+    };
+    const same = (now, before) => {
+      for (const side of ['x', 'y', 'width', 'height']) expect(Math.abs(now[side] - before[side]), side).toBeLessThanOrEqual(1);
+    };
+    const without = await boxes();
+
+    await ownerSets(fx, { usageNote: NOTE });
+    const withNote = await boxes();
+    same(withNote.button, without.button);
+    same(withNote.hint, without.hint);
+    const note = await noteRegion(page).boundingBox();
+    const log = await page.locator('.quest').boundingBox();
+    // Below the daily line, and above the log: it overlaps neither.
+    expect(note.y).toBeGreaterThanOrEqual(withNote.hint.y + withNote.hint.height);
+    expect(log.y).toBeGreaterThanOrEqual(note.y + note.height);
+    expect(note.height).toBeGreaterThan(0);
+
+    // Cleared by the owner, the page is where it was.
+    await ownerSets(fx, { usageNote: '' });
+    const cleared = await boxes();
+    same(cleared.button, without.button);
+    same(cleared.hint, without.hint);
+    await expect(page.locator('.usage-note')).toHaveCount(0);
+  } finally {
+    await fx.close();
+  }
+});
+
+test('a note set while the page is open appears after the next entry', async ({ browser }) => {
+  const fx = await provision(browser, { mode: 'credit', spending: 'self' });
+  try {
+    await fx.api.request('POST', '/api/admin/grants', { userId: fx.memberId, amount: '10.00', mode: 'credit', reason: '' }, key());
+    const page = fx.memberPage;
+    await page.reload();
+    await expect(page.getByTestId('available-balance')).toHaveText('$10.00');
+    await expect(page.locator('.usage-note')).toHaveCount(0);
+    // Marks this document: a reload would lose it.
+    await page.evaluate(() => { window.__sameDocument = true; });
+
+    const jot = async (digits, balance) => {
+      await jotButton(page).click();
+      await keyIn(page, digits);
+      await page.getByRole('button', { name: 'Jot it down', exact: true }).click();
+      await expect(page.getByTestId('available-balance')).toHaveText(balance);
+    };
+
+    // The owner writes a note; the member's next entry shows it.
+    await ownerSets(fx, { usageNote: 'Any drink from the counter.' });
+    await expect(page.locator('.usage-note')).toHaveCount(0);
+    await jot('100', '$9.00');
+    await expect(noteRegion(page).locator('.usage-text')).toHaveText('Any drink from the counter.');
+
+    // The owner rewrites it; the next entry shows the new words, not the old.
+    await ownerSets(fx, { usageNote: 'Ask at the till instead.' });
+    await jot('200', '$7.00');
+    await expect(noteRegion(page).locator('.usage-text')).toHaveText('Ask at the till instead.');
+
+    // The owner clears it; the next entry takes the region away.
+    await ownerSets(fx, { usageNote: '' });
+    await jot('300', '$4.00');
+    await expect(page.locator('.usage-note')).toHaveCount(0);
+
+    expect(await page.evaluate(() => window.__sameDocument === true)).toBe(true);
   } finally {
     await fx.close();
   }

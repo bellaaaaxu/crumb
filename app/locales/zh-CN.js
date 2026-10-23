@@ -126,6 +126,7 @@ export default {
   'home.android': '安卓：在 Chrome 点右上角「⋮」→「添加到主屏幕」。',
   'home.done': '知道了',
   'me.spend': '我拿了东西',
+  'me.usageTitle': '使用说明',
   'me.treated': '有人请你下午茶啦，+{amount}',
   'me.lifetime': '一共收到',
   'me.collection': '我的收藏柜',

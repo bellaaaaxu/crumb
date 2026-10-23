@@ -126,6 +126,7 @@ export default {
   'home.android': 'Android: in Chrome, tap ⋮ at the top right, then Add to Home screen.',
   'home.done': 'Got it',
   'me.spend': 'I grabbed something',
+  'me.usageTitle': 'How to use it',
   'me.treated': 'Someone treated you: +{amount}',
   'me.lifetime': 'Received so far',
   'me.collection': 'Your collection',
