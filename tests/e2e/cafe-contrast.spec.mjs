@@ -328,6 +328,9 @@ test('the café member page, its log, shelf, menu and keypad, and its toasts pas
   try {
     const page = fx.memberPage;
     const problems = await watch(page);
+    // The newest row of "Log · Recent": a treat with a message, opened below, so its button, who
+    // sent it and the message are measured with the rest, and the button's ring on the way round.
+    expect((await fx.api.request('POST', '/api/admin/grants', { userId: fx.memberId, amount: '2.00', mode: 'credit', reason: 'For the latte art' }, key())).status).toBe(201);
     await signInAgain(fx, page);
     await page.setViewportSize({ width: 430, height: 900 });
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'cafe');
@@ -335,12 +338,15 @@ test('the café member page, its log, shelf, menu and keypad, and its toasts pas
 
     // Asking for benefits: the tip, the balance tile, the benefits and the three requests.
     await expect(page.locator('.badge-rejected')).toBeVisible();
+    const treatRow = page.locator('.quest li.rec.can-open').first();
+    await treatRow.getByRole('button', { name: 'Details', exact: true }).click();
+    await expect(treatRow.locator('.rec-msg')).toBeVisible();
     await walk(page, 'member page', failures, {
-      canaries: ['.home-tip', '.holder', '.credit-label', '.oven-caption', '.benefit .price', '.badge-pending', '.badge-completed', '.badge-rejected', '.row-note', '.quest-head', '.rec-amt.plus', '.rec-amt.minus'],
+      canaries: ['.home-tip', '.holder', '.credit-label', '.oven-caption', '.benefit .price', '.badge-pending', '.badge-completed', '.badge-rejected', '.row-note', '.quest-head', '.rec-amt.plus', '.rec-amt.minus', '.rec-more', '.rec-from', '.rec-from b', '.rec-msg'],
     });
     const stops = await ringsAlong(page, 'member page', failures);
     expect(stops.length, stops.join('\n')).toBeGreaterThan(8);
-    expect(stops).toEqual(expect.arrayContaining(['a.skip-link', 'button.slot-button', 'button.quest-head']));
+    expect(stops).toEqual(expect.arrayContaining(['a.skip-link', 'button.slot-button', 'button.quest-head', 'button.rec-more']));
 
     await page.getByRole('button', { name: /Log · Recent/ }).click();
     await walk(page, 'member page, whole log', failures, { canaries: ['.quest-month', '.rec-note', '.badge-revoked'] });

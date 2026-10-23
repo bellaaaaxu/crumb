@@ -147,6 +147,9 @@ export default {
   'me.seeAll': 'See all',
   'me.collapse': 'Fold up',
   'me.logEmpty': 'Nothing yet. Treats will show up here.',
+  'me.rowMore': 'Details',
+  'me.rowLess': 'Hide',
+  'me.treatFrom': 'From {name}',
 
   'kind.grant': 'Treat',
   'kind.spend': 'Jotted down',

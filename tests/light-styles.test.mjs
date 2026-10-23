@@ -141,6 +141,53 @@ const APP_ADDITIONS = [
     },
     why: 'only elements 0.3.0 did not have; a team without a usage note renders none of them',
   },
+  {
+    selectors: ['.rec.can-open'],
+    declarations: { cursor: 'pointer' },
+    why: 'only elements 0.3.0 did not have: the opener and the detail of a treat row',
+  },
+  {
+    selectors: ['.rec-more'],
+    declarations: {
+      display: 'inline-flex', 'align-items': 'center', gap: '3px', 'margin-left': '8px', padding: '1px 8px 1px 9px', border: '0',
+      'border-radius': '999px', background: 'none', font: 'inherit', 'font-size': '0.72rem', 'font-weight': '700', color: '#7a4a26',
+      'box-shadow': 'inset 0 0 0 1.5px currentColor', 'white-space': 'nowrap', cursor: 'pointer',
+    },
+    why: 'only elements 0.3.0 did not have: the opener and the detail of a treat row',
+  },
+  {
+    selectors: ['.rec-more .chev'],
+    declarations: { display: 'inline-block', transition: 'transform 0.3s' },
+    why: 'only elements 0.3.0 did not have: the opener and the detail of a treat row',
+  },
+  {
+    selectors: [".rec-more[aria-expanded='true'] .chev"],
+    declarations: { transform: 'rotate(180deg)' },
+    why: 'only elements 0.3.0 did not have: the opener and the detail of a treat row',
+  },
+  {
+    selectors: ['.rec-detail'],
+    declarations: { 'flex-basis': '100%', 'margin-left': '21px', display: 'flex', 'flex-direction': 'column', gap: '6px' },
+    why: 'only elements 0.3.0 did not have: the opener and the detail of a treat row',
+  },
+  {
+    selectors: ['.rec-from'],
+    declarations: { 'font-size': '0.8rem', color: '#7a5c40' },
+    why: 'only elements 0.3.0 did not have: the opener and the detail of a treat row',
+  },
+  {
+    selectors: ['.rec-from b'],
+    declarations: { color: '#4a2f1b' },
+    why: 'only elements 0.3.0 did not have: the opener and the detail of a treat row',
+  },
+  {
+    selectors: ['.rec-msg'],
+    declarations: {
+      'font-size': '0.875rem', 'line-height': '1.6', 'white-space': 'pre-line', 'overflow-wrap': 'anywhere', background: '#fbf3e0',
+      'border-radius': '10px', padding: '8px 12px', 'box-shadow': 'inset 0 0 0 1px #e4d2ae',
+    },
+    why: 'only elements 0.3.0 did not have: the opener and the detail of a treat row',
+  },
 ];
 
 /* The one change made to light on purpose since 0.3.0, kept apart from the list above because

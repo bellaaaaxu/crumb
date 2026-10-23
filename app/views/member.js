@@ -356,22 +356,74 @@ function rowBadge(item) {
   return null;
 }
 
-function logRow(item, money, { expanded }) {
+/* A treat opens in "Log · Recent" when there is something to open to: who sent it, or its
+ * message. Every treat has a sender; one without (a database restored or edited by hand) still
+ * opens to its message, and one with neither has nothing to open. */
+const opensInPlace = item => item.kind === 'grant' && Boolean(item.actorName || item.reason);
+
+/* The expanded log says who sent a treat in its label and puts the message under it. The recent
+ * view keeps each row four things long: a treat gets a button at the end of its label that opens,
+ * under the row and in place, who sent it and the message. A tap anywhere else on the row does
+ * the same, except a tap in what it opened. `open` is whether it starts open; `onToggle(open)`
+ * hears of each change. */
+function logRow(item, money, { expanded, open = false, onToggle = () => {} }) {
   const plus = item.deltaUnits > 0;
-  return el('li', { attrs: { class: `rec log-${item.kind}` } }, [
+  const amount = el('span', { text: signedAmount(item.deltaUnits, money), attrs: { class: `rec-amt ${plus ? 'plus' : 'minus'}` } });
+  const label = el('span', { text: expanded ? historyTitle(item) : kindLabel(item.kind), attrs: { class: 'rec-label' } });
+  const date = el('span', { text: formatDate(item.createdAt), attrs: { class: 'rec-time' } });
+  const row = el('li', { attrs: { class: `rec log-${item.kind}` } }, [
     el('span', { attrs: { class: `rec-diamond ${plus ? 'plus' : 'minus'}`, 'aria-hidden': 'true' } }),
-    el('span', { text: signedAmount(item.deltaUnits, money), attrs: { class: `rec-amt ${plus ? 'plus' : 'minus'}` } }),
-    el('span', { text: expanded ? historyTitle(item) : kindLabel(item.kind), attrs: { class: 'rec-label' } }),
-    el('span', { text: formatDate(item.createdAt), attrs: { class: 'rec-time' } }),
+    amount,
+    label,
+    date,
     rowBadge(item),
-    // A treat's message only in the expanded log: the recent rows stay four things long.
     expanded && item.reason ? el('p', { text: item.reason, attrs: { class: 'rec-note' } }) : null,
   ]);
+  if (expanded || !opensInPlace(item)) return row;
+
+  // The button's name stays its visible words, so a voice command that reads them out matches;
+  // the row's amount, label and date say which treat it opens.
+  for (const [part, prefix] of [[amount, 'rec-amt'], [label, 'rec-label'], [date, 'rec-time']]) part.id = uid(prefix);
+  const detailId = uid('rec-detail');
+  const detail = el('div', { attrs: { class: 'rec-detail', id: detailId } }, [
+    item.actorName ? el('p', { attrs: { class: 'rec-from' } }, boldName(t('me.treatFrom'), item.actorName)) : null,
+    item.reason ? el('p', { text: item.reason, attrs: { class: 'rec-msg' } }) : null,
+  ]);
+  const words = el('span');
+  const opener = el('button', {
+    attrs: {
+      type: 'button', class: 'rec-more', 'aria-controls': detailId, 'aria-describedby': `${amount.id} ${label.id} ${date.id}`,
+    },
+  }, [words, el('span', { text: '⌄', attrs: { class: 'chev', 'aria-hidden': 'true' } })]);
+  const show = next => {
+    open = next;
+    opener.setAttribute('aria-expanded', String(open));
+    words.textContent = t(open ? 'me.rowLess' : 'me.rowMore');
+    detail.hidden = !open;
+  };
+  const toggle = () => {
+    show(!open);
+    onToggle(open);
+  };
+  show(open);
+  // The button toggles itself (a click, Enter or Space); the row toggles from a click anywhere
+  // else on it, but not in the detail, where someone may be reading or selecting the message.
+  opener.addEventListener('click', toggle);
+  row.addEventListener('click', event => {
+    if (!opener.contains(event.target) && !detail.contains(event.target)) toggle();
+  });
+  label.append(opener);
+  row.classList.add('can-open');
+  row.append(detail);
+  return row;
 }
 
 /* "Log · Recent" shows the latest five rows. "See all" expands them by month and pages on.
- * `open` starts it expanded: a log read again after an entry stays as the person left it. */
-function questLog(ctx, page, money, { open: startOpen = false } = {}) {
+ * `open` starts it expanded: a log read again after an entry stays as the person left it.
+ * `openIds` holds the ids of the treats open in the recent view; the log hands it on as
+ * `log.openIds`, so the one read again after an entry opens the same treats. A fresh page starts
+ * with none. */
+function questLog(ctx, page, money, { open: startOpen = false, openIds = new Set() } = {}) {
   const items = page.items;
   let open = startOpen && items.length > 0;
   const bodyId = uid('log');
@@ -389,7 +441,14 @@ function questLog(ctx, page, money, { open: startOpen = false } = {}) {
       return;
     }
     if (!open) {
-      list.append(...items.slice(0, RECENT).map(item => logRow(item, money, { expanded: false })));
+      list.append(...items.slice(0, RECENT).map(item => logRow(item, money, {
+        expanded: false,
+        open: openIds.has(item.id),
+        onToggle: shown => {
+          if (shown) openIds.add(item.id);
+          else openIds.delete(item.id);
+        },
+      })));
       body.replaceChildren(list);
       return;
     }
@@ -420,6 +479,7 @@ function questLog(ctx, page, money, { open: startOpen = false } = {}) {
     on: { click: () => { open = !open; head.setAttribute('aria-expanded', String(open)); quest.classList.toggle('open', open); paint(); } },
   }, [el('span', { attrs: { class: 'dot', 'aria-hidden': 'true' } }), title, items.length ? toggleLabel : null]);
   const quest = el('section', { attrs: { class: open ? 'quest open' : 'quest', 'aria-label': t('me.log') } }, [head, body]);
+  quest.openIds = openIds;
   paint();
   return quest;
 }
@@ -495,7 +555,7 @@ export async function renderMember(main, ctx) {
   if (ctx.entering) tileParts.tile.classList.add('enter');
   let log = questLog(ctx, history, money);
   const replaceLog = page => {
-    const next = questLog(ctx, page, money, { open: log.classList.contains('open') });
+    const next = questLog(ctx, page, money, { open: log.classList.contains('open'), openIds: log.openIds });
     const hadFocus = log.contains(document.activeElement);
     log.replaceWith(next);
     log = next;

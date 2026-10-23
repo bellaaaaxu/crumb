@@ -147,6 +147,9 @@ export default {
   'me.seeAll': '看全部',
   'me.collapse': '收起',
   'me.logEmpty': '还是空的。下午茶来了会出现在这里。',
+  'me.rowMore': '展开',
+  'me.rowLess': '收起',
+  'me.treatFrom': '{name} 请的',
 
   'kind.grant': '下午茶',
   'kind.spend': '自己记的',
