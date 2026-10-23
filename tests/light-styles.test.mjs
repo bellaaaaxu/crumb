@@ -149,7 +149,7 @@ const APP_ADDITIONS = [
   {
     selectors: ['.rec-more'],
     declarations: {
-      display: 'inline-flex', 'align-items': 'center', gap: '3px', 'margin-left': '8px', padding: '1px 8px 1px 9px', border: '0',
+      display: 'inline-flex', 'align-items': 'center', gap: '3px', 'margin-left': '6px', padding: '1px 6px 1px 7px', border: '0',
       'border-radius': '999px', background: 'none', font: 'inherit', 'font-size': '0.72rem', 'font-weight': '700', color: '#7a4a26',
       'box-shadow': 'inset 0 0 0 1.5px currentColor', 'white-space': 'nowrap', cursor: 'pointer',
     },

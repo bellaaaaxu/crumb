@@ -382,8 +382,9 @@ function logRow(item, money, { expanded, open = false, onToggle = () => {} }) {
   if (expanded || !opensInPlace(item)) return row;
 
   // The button's name stays its visible words, so a voice command that reads them out matches;
-  // the row's amount, label and date say which treat it opens.
-  for (const [part, prefix] of [[amount, 'rec-amt'], [label, 'rec-label'], [date, 'rec-time']]) part.id = uid(prefix);
+  // the row's amount and date say which treat it opens. Not the label: only a treat has the
+  // button, and the label holds it, so the button's own words would come with it.
+  for (const [part, prefix] of [[amount, 'rec-amt'], [date, 'rec-time']]) part.id = uid(prefix);
   const detailId = uid('rec-detail');
   const detail = el('div', { attrs: { class: 'rec-detail', id: detailId } }, [
     item.actorName ? el('p', { attrs: { class: 'rec-from' } }, boldName(t('me.treatFrom'), item.actorName)) : null,
@@ -392,7 +393,7 @@ function logRow(item, money, { expanded, open = false, onToggle = () => {} }) {
   const words = el('span');
   const opener = el('button', {
     attrs: {
-      type: 'button', class: 'rec-more', 'aria-controls': detailId, 'aria-describedby': `${amount.id} ${label.id} ${date.id}`,
+      type: 'button', class: 'rec-more', 'aria-controls': detailId, 'aria-describedby': `${amount.id} ${date.id}`,
     },
   }, [words, el('span', { text: '⌄', attrs: { class: 'chev', 'aria-hidden': 'true' } })]);
   const show = next => {

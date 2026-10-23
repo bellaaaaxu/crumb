@@ -23,9 +23,9 @@ async function inOrder(fx, writes) {
   }
 }
 
-/* The owner, Olive Chen, treats the member. */
+/* The owner, Olive Chen, treats the member, in the team's mode: '12.50' in credit, '25' in points. */
 const treat = (fx, amount, reason = '') => async () => {
-  const answer = await fx.api.request('POST', '/api/admin/grants', { userId: fx.memberId, amount, mode: 'credit', reason }, key());
+  const answer = await fx.api.request('POST', '/api/admin/grants', { userId: fx.memberId, amount, mode: fx.mode, reason }, key());
   expect(answer.status, JSON.stringify(answer.body)).toBe(201);
   return answer.body.entry;
 };
@@ -52,6 +52,8 @@ const theLog = page => page.locator('section.quest');
 const rowsOf = page => theLog(page).locator('li.rec');
 const openerOf = row => row.locator('button.rec-more');
 const detailOf = async (page, row) => page.locator(`#${await openerOf(row).getAttribute('aria-controls')}`);
+/* What the row's amount and date say, in that order: all an opener's description should be. */
+const describedAs = row => row.evaluate(node => ['.rec-amt', '.rec-time'].map(part => node.querySelector(part).textContent).join(' '));
 
 /* Jots an amount from the keypad, as the member would, and waits for the balance to show it. */
 async function jotFromKeypad(page, digits, balance) {
@@ -80,12 +82,10 @@ test('a treat row says it opens, and opens in place to who sent it and the messa
     await expect(row.getByRole('button', { name: 'Details', exact: true })).toHaveCount(1);
     const opener = openerOf(row);
     await expect(opener).toHaveAttribute('aria-expanded', 'false');
-    // The description is the three in order. The label holds the button, so its words come with
-    // the label's: "+$12.50 Treat Details Oct 23, 2026".
-    const said = await row.evaluate(node => ['.rec-amt', '.rec-label', '.rec-time'].map(part => node.querySelector(part).firstChild.textContent));
-    expect(said.slice(0, 2)).toEqual(['+$12.50', 'Treat']);
-    const literal = text => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    await expect(opener).toHaveAccessibleDescription(new RegExp(`^${literal(said[0])} ${literal(said[1])}\\b.*\\b${literal(said[2])}$`));
+    // Described by the row's amount and date, and nothing else: "+$12.50 Oct 23, 2026".
+    const described = await describedAs(row);
+    expect(described).toMatch(/^\+\$12\.50 [A-Z][a-z]{2} \d{1,2}, \d{4}$/);
+    await expect(opener).toHaveAccessibleDescription(described);
     const detail = await detailOf(page, row);
     await expect(detail).toBeHidden();
     // Where they sit: the opener last in the label, the detail last in the row.
@@ -98,6 +98,7 @@ test('a treat row says it opens, and opens in place to who sent it and the messa
     await opener.click();
     await expect(opener).toHaveAttribute('aria-expanded', 'true');
     await expect(opener).toHaveAccessibleName('Hide');
+    await expect(opener).toHaveAccessibleDescription(described);
     await expect(detail).toBeVisible();
     await expect(detail.locator('.rec-from')).toHaveText('From Olive Chen');
     await expect(detail.locator('.rec-from b')).toHaveText('Olive Chen');
@@ -265,90 +266,179 @@ const close = (now, before, what, dy = 0) => {
 };
 const overlaps = (a, b) => a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
 
-/* Treats of everyday amounts: one with a message, one without, and one taken back, whose badge
- * leaves its label the least room. A label narrower than its word and the button together (a
- * wide amount beside a long date on a narrow phone) puts the button on a line of its own under
- * the word, and that row grows. */
-test('the opener moves nothing that was already there', async ({ browser }) => {
-  const fx = await provision(browser, { mode: 'credit', spending: 'self' });
-  try {
-    const page = fx.memberPage;
-    await inOrder(fx, [
-      treat(fx, '12.50', 'Thanks for covering the Sunday close'),
-      treat(fx, '25.00'),
-      treat(fx, '10.00', 'For the window display'),
-      takeBack(fx),
-      jotted(page, '4.25'),
-    ]);
-    for (const language of ['en', 'zh-CN']) {
-      if (language === 'zh-CN') await inChinese(page);
-      for (const viewport of [{ width: 375, height: 667 }, { width: 390, height: 844 }]) {
-        const where = `${language} at ${viewport.width}`;
-        await page.setViewportSize(viewport);
-        await page.reload();
-        const rows = rowsOf(page);
-        await expect(rows).toHaveCount(5);
-        const openable = theLog(page).locator('li.rec.can-open');
-        await expect(openable, where).toHaveCount(3);
+/* Each closed treat row of the log, measured with its opener and again with that opener alone
+ * taken out of the page (then put back): where the opener and the label's word are, and the
+ * boxes of the header and of every row and each of its own elements, on the page. Runs in the
+ * page. */
+function eachOpenerOut(log) {
+  const box = node => {
+    const { x, y, width, height } = node.getBoundingClientRect();
+    return { x: x + window.scrollX, y: y + window.scrollY, width, height };
+  };
+  const rows = [...log.querySelectorAll('li.rec')];
+  const layout = () => ({
+    head: box(log.querySelector('.quest-head')),
+    rows: rows.map(row => ({
+      row: box(row),
+      parts: Object.fromEntries([...row.children].filter(node => !node.matches('.rec-detail')).map(node => [node.classList[0], box(node)])),
+    })),
+  });
+  return rows.filter(row => row.matches('.can-open')).map(row => {
+    const opener = row.querySelector('.rec-more');
+    const label = row.querySelector('.rec-label');
+    const word = document.createRange();
+    word.selectNodeContents(label.firstChild);
+    const measured = {
+      at: rows.indexOf(row), amount: row.querySelector('.rec-amt').textContent, message: Boolean(row.querySelector('.rec-msg')),
+      opener: box(opener), word: box(word), label: box(label), with: layout(),
+    };
+    opener.remove();
+    measured.without = layout();
+    label.append(opener);
+    return measured;
+  });
+}
 
-        // Every closed treat row, with its opener and with the opener taken out of the page.
-        const { withOpener, without } = await theLog(page).evaluate(log => {
-          const box = node => {
-            const { x, y, width, height } = node.getBoundingClientRect();
-            return { x, y, width, height };
-          };
-          const rowsHere = [...log.querySelectorAll('li.rec.can-open')];
-          const parts = row => ({
-            diamond: box(row.querySelector('.rec-diamond')), amount: box(row.querySelector('.rec-amt')),
-            date: box(row.querySelector('.rec-time')), row: box(row),
-          });
-          const openers = rowsHere.map(row => row.querySelector('.rec-more'));
-          const measured = rowsHere.map(row => ({ ...parts(row), opener: box(row.querySelector('.rec-more')) }));
-          for (const opener of openers) opener.remove();
-          const bare = rowsHere.map(parts);
-          openers.forEach((opener, index) => rowsHere[index].querySelector('.rec-label').append(opener));
-          return { withOpener: measured, without: bare };
-        });
-        withOpener.forEach((now, index) => {
-          const what = `${where}, treat row ${index + 1}`;
-          for (const part of ['diamond', 'amount', 'date']) close(now[part], without[index][part], `${what}: ${part}`);
-          expect(Math.abs(now.row.height - without[index].row.height), `${what}: the row's height`).toBeLessThanOrEqual(1);
-          expect(now.opener.width, `${what}: the opener is drawn`).toBeGreaterThan(0);
-          expect(overlaps(now.opener, now.date), `${what}: the opener overlaps the date`).toBe(false);
-          expect(overlaps(now.opener, now.amount), `${what}: the opener overlaps the amount`).toBe(false);
-        });
+/* Whether the opener sits below its label's word rather than beside it. */
+const isBelow = one => one.opener.y >= one.word.y + one.word.height - 1;
 
-        // Opened, the treat with a message and a badge pushes the rows below it down by what the
-        // detail takes (its height and the gap between the row's lines), and moves nothing else.
-        const index = 2;
-        const target = rows.nth(index);
-        await expect(target).toHaveClass(/\blog-grant\b/);
-        await expect(target.locator('.badge')).toHaveCount(1);
-        const before = await theLog(page).evaluate(logLayout);
-        await openerOf(target).click();
-        const detail = await detailOf(page, target);
-        await expect(detail).toBeVisible();
-        const grown = await target.evaluate(row => row.lastElementChild.getBoundingClientRect().height + parseFloat(getComputedStyle(row).rowGap));
-        const after = await theLog(page).evaluate(logLayout);
-        close(after.head, before.head, `${where}: the log's header`);
-        after.rows.forEach((now, at) => {
-          const was = before.rows[at];
-          const what = `${where}, row ${at + 1}`;
-          if (at === index) {
-            // All but the button and what is in it, whose words change from "Details" to "Hide".
-            for (const name of Object.keys(was.parts).filter(part => !/rec-more|chev|^span\.$/.test(part))) close(now.parts[name], was.parts[name], `${what}: ${name}`);
-            close(now.row, { ...was.row, height: was.row.height + grown }, `${what}: the opened row`);
-            return;
-          }
-          const dy = at > index ? grown : 0;
-          close(now.row, was.row, `${what}`, dy);
-          for (const name of Object.keys(was.parts)) close(now.parts[name], was.parts[name], `${what}: ${name}`, dy);
-        });
-      }
+/* Checks every closed treat row of the log as it is now against the same page with that row's
+ * opener taken out, and adds each to `tally`: the rows checked, and those whose opener sits below
+ * the word, the first of them pictured. Returns the measurements. */
+async function closedRowsHold(page, where, tally) {
+  const measured = await theLog(page).evaluate(eachOpenerOut);
+  for (const one of measured) {
+    const what = `${where}, ${one.amount}`;
+    const mine = one.with.rows[one.at];
+    const bare = one.without.rows[one.at];
+    const growth = mine.row.height - bare.row.height;
+    tally.cases += 1;
+    // The opener sits in its label and covers neither the amount nor the date.
+    expect(one.opener.width, `${what}: the opener is drawn`).toBeGreaterThan(0);
+    expect(one.opener.x >= one.label.x - 1 && one.opener.x + one.opener.width <= one.label.x + one.label.width + 1, `${what}: the opener is in its label`).toBe(true);
+    expect(overlaps(one.opener, mine.parts['rec-amt']), `${what}: the opener overlaps the amount`).toBe(false);
+    expect(overlaps(one.opener, mine.parts['rec-time']), `${what}: the opener overlaps the date`).toBe(false);
+    // Across the row the diamond, the amount and the date stay put; up and down too, unless the row
+    // grew, which only an opener below the word may make it do.
+    for (const part of ['rec-diamond', 'rec-amt', 'rec-time']) {
+      const sides = growth > 1 ? ['x', 'width'] : ['x', 'y', 'width', 'height'];
+      for (const side of sides) expect(Math.abs(mine.parts[part][side] - bare.parts[part][side]), `${what}: ${part} ${side}`).toBeLessThanOrEqual(1);
     }
-  } finally {
-    await fx.close();
+    if (growth > 1) expect(isBelow(one), `${what}: the row grew ${growth.toFixed(1)} px with the opener beside the word`).toBe(true);
+    // Nothing above moves; everything below moves down by just what this row grew.
+    close(one.with.head, one.without.head, `${what}: the log's header`);
+    one.with.rows.forEach((now, at) => {
+      if (at === one.at) return;
+      const was = one.without.rows[at];
+      const dy = at > one.at ? growth : 0;
+      close(now.row, was.row, `${what}: row ${at + 1}`, dy);
+      for (const name of Object.keys(was.parts)) close(now.parts[name], was.parts[name], `${what}: row ${at + 1} ${name}`, dy);
+    });
+    if (isBelow(one)) {
+      tally.drops.push(`${what} (its row ${growth.toFixed(1)} px taller)`);
+      if (tally.drops.length === 1) await test.info().attach(`the opener below the word: ${what}`, { body: await theLog(page).screenshot(), contentType: 'image/png' });
+    }
   }
+  return measured;
+}
+
+/* Opened, a treat with a message whose opener sits beside the word pushes the rows below it down
+ * by what the detail takes (its height and the gap between the row's lines), and moves nothing
+ * else. */
+async function openingPushesOnlyBelow(page, where, measured) {
+  const index = measured.find(one => one.message && !isBelow(one))?.at;
+  expect(index, `${where}: a treat with a message whose opener sits beside the word`).toBeDefined();
+  const target = rowsOf(page).nth(index);
+  const before = await theLog(page).evaluate(logLayout);
+  await openerOf(target).click();
+  await expect(await detailOf(page, target)).toBeVisible();
+  const grown = await target.evaluate(row => row.lastElementChild.getBoundingClientRect().height + parseFloat(getComputedStyle(row).rowGap));
+  const after = await theLog(page).evaluate(logLayout);
+  close(after.head, before.head, `${where}: the log's header`);
+  after.rows.forEach((now, at) => {
+    const was = before.rows[at];
+    const what = `${where}, row ${at + 1}`;
+    if (at === index) {
+      // All but the button and what is in it, whose words change from "Details" to "Hide".
+      for (const name of Object.keys(was.parts).filter(part => !/rec-more|chev|^span\.$/.test(part))) close(now.parts[name], was.parts[name], `${what}: ${name}`);
+      close(now.row, { ...was.row, height: was.row.height + grown }, `${what}: the opened row`);
+      return;
+    }
+    const dy = at > index ? grown : 0;
+    close(now.row, was.row, what, dy);
+    for (const name of Object.keys(was.parts)) close(now.parts[name], was.parts[name], `${what}: ${name}`, dy);
+  });
+}
+
+/* Treats of everyday and large amounts, on a team counting money and on one counting points; on
+ * the money team one is taken back, and its badge leaves its label the least room.
+ *
+ * When the opener does not fit beside the label's word, it drops below the word and only that
+ * row grows: the diamond, the amount and the date keep their places across the row, the rows
+ * below move down by just what that row grew, and nothing above it moves. Whether it fits comes
+ * down to a few pixels and the fonts on the device: the label is never narrower than 6rem, and
+ * the word and the opener together come close to that. So, besides the phones above, the
+ * openers are also made wider than these fonts make them and the page narrowed until one drops,
+ * which checks dropping on every machine. The rows whose opener drops are listed in the test's
+ * annotations, with a picture of the first. */
+test('the opener moves nothing that was already there; where it does not fit beside the word, it drops below and only its row grows', async ({ browser }) => {
+  test.setTimeout(120_000);
+  const teams = [
+    { mode: 'credit', writes: fx => [
+      treat(fx, '12.50', 'Thanks for covering the Sunday close'), treat(fx, '125.00'), treat(fx, '1250.00', 'For the catering order'),
+      treat(fx, '10.00', 'For the window display'), takeBack(fx),
+    ], rows: 5, treats: 4 },
+    { mode: 'points', writes: fx => [treat(fx, '25', 'For the Sunday shift'), treat(fx, '250'), treat(fx, '2500', 'For the whole season')], rows: 3, treats: 3 },
+  ];
+  const tally = { cases: 0, drops: [] };
+  for (const team of teams) {
+    const fx = await provision(browser, { mode: team.mode, spending: 'self' });
+    try {
+      const page = fx.memberPage;
+      await inOrder(fx, team.writes(fx));
+      for (const language of ['en', 'zh-CN']) {
+        if (language === 'zh-CN') await inChinese(page);
+        for (const viewport of [{ width: 360, height: 740 }, { width: 375, height: 667 }, { width: 390, height: 844 }]) {
+          const where = `${team.mode}, ${language} at ${viewport.width}`;
+          await page.setViewportSize(viewport);
+          await page.reload();
+          await expect(rowsOf(page), where).toHaveCount(team.rows);
+          await expect(theLog(page).locator('li.rec.can-open'), where).toHaveCount(team.treats);
+          const measured = await closedRowsHold(page, where, tally);
+          await openingPushesOnlyBelow(page, where, measured);
+        }
+        if (language !== 'en') continue;
+        // An opener wider than this machine's fonts make it (another font, or larger text), made
+        // here with a larger font size through the openers' style objects; then the page narrowed
+        // a pixel at a time from a wide phone until one no longer fits beside its word (it drops
+        // below it, or else it would stick out of its label), and checked there.
+        await page.reload();
+        await theLog(page).evaluate(log => {
+          for (const opener of log.querySelectorAll('.rec-more')) opener.style.fontSize = '1rem';
+        });
+        let tightAt = null;
+        for (let width = 430; width >= 320 && tightAt === null; width -= 1) {
+          await page.setViewportSize({ width, height: 800 });
+          const tight = await theLog(page).evaluate(log => [...log.querySelectorAll('li.rec.can-open')].some(row => {
+            const label = row.querySelector('.rec-label').getBoundingClientRect();
+            const opener = row.querySelector('.rec-more').getBoundingClientRect();
+            const word = document.createRange();
+            word.selectNodeContents(row.querySelector('.rec-label').firstChild);
+            return opener.top >= word.getBoundingClientRect().bottom - 1 || opener.right > label.right + 1;
+          }));
+          if (tight) tightAt = width;
+        }
+        expect(tightAt, `${team.mode}, en, wider openers: a width between 430 and 320 where one no longer fits beside its word`).not.toBeNull();
+        await closedRowsHold(page, `${team.mode}, en at ${tightAt} with wider openers`, tally);
+      }
+    } finally {
+      await fx.close();
+    }
+  }
+  test.info().annotations.push({
+    type: 'openers that drop below the word',
+    description: `${tally.drops.length} of ${tally.cases} closed treat rows${tally.drops.length ? `: ${tally.drops.join('; ')}` : ''}`,
+  });
 });
 
 test('jotted-down entries, and every row under See all, have no button', async ({ browser }) => {
@@ -489,6 +579,10 @@ test('in Chinese the opener reads 展开 and 收起 and the detail reads “… 
     const row = rowsOf(page).first();
     await expect(row.getByRole('button', { name: '展开', exact: true })).toHaveCount(1);
     const opener = openerOf(row);
+    // Described by the row's amount and date: "+$12.50 2026年10月23日".
+    const described = await describedAs(row);
+    expect(described).toMatch(/^\+\$12\.50 \d{4}年\d{1,2}月\d{1,2}日$/);
+    await expect(opener).toHaveAccessibleDescription(described);
     await opener.click();
     await expect(opener).toHaveAccessibleName('收起');
     await expect(opener).toHaveAttribute('aria-expanded', 'true');
