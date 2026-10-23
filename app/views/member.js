@@ -185,9 +185,10 @@ function spendArea(ctx, me, money, tileParts, replaceLog) {
     });
   };
   // The owner's few lines on what the balance can be used for, as plain text with its line
-  // breaks. Nothing at all when there is none, so the page is as it was.
+  // breaks. Nothing at all when there is none, so the page is as it was; nor for only spaces and
+  // blank lines, which the server trims away when it saves but a database edited by hand may hold.
   let note = null;
-  if (org.usageNote) {
+  if (org.usageNote?.trim()) {
     const titleId = uid('usage');
     note = el('section', { attrs: { class: 'usage-note', 'aria-labelledby': titleId } }, [
       el('h2', { text: t('me.usageTitle'), attrs: { id: titleId, class: 'usage-title' } }),
@@ -390,16 +391,22 @@ function logRow(item, money, { expanded, open = false, onToggle = () => {} }) {
     item.actorName ? el('p', { attrs: { class: 'rec-from' } }, boldName(t('me.treatFrom'), item.actorName)) : null,
     item.reason ? el('p', { text: item.reason, attrs: { class: 'rec-msg' } }) : null,
   ]);
-  const words = el('span');
+  // Both words sit in one place, so the button keeps one width open or closed and stays under the
+  // finger; the stylesheet hides the one not in force, from sight and from the button's name.
   const opener = el('button', {
     attrs: {
       type: 'button', class: 'rec-more', 'aria-controls': detailId, 'aria-describedby': `${amount.id} ${date.id}`,
     },
-  }, [words, el('span', { text: '⌄', attrs: { class: 'chev', 'aria-hidden': 'true' } })]);
+  }, [
+    el('span', { attrs: { class: 'words' } }, [
+      el('span', { text: t('me.rowMore'), attrs: { class: 'when-closed' } }),
+      el('span', { text: t('me.rowLess'), attrs: { class: 'when-open' } }),
+    ]),
+    el('span', { text: '⌄', attrs: { class: 'chev', 'aria-hidden': 'true' } }),
+  ]);
   const show = next => {
     open = next;
     opener.setAttribute('aria-expanded', String(open));
-    words.textContent = t(open ? 'me.rowLess' : 'me.rowMore');
     detail.hidden = !open;
   };
   const toggle = () => {
@@ -408,10 +415,21 @@ function logRow(item, money, { expanded, open = false, onToggle = () => {} }) {
   };
   show(open);
   // The button toggles itself (a click, Enter or Space); the row toggles from a click anywhere
-  // else on it, but not in the detail, where someone may be reading or selecting the message.
+  // else on it, but not in the detail, where someone may be reading or selecting the message, nor
+  // when the click selected words: at the end of a drag across them, or in a double click, which
+  // selects a word and puts the row back as it was before its first click.
+  const inside = event => opener.contains(event.target) || detail.contains(event.target);
+  let openBeforeClicks = open;
   opener.addEventListener('click', toggle);
   row.addEventListener('click', event => {
-    if (!opener.contains(event.target) && !detail.contains(event.target)) toggle();
+    if (inside(event) || event.detail > 1) return;
+    openBeforeClicks = open;
+    const selection = window.getSelection();
+    if (!selection.isCollapsed && row.contains(selection.anchorNode)) return;
+    toggle();
+  });
+  row.addEventListener('dblclick', event => {
+    if (!inside(event) && open !== openBeforeClicks) toggle();
   });
   label.append(opener);
   row.classList.add('can-open');

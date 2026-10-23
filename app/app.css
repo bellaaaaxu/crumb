@@ -324,6 +324,11 @@ a { color: var(--accent); text-underline-offset: 3px; }
   background: none; font: inherit; font-size: 0.72rem; font-weight: 700; color: var(--accent); box-shadow: inset 0 0 0 1.5px currentColor;
   white-space: nowrap; cursor: pointer;
 }
+/* Both of the button's words share one place, so it keeps one width open or closed and does not
+ * move from under the finger; the word not in force is hidden, from sight and from its name. */
+.rec-more .words { display: grid; justify-items: center; }
+.rec-more .words > span { grid-area: 1 / 1; }
+.rec-more[aria-expanded='true'] .when-closed, .rec-more[aria-expanded='false'] .when-open { visibility: hidden; }
 .rec-more .chev { display: inline-block; transition: transform 0.3s; }
 .rec-more[aria-expanded='true'] .chev { transform: rotate(180deg); }
 .rec-detail { flex-basis: 100%; margin-left: 21px; display: flex; flex-direction: column; gap: 6px; }

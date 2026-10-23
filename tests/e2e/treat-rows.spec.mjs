@@ -52,6 +52,16 @@ const theLog = page => page.locator('section.quest');
 const rowsOf = page => theLog(page).locator('li.rec');
 const openerOf = row => row.locator('button.rec-more');
 const detailOf = async (page, row) => page.locator(`#${await openerOf(row).getAttribute('aria-controls')}`);
+/* The words an opener shows: its text that is visible and not hidden from screen readers. */
+const shownWords = opener => opener.evaluate(node => {
+  const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
+  const words = [];
+  for (let text = walker.nextNode(); text; text = walker.nextNode()) {
+    const parent = text.parentElement;
+    if (!parent.closest('[aria-hidden="true"]') && getComputedStyle(parent).visibility === 'visible') words.push(text.textContent);
+  }
+  return words.join('');
+});
 /* What the row's amount and date say, in that order: all an opener's description should be. */
 const describedAs = row => row.evaluate(node => ['.rec-amt', '.rec-time'].map(part => node.querySelector(part).textContent).join(' '));
 
@@ -78,10 +88,12 @@ test('a treat row says it opens, and opens in place to who sent it and the messa
     await page.reload();
     const row = rowsOf(page).first();
     await expect(row).toHaveClass(/\bcan-open\b/);
-    // A real button, named by its visible words; the row's amount, label and date say which treat.
+    // A real button, named by its visible words; the row's amount and date say which treat.
     await expect(row.getByRole('button', { name: 'Details', exact: true })).toHaveCount(1);
     const opener = openerOf(row);
     await expect(opener).toHaveAttribute('aria-expanded', 'false');
+    await expect(opener).toHaveAccessibleName('Details');
+    expect(await shownWords(opener)).toBe('Details');
     // Described by the row's amount and date, and nothing else: "+$12.50 Oct 23, 2026".
     const described = await describedAs(row);
     expect(described).toMatch(/^\+\$12\.50 [A-Z][a-z]{2} \d{1,2}, \d{4}$/);
@@ -98,6 +110,7 @@ test('a treat row says it opens, and opens in place to who sent it and the messa
     await opener.click();
     await expect(opener).toHaveAttribute('aria-expanded', 'true');
     await expect(opener).toHaveAccessibleName('Hide');
+    expect(await shownWords(opener)).toBe('Hide');
     await expect(opener).toHaveAccessibleDescription(described);
     await expect(detail).toBeVisible();
     await expect(detail.locator('.rec-from')).toHaveText('From Olive Chen');
@@ -107,6 +120,8 @@ test('a treat row says it opens, and opens in place to who sent it and the messa
     await opener.click();
     await expect(opener).toHaveAttribute('aria-expanded', 'false');
     await expect(opener).toHaveAccessibleName('Details');
+    expect(await shownWords(opener)).toBe('Details');
+    await expect(opener).toHaveAccessibleDescription(described);
     await expect(detail).toBeHidden();
   } finally {
     await fx.close();
@@ -142,6 +157,43 @@ test('tapping anywhere on the row opens it too, and tapping in the message does 
     // The button toggles once, not once for itself and again for the row.
     await opener.click();
     await isOpen(false);
+  } finally {
+    await fx.close();
+  }
+});
+
+test('selecting words in a treat row, by a drag or a double click, neither opens nor closes it', async ({ browser }) => {
+  const fx = await provision(browser, { mode: 'credit', spending: 'self' });
+  try {
+    await inOrder(fx, [treat(fx, '12.50', 'Thanks for covering the Sunday close')]);
+    const page = fx.memberPage;
+    await page.reload();
+    const row = rowsOf(page).first();
+    const opener = openerOf(row);
+    const selected = () => page.evaluate(() => window.getSelection().toString().trim());
+
+    // A drag from the amount into the label's word selects them, and the row stays closed.
+    await row.scrollIntoViewIfNeeded();
+    const amount = await row.locator('.rec-amt').boundingBox();
+    const label = await row.locator('.rec-label').boundingBox();
+    await page.mouse.move(amount.x + 2, amount.y + amount.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(label.x + 20, amount.y + amount.height / 2, { steps: 5 });
+    await page.mouse.up();
+    expect(await selected()).toMatch(/^\+\$12\.50\s+Tr/);
+    await expect(opener).toHaveAttribute('aria-expanded', 'false');
+
+    // A double click on the word selects it, and the row stays closed.
+    await row.locator('.rec-label').dblclick({ position: { x: 4, y: 8 } });
+    expect(await selected()).toBe('Treat');
+    await expect(opener).toHaveAttribute('aria-expanded', 'false');
+
+    // A tap still opens it, and a double click on the open row leaves it open.
+    await row.locator('.rec-time').click();
+    await expect(opener).toHaveAttribute('aria-expanded', 'true');
+    await row.locator('.rec-amt').dblclick();
+    expect(await selected()).not.toBe('');
+    await expect(opener).toHaveAttribute('aria-expanded', 'true');
   } finally {
     await fx.close();
   }
@@ -207,17 +259,20 @@ test('a treat whose sender has no name still opens to its message', async ({ bro
     await inOrder(fx, [treat(fx, '3.00'), treat(fx, '12.50', 'Thanks for covering the Sunday close')]);
     const page = fx.memberPage;
     // As a database restored or edited by hand might give them: the treats come without a sender.
+    // What the server sent is kept and checked after the page has loaded, where a failure says so.
+    let senders = null;
     await page.route('**/api/me/ledger*', async route => {
       const response = await route.fetch();
       const body = await response.json();
       const treats = body.items.filter(item => item.kind === 'grant');
-      expect(treats.map(item => item.actorName)).toEqual(['Olive Chen', 'Olive Chen']);
+      senders = treats.map(item => item.actorName);
       for (const item of treats) delete item.actorName;
       await route.fulfill({ response, json: body });
     });
     await page.reload();
     const rows = rowsOf(page);
     await expect(rows).toHaveCount(2);
+    expect(senders, 'the senders the server named, before the page lost them').toEqual(['Olive Chen', 'Olive Chen']);
 
     // The newest, with a message: it opens, to the message alone.
     const withMessage = rows.nth(0);
@@ -299,6 +354,18 @@ function eachOpenerOut(log) {
   });
 }
 
+/* Lets every running transition end. With less motion asked for, every change of a property is
+ * a 0.01 ms transition (app.css), which lasts until the next frame: a box read before that frame
+ * is where the element is coming from, such as the page's column at its first, wider width. */
+const settled = page => page.evaluate(async () => {
+  for (let round = 0; round < 50; round += 1) {
+    const moving = document.getAnimations().filter(animation => animation instanceof CSSTransition && animation.playState !== 'finished');
+    if (!moving.length) return;
+    await Promise.all(moving.map(animation => animation.finished.catch(() => {})));
+  }
+  throw new Error('transitions still running');
+});
+
 /* Whether the opener sits below its label's word rather than beside it. */
 const isBelow = one => one.opener.y >= one.word.y + one.word.height - 1;
 
@@ -306,6 +373,7 @@ const isBelow = one => one.opener.y >= one.word.y + one.word.height - 1;
  * opener taken out, and adds each to `tally`: the rows checked, and those whose opener sits below
  * the word, the first of them pictured. Returns the measurements. */
 async function closedRowsHold(page, where, tally) {
+  await settled(page);
   const measured = await theLog(page).evaluate(eachOpenerOut);
   for (const one of measured) {
     const what = `${where}, ${one.amount}`;
@@ -342,30 +410,24 @@ async function closedRowsHold(page, where, tally) {
   return measured;
 }
 
-/* Opened, a treat with a message whose opener sits beside the word pushes the rows below it down
- * by what the detail takes (its height and the gap between the row's lines), and moves nothing
- * else. */
-async function openingPushesOnlyBelow(page, where, measured) {
-  const index = measured.find(one => one.message && !isBelow(one))?.at;
-  expect(index, `${where}: a treat with a message whose opener sits beside the word`).toBeDefined();
+/* Opened, the treat row at `index` (one with a message) pushes the rows below it down by what the
+ * detail takes (its height and the gap between the row's lines), and moves nothing else: not its
+ * own first line, nor the button, which keeps one width whichever word it shows. */
+async function openingPushesOnlyBelow(page, where, index) {
   const target = rowsOf(page).nth(index);
+  await settled(page);
   const before = await theLog(page).evaluate(logLayout);
   await openerOf(target).click();
   await expect(await detailOf(page, target)).toBeVisible();
-  const grown = await target.evaluate(row => row.lastElementChild.getBoundingClientRect().height + parseFloat(getComputedStyle(row).rowGap));
+  await settled(page);
+  const grown =await target.evaluate(row => row.lastElementChild.getBoundingClientRect().height + parseFloat(getComputedStyle(row).rowGap));
   const after = await theLog(page).evaluate(logLayout);
   close(after.head, before.head, `${where}: the log's header`);
   after.rows.forEach((now, at) => {
     const was = before.rows[at];
-    const what = `${where}, row ${at + 1}`;
-    if (at === index) {
-      // All but the button and what is in it, whose words change from "Details" to "Hide".
-      for (const name of Object.keys(was.parts).filter(part => !/rec-more|chev|^span\.$/.test(part))) close(now.parts[name], was.parts[name], `${what}: ${name}`);
-      close(now.row, { ...was.row, height: was.row.height + grown }, `${what}: the opened row`);
-      return;
-    }
+    const what = `${where}, row ${at + 1}${at === index ? ' (opened)' : ''}`;
     const dy = at > index ? grown : 0;
-    close(now.row, was.row, what, dy);
+    close(now.row, at === index ? { ...was.row, height: was.row.height + grown } : was.row, what, dy);
     for (const name of Object.keys(was.parts)) close(now.parts[name], was.parts[name], `${what}: ${name}`, dy);
   });
 }
@@ -405,7 +467,9 @@ test('the opener moves nothing that was already there; where it does not fit bes
           await expect(rowsOf(page), where).toHaveCount(team.rows);
           await expect(theLog(page).locator('li.rec.can-open'), where).toHaveCount(team.treats);
           const measured = await closedRowsHold(page, where, tally);
-          await openingPushesOnlyBelow(page, where, measured);
+          const beside = measured.find(one => one.message && !isBelow(one));
+          expect(beside, `${where}: a treat with a message whose opener sits beside the word`).toBeDefined();
+          await openingPushesOnlyBelow(page, where, beside.at);
         }
         if (language !== 'en') continue;
         // An opener wider than this machine's fonts make it (another font, or larger text), made
@@ -429,7 +493,19 @@ test('the opener moves nothing that was already there; where it does not fit bes
           if (tight) tightAt = width;
         }
         expect(tightAt, `${team.mode}, en, wider openers: a width between 430 and 320 where one no longer fits beside its word`).not.toBeNull();
-        await closedRowsHold(page, `${team.mode}, en at ${tightAt} with wider openers`, tally);
+        const where = `${team.mode}, en at ${tightAt} with wider openers`;
+        const tight = await closedRowsHold(page, where, tally);
+        // Opened where it dropped, the opener stays below the word: "Hide" is shorter than
+        // "Details", but the button keeps its width, so it does not jump up beside the word.
+        const dropped = tight.find(one => one.message && isBelow(one));
+        expect(dropped, `${where}: a treat with a message whose opener dropped`).toBeDefined();
+        await openingPushesOnlyBelow(page, where, dropped.at);
+        const stillBelow = await rowsOf(page).nth(dropped.at).evaluate(row => {
+          const word = document.createRange();
+          word.selectNodeContents(row.querySelector('.rec-label').firstChild);
+          return row.querySelector('.rec-more').getBoundingClientRect().top >= word.getBoundingClientRect().bottom - 1;
+        });
+        expect(stillBelow, `${where}: opened, the opener stays below the word`).toBe(true);
       }
     } finally {
       await fx.close();
@@ -583,8 +659,12 @@ test('in Chinese the opener reads 展开 and 收起 and the detail reads “… 
     const described = await describedAs(row);
     expect(described).toMatch(/^\+\$12\.50 \d{4}年\d{1,2}月\d{1,2}日$/);
     await expect(opener).toHaveAccessibleDescription(described);
+    await expect(opener).toHaveAccessibleName('展开');
+    expect(await shownWords(opener)).toBe('展开');
     await opener.click();
     await expect(opener).toHaveAccessibleName('收起');
+    expect(await shownWords(opener)).toBe('收起');
+    await expect(opener).toHaveAccessibleDescription(described);
     await expect(opener).toHaveAttribute('aria-expanded', 'true');
     const detail = await detailOf(page, row);
     await expect(detail.locator('.rec-from')).toHaveText('Olive Chen 请的');
@@ -592,6 +672,7 @@ test('in Chinese the opener reads 展开 and 收起 and the detail reads “… 
     await expect(detail.locator('.rec-msg')).toHaveText('周日帮忙收尾，谢谢');
     await opener.click();
     await expect(opener).toHaveAccessibleName('展开');
+    expect(await shownWords(opener)).toBe('展开');
     await expect(detail).toBeHidden();
   } finally {
     await fx.close();

@@ -8,6 +8,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { normalise, parseCss, splitSelectors, substitute, variablesOf } from './css.mjs';
+import { COLOUR_PROPERTIES } from './e2e/style-recorder.mjs';
 
 const read = path => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
 
@@ -156,6 +157,21 @@ const APP_ADDITIONS = [
     why: 'only elements 0.3.0 did not have: the opener and the detail of a treat row',
   },
   {
+    selectors: ['.rec-more .words'],
+    declarations: { display: 'grid', 'justify-items': 'center' },
+    why: 'only elements 0.3.0 did not have: the opener and the detail of a treat row',
+  },
+  {
+    selectors: ['.rec-more .words > span'],
+    declarations: { 'grid-area': '1 / 1' },
+    why: 'only elements 0.3.0 did not have: the opener and the detail of a treat row',
+  },
+  {
+    selectors: [".rec-more[aria-expanded='true'] .when-closed", ".rec-more[aria-expanded='false'] .when-open"],
+    declarations: { visibility: 'hidden' },
+    why: 'only elements 0.3.0 did not have: the opener and the detail of a treat row',
+  },
+  {
     selectors: ['.rec-more .chev'],
     declarations: { display: 'inline-block', transition: 'transform 0.3s' },
     why: 'only elements 0.3.0 did not have: the opener and the detail of a treat row',
@@ -252,6 +268,44 @@ const SHEETS = [
     additions: DEMO_ADDITIONS,
   },
 ];
+
+/* tests/e2e/light-unchanged.spec.mjs compares the member page with 0.3.0 only after taking out
+ * what a treat row in "Log · Recent" has that 0.3.0's did not: the opener, the detail, and the
+ * class can-open on the li. A rule hung on those that coloured an element 0.3.0 had would go
+ * with them, unseen. So every listed rule that names them must style one of the new elements:
+ * its subject is, or sits inside, the opener or the detail (no sibling combinator, and not
+ * named only inside a pseudo-class such as :has()). The one rule on an element 0.3.0 had,
+ * .rec.can-open, the li, may set nothing the browser check reads as colour. */
+const NEW_ELEMENT = /\.(?:rec-more|rec-detail|rec-from|rec-msg)(?![\w-])/;
+const TREAT_ROW_PART = /\.(?:can-open|rec-more|rec-detail|rec-from|rec-msg)(?![\w-])/;
+const setsColour = property => property === 'all' || COLOUR_PROPERTIES.some(name => name === property || name.startsWith(`${property}-`));
+
+function stylesANewElement(selector) {
+  const bare = selector.replace(/\[[^\]]*\]/g, '').replace(/\([^()]*\)/g, '');
+  return !/[+~]/.test(bare) && bare.split(/\s*>\s*|\s+/).some(compound => NEW_ELEMENT.test(compound));
+}
+
+test('a treat row\'s new rules style only its new elements, and the li no colour', () => {
+  const rules = APP_ADDITIONS.flatMap(({ selectors, declarations }) => selectors.map(selector => ({ selector, declarations })))
+    .filter(({ selector }) => TREAT_ROW_PART.test(selector));
+  assert.ok(rules.some(({ selector }) => selector === '.rec.can-open'), 'the li\'s rule is among them');
+  assert.ok(rules.filter(({ selector }) => stylesANewElement(selector)).length >= 11, 'the new elements\' rules are among them');
+  for (const { selector, declarations } of rules) {
+    if (stylesANewElement(selector)) continue;
+    assert.equal(selector, '.rec.can-open', `${selector} styles an element 0.3.0 had`);
+    assert.deepEqual(Object.keys(declarations).filter(setsColour), [], `${selector} sets a colour`);
+  }
+  // The reader of selectors itself: what it lets through and what it stops.
+  assert.equal(stylesANewElement(".rec-more[aria-expanded='true'] .chev"), true);
+  assert.equal(stylesANewElement('.rec-detail > .rec-msg'), true);
+  assert.equal(stylesANewElement('.rec.can-open .rec-amt'), false);
+  assert.equal(stylesANewElement('.rec:has(.rec-more) .rec-time'), false);
+  assert.equal(stylesANewElement('.rec-detail ~ .rec-time'), false);
+  assert.equal(setsColour('cursor'), false);
+  assert.equal(setsColour('border'), true);
+  assert.equal(setsColour('background'), true);
+  assert.equal(setsColour('color'), true);
+});
 
 test('only rules for a theme with colours of its own are left out', () => {
   assert.deepEqual(OWN_COLOURS, ['cafe']);

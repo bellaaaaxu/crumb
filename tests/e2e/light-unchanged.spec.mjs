@@ -163,10 +163,11 @@ async function recordSettings(page, label) {
  * (div.rec-detail, the last child of the li, hidden while closed), and the class can-open on the
  * li. Their light colours at rest are first checked against the theme's tokens: the opener's
  * text is --accent, and, with a row opened to show it, a message sits on --paper. Then exactly
- * those are taken out, which puts the log back in 0.3.0's shape, and every element left is held
- * to 0.3.0's colours as strictly as anywhere else. `openers` is how many treat rows the scene's
- * recent log shows: one fewer or one more fails. Recording the baseline runs in 0.3.0, which has
- * none of them. */
+ * those are taken out, which puts the log back in 0.3.0's shape. Taking them out is shown to
+ * change no colour of a treat row or its own elements, so it hides nothing, and every element
+ * left is held to 0.3.0's colours as strictly as anywhere else. `openers` is how many treat rows
+ * the scene's recent log shows: one fewer or one more fails. Recording the baseline runs in
+ * 0.3.0, which has none of them. */
 async function recordMemberPage(page, label, { openers }) {
   if (RECORDING) return recordStyles(page, label);
   const found = await page.evaluate(() => {
@@ -203,10 +204,29 @@ async function recordMemberPage(page, label, { openers }) {
   expect(found.paper, `${label}: a treat row with a message`).not.toBeNull();
   expect(found.paper.shown, `${label}: the opened message is shown`).toBe(true);
   expect(found.paper.colour, `${label}: a message sits on --paper`).toBe(found.paper.token);
-  await page.evaluate(() => {
+  // Taken out, and shown to have coloured nothing 0.3.0 had: each treat row and its own elements
+  // (diamond, amount, label, date, badge) read the same, once settled, before and after.
+  const { before, after } = await page.evaluate(async properties => {
+    const settle = async () => {
+      for (let round = 0; round < 50; round += 1) {
+        const moving = document.getAnimations().filter(animation => animation instanceof CSSTransition && animation.playState !== 'finished');
+        if (!moving.length) return;
+        await Promise.all(moving.map(animation => animation.finished.catch(() => {})));
+      }
+      throw new Error('transitions still running');
+    };
+    const rows = [...document.querySelectorAll('.can-open')];
+    const colours = () => rows.map(row => [row, ...row.querySelectorAll(':scope > .rec-diamond, :scope > .rec-amt, :scope > .rec-label, :scope > .rec-time, :scope > .badge')]
+      .map(node => [node.classList[0], ...properties.map(property => getComputedStyle(node).getPropertyValue(property))]));
+    await settle();
+    const was = colours();
     for (const node of document.querySelectorAll('button.rec-more, div.rec-detail')) node.remove();
-    for (const row of document.querySelectorAll('.can-open')) row.classList.remove('can-open');
-  });
+    for (const row of rows) row.classList.remove('can-open');
+    await settle();
+    return { before: was, after: colours() };
+  }, COLOUR_PROPERTIES);
+  expect(before.flat().length, `${label}: the treat rows' own elements were read`).toBeGreaterThanOrEqual(openers * 5);
+  expect(after, `${label}: taking out the new parts changes no colour of a treat row's own elements`).toEqual(before);
   return recordStyles(page, label);
 }
 
