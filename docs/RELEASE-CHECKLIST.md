@@ -1,4 +1,4 @@
-# Release checklist — Crumb 0.4.1
+# Release checklist — Crumb 0.5.0
 
 One row for each requirement of
 [the design behind 0.1](superpowers/specs/2026-09-27-crumb-self-hosted-design.md) and each
@@ -6,10 +6,16 @@ acceptance criterion in its section 11, with the evidence behind it; under "The 
 round", one row for each part of
 [the one-page design](superpowers/specs/2026-09-29-crumb-one-page-design.md); under "The
 collection themes round", one row for each part of
-[the themes design](superpowers/specs/2026-10-03-crumb-themes-design.md); and under "The café
+[the themes design](superpowers/specs/2026-10-03-crumb-themes-design.md); under "The café
 round", one row for each part of
-[the café design](superpowers/specs/2026-10-06-crumb-cafe-theme-design.md). How and where the
-checks ran is in [VALIDATION.md](VALIDATION.md).
+[the café design](superpowers/specs/2026-10-06-crumb-cafe-theme-design.md); and under "The
+usage-note round", one row for each part of that round, whose plan is not kept in the
+repository. How and where the checks ran is in [VALIDATION.md](VALIDATION.md).
+
+The usage-note round, released as 0.5.0, was checked on a fresh clone of the development
+branch on 2026-11-04: the commit cloned was `0680fe2` ("Undo a double-click only on the row
+it toggled"); the same day, a database made by 0.4.1 was upgraded by 0.5.0 and taken back to
+0.4.1 by restoring its backup; and in CI on its pull request (`0680fe2`).
 
 The café round, released as 0.4.0, was checked on a fresh clone of the development branch on
 2026-10-17: the commit cloned was `ce41879` ("docs: the Café in the guides; version 0.4.0; screenshots retaken"); and in CI on
@@ -21,15 +27,16 @@ and in CI on its pull request (`057cd38`) and on `main` (`5247e73`). The one-pag
 released as 0.2.0, was checked on a fresh clone of `2ddc69b` on 2026-10-01 and in CI on its
 pull request (`1fb57ee`) and on `main` (`bbfda7f`).
 
-The café round is released as Crumb 0.4.0, and its fixes as 0.4.1; the database is still at
-schema 3. "0.4.0" on this page means the release at merge commit `c3a0278`; "0.3.0" means the release at merge commit `5247e73`; "0.2.0" the release at merge commit
-`bbfda7f`, with its database at schema 2; and "0.1" the first release, commit `643e237`, with
-its database at schema 1.
+The usage-note round is released as Crumb 0.5.0 and moves the database to schema 4. "0.4.1"
+on this page means the release at merge commit `288e851`; "0.4.0" the release at merge commit
+`c3a0278`; "0.3.0" the release at merge commit `5247e73`, all three with their database at
+schema 3; "0.2.0" the release at merge commit `bbfda7f`, with its database at schema 2; and
+"0.1" the first release, commit `643e237`, with its database at schema 1.
 
 **Passed** means an automated check ran and passed in the recorded run. **Partly** means
 some of the requirement was checked and the rest was not. **Not verified** means it has not
 been run at all — nothing is marked passed on the strength of reading the code. **Reviewed by
-eye**, a status of the themes and café rounds, means the maintainer was shown it and approved
+eye**, a status of the themes, café and usage-note rounds, means the maintainer was shown it and approved
 it; no automated check covers how it looks.
 
 ## Design coverage
@@ -44,8 +51,8 @@ it; no automated check covers how it looks.
 | Permanent collection, revoke threshold, complete set, theme rules | Passed | `tests/collections.test.mjs` (released keys never removed, fixed order, revoke keeps unlocks, complete collection), `docs/THEMES.md` |
 | Member, team and settings views; phone; English and Chinese | Passed (Chromium only) | `tests/e2e/product.spec.mjs`, `tests/e2e/accessibility.spec.mjs` (390 px and 1440 px), `tests/i18n.test.mjs` (same strings and placeholders in both languages) |
 | Branding, logo upload, contact link, feedback link, export | Passed | `tests/org.test.mjs` (logo decoding and limits, safe link schemes), `tests/csv.test.mjs`, `tests/api.test.mjs` (export only from Crumb's pages), E2E CSV download |
-| Persistence, migrations, container, HTTPS | Partly | Persistence and migrations: `tests/db.test.mjs`, the process drill (restart). Container: built and taken through the whole container drill in CI for 0.1 (`67a174b`), 0.2.0 (`1fb57ee`, `bbfda7f`) and 0.3.0 (`057cd38`, `5247e73`), **not verified** for the café round. HTTPS: only the Compose configuration was validated — **not verified** on a real domain. |
-| Consistent backup, restore, upgrade, owner rescue | Partly | `tests/backup.test.mjs`, `tests/ops.test.mjs`, process drill 20/20, and the container drill in CI (backup in the running container, copy off and back in, restore into a new volume, owner recovery, rollback). Upgrading: migration 002 takes a version 1 database to version 2 in unit tests that build a real schema 1 file from `001-initial.sql` and open it with the current code (see "Migration 002" below); upgrading a real deployment of 0.1 with the 0.2 image: **not verified**. Migration 003 takes a schema 2 database to schema 3 in unit tests (see "The collection themes round"); upgrading a real deployment of 0.2 with the 0.3 image: **not verified**. 0.4 adds no migration: going from 0.1 or 0.2 straight to 0.4 runs 002 and 003 in the same unit tests (see "The café round"); upgrading a real deployment of 0.3 with the 0.4 image: **not verified**. Rolling back is still simulated with a copy of the code that has one more migration. |
+| Persistence, migrations, container, HTTPS | Partly | Persistence and migrations: `tests/db.test.mjs`, the process drill (restart), and for migration 004 the upgrade and rollback drill on a database made by 0.4.1 (VALIDATION.md). Container: built and taken through the whole container drill in CI for 0.1 (`67a174b`), 0.2.0 (`1fb57ee`, `bbfda7f`), 0.3.0 (`057cd38`, `5247e73`), 0.4.0 (`b4c3f62`, `c3a0278`) and the pull request of 0.5.0 (`0680fe2`). HTTPS: only the Compose configuration was validated — **not verified** on a real domain. |
+| Consistent backup, restore, upgrade, owner rescue | Partly | `tests/backup.test.mjs`, `tests/ops.test.mjs`, process drill 20/20, and the container drill in CI (backup in the running container, copy off and back in, restore into a new volume, owner recovery, rollback). Upgrading: migration 002 takes a version 1 database to version 2 in unit tests that build a real schema 1 file from `001-initial.sql` and open it with the current code (see "Migration 002" below); upgrading a real deployment of 0.1 with the 0.2 image: **not verified**. Migration 003 takes a schema 2 database to schema 3 in unit tests (see "The collection themes round"); upgrading a real deployment of 0.2 with the 0.3 image: **not verified**. 0.4 adds no migration: going from 0.1 or 0.2 straight to 0.4 runs 002 and 003 in the same unit tests (see "The café round"); upgrading a real deployment of 0.3 with the 0.4 image: **not verified**. Migration 004 takes a schema 3 database to schema 4 in unit tests, and on 2026-11-04 on a database made by 0.4.1's own code, without Docker: 0.5.0 kept every row, 0.4.1 then refused the file, and the backup made before the upgrade restored and opened in 0.4.1 (see "The usage-note round"); upgrading a real deployment of 0.4 with the 0.5 image: **not verified**. Going back to an older version by restoring its backup was done in that drill; in the tests it is still simulated with a copy of the code that has one more migration. |
 | Static demo, real screenshots, README, share card | Passed | `tests/e2e/demo.spec.mjs`, `tests/docs.test.mjs`; screenshots made from the real app by `scripts/screenshots.mjs` and reviewed by eye. Links that point at `main` only work after merging: **not verified**. |
 | Three feedback paths; no telemetry; no sensitive data sent out | Passed | Issue templates checked by `tests/docs.test.mjs`; the app's Content Security Policy only lets pages load from and talk to Crumb's own address, and the browser tests fail on any violation (`tests/e2e/accessibility.spec.mjs`); the process drill checks that server output holds no passwords or setup code. |
 
@@ -195,6 +202,38 @@ Checked on 2026-10-19 on the branch `fix/0.4.1`, on one Windows computer, in Chr
 | The screenshot script cleans up | Passed | `tests/screenshots.test.mjs`; run once with no browser installed, it left no server or temporary folder behind |
 | Version 0.4.1 | Passed | `tests/docs.test.mjs`, `tests/auth.test.mjs`. The footer in the README screenshots retaken by `scripts/screenshots.mjs` reads "Crumb 0.4.1 is open-source software (MIT)." |
 
+## The usage-note round
+
+Checked on a fresh clone of the development branch `feature/usage-note` on 2026-11-04, on one
+Windows computer, in Chromium only (`npm test` 349 passed and 2 skipped of 351, theme lists
+current, process drill 20 of 20, browser tests 245 of 245). The commit cloned was `0680fe2`
+("Undo a double-click only on the row it toggled"), the last commit of pull request #6. The
+same day, a database made by 0.4.1 was upgraded by that clone and taken back to 0.4.1 by
+restoring its backup (VALIDATION.md, "The upgrade and rollback drill"). Both CI jobs passed on
+the pull request's last commit `0680fe2`: the tests on Linux with none skipped, and the
+container drill (VALIDATION.md, "Results in CI").
+
+| Requirement | Status | Evidence |
+| --- | --- | --- |
+| An optional usage note, written by an owner in Settings, with its line breaks | Passed (Chromium only) | `tests/org.test.mjs` (none to start with; line breaks kept; a change without it leaves it alone; each change in the activity log; not sent to signed-out visitors); E2E in `tests/e2e/usage-note.spec.mjs` (the owner writes one in Settings and it is saved with its line breaks; the field is there to edit when the team confirms requests) |
+| At most 200 characters, counted the same way by the Settings field, the server and SQLite | Passed (Chromium only) | `tests/db.test.mjs` (SQLite's check: 200 CJK characters, 199 with a line break among them, and 200 emoji stored; 201 refused), `tests/org.test.mjs` (the server: the same cases, one more refused, and a note trimmed before it is counted); E2E in `tests/e2e/usage-note.spec.mjs` (200 characters save and 201 are stopped before sending; 200 between spaces and a line break save) |
+| Shown to members in self-recorded mode, as a titled card under "I grabbed something", as plain text | Passed (Chromium only) | E2E in `tests/e2e/usage-note.spec.mjs` (under the button and the daily line, line by line, with markup and a link shown as typed; it takes space only below the daily line; a 200-character note and a long unbroken link fit a 375-pixel phone; a note set while the page is open appears after the next entry). On a real phone: **not verified** |
+| Nothing shown when there is no note | Passed (Chromium only) | E2E: with no note the member page is as before; a note of only spaces and blank lines from the database draws nothing either |
+| Hidden but kept when the team confirms requests; not repeated in the keypad | Passed (Chromium only) | `tests/org.test.mjs` (switching how people spend keeps it); E2E: a team that confirms does not see it and sees it again after switching back; the keypad does not repeat it |
+| Treat rows in "Log · Recent" open in place to who sent the treat and its message | Passed (Chromium only) | E2E in `tests/e2e/treat-rows.spec.mjs` (the button reads Details and Hide, 展开 and 收起 in Chinese; a tap anywhere on the row opens it too, and a tap in the message does not close it; a treat without a message, or whose sender has no name, opens to what it has; a 500-character message, one that looks like markup, and a long unbroken link wrap at 375 px as the same text). Also on a database made by 0.4.1, in the upgrade drill. On a real phone: **not verified** |
+| Only treat rows, and only in "Log · Recent"; several open at once | Passed (Chromium only) | E2E: jotted-down entries and every row under See all have no button; several rows open at once, stay open after an entry and close on reload |
+| The button by keyboard and for screen readers | Passed (Chromium only) | E2E: Tab reaches each treat row's button, Enter and Space open and close it, and focus stays on it; it is named by its words, with `aria-expanded` and `aria-controls`, and described by the row's amount and date; selecting words in a row, by a drag or a double click, neither opens nor closes it, and a double click that lands on another row leaves that row alone. A real screen reader: **not verified** |
+| Nothing already on the page moves | Passed (Chromium only) | E2E: the button moves nothing that was already there; where it does not fit beside the word on a narrow phone, it drops below and only its row grows |
+| Pastry shop and Bakery still held to 0.3.0's colours | Passed (Chromium only) | `tests/light-styles.test.mjs` (a treat row's new rules style only its new elements, and the row itself no colour); E2E in `tests/e2e/light-unchanged.spec.mjs` (the usage note field and the treat rows' new elements first checked against the theme's colours, then taken out, and everything left equal to the record made from 0.3.0) |
+| Café: the new text at least 4.5:1 and the button's focus ring at least 3:1 | Passed (Chromium only) | E2E in `tests/e2e/cafe-contrast.spec.mjs` (an opened treat row with a message, its button and the button's ring, and the usage note's title and text, measured with the rest of the member page) |
+| Migration 004 and schema 4 | Passed | `tests/db.test.mjs` (a 0.4 team gets an empty usage note, with its data as it was and no broken reference), `tests/backup.test.mjs` (a 0.4 backup restores and opens with an empty usage note) |
+| Upgrading a database made by 0.4.1, and going back | Partly | The upgrade and rollback drill on one Windows computer, without Docker (VALIDATION.md): 0.5.0 opened it at schema 4 with every row as it was and an empty usage note, its server answered, and a member's page showed the treat rows' button; 0.4.1 then refused the file ("This database uses schema 4, but this version of Crumb only understands up to 3."); the backup made before restored with 0.4.1 and opened at schema 3 with the team's data. A real deployment of 0.4 upgraded by the 0.5 image, with or without Docker, and with real users: **not verified** |
+| Theme lists, icons and the public demo page unchanged since 0.4.1 | Passed | In the run above: the three list files, the tab icon and the icons byte for byte as in 0.4.1; `app/index.html` and `index.html` unchanged; the theme lists current |
+| How the note and the treat rows look | Reviewed by eye | Screenshots taken from the branch's code before its documents and version changed, and a demo of it served on this computer with a usage note set, shown to the maintainer on 2026-10-23 and approved on 2026-11-04, together with the sentence shown when a note is too long |
+| Version 0.5.0 | Passed | `tests/docs.test.mjs` (the lock file and both READMEs follow `package.json`, and both READMEs link the upgrade section of every release), `tests/auth.test.mjs` (the session reports it), in the run above. The footer reads "Crumb 0.5.0 is open-source software (MIT)." in the README's member screenshot and on the member page in the upgrade drill |
+| Documents | Partly | Automated: `tests/docs.test.mjs` (local links resolve, every README image exists and has an alt text) and `tests/source.test.mjs` (no invisible characters). Not automated: what README (EN/ZH) and OPERATIONS.md say; their new sentences were shown to the maintainer and approved before they were committed |
+| CI and the container drill for this round | Passed | Both jobs passed on the pull request's last commit `0680fe2`: the tests on Linux with none skipped, and the container drill (VALIDATION.md, "Results in CI"). On the merge commit: after merging |
+
 ## Before calling this version ready for real benefits
 
 - [x] Open a pull request and get both CI jobs green — the tests on Linux (including the two
@@ -242,3 +281,13 @@ Checked on 2026-10-19 on the branch `fix/0.4.1`, on one Windows computer, in Chr
 - [ ] Upgrade a copy of a real instance of 0.3 (invented data) with the 0.4 image, as
       OPERATIONS.md describes, check that its team, balances, collections and settings are
       unchanged, then go back to the 0.3 image with a Pastry shop or Bakery team.
+- [x] The usage-note round: push the branch, open a pull request, get both CI jobs green (the
+      tests on Linux and the container drill), and record that run in VALIDATION.md (green on
+      `0680fe2`; the run on the merge commit comes after merging).
+- [ ] Upgrade a copy of a real instance of 0.4 (invented data) with the 0.5 image, as
+      OPERATIONS.md describes, check that its team, balances, collections and settings are
+      unchanged and its usage note empty, then go back to the 0.4 image by restoring the
+      backup made before the upgrade. Done without Docker on a database made by 0.4.1 (see
+      VALIDATION.md, "The upgrade and rollback drill").
+- [ ] The usage-note round on a real phone: the usage note card under "I grabbed something",
+      and a treat row opened from its button and by a tap on the row.

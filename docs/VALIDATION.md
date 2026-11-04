@@ -1,17 +1,27 @@
 # Validation report
 
-What has been checked for Crumb 0.4.1, how, where — and what has **not** been checked.
+What has been checked for Crumb 0.5.0, how, where — and what has **not** been checked.
 Nothing here is marked as passing unless it was actually run. The per-requirement view is in
 [RELEASE-CHECKLIST.md](RELEASE-CHECKLIST.md).
 
-This report covers 0.1, the one-page round, the collection themes round and the café round.
-The café round (branch `feature/cafe`, designed in
-[the café design](superpowers/specs/2026-10-06-crumb-cafe-theme-design.md)) adds a third
-collection theme, Café: 24 coffees and sweets, 16 of them new drawings with Hot Coffee as the
-mascot, whose steam is part of its drawing; the first theme with colours of its own, always
-dark, put on the page before it is first drawn by a small script that remembers the team's
-theme; and a third shop on the public demo. It is released as Crumb 0.4.0; the server and the
-database (schema 3) do not change. The themes round (branch `feature/themes`, designed in
+This report covers 0.1, the one-page round, the collection themes round, the café round and
+the usage-note round. The usage-note round (branch `feature/usage-note`, pull request #6) adds
+two things to the member page. An owner can write a usage note in Settings: optional, at most
+200 characters, counted as Unicode code points after trimming, the same way in the Settings
+field, on the server and in SQLite. When a team records its own spending, members see it as a
+card titled "How to use it" under "I grabbed something"; when a team confirms requests, it is
+hidden but kept. And in "Log · Recent", a treat row opens in place, with its Details button
+(展开 in Chinese), to show who sent the treat and its message. The note is a new column of the
+organization table, added by migration 004. The round is released as Crumb 0.5.0 and moves
+the database to schema 4. Pastry shop and Bakery are held to 0.3.0's colours as strictly as
+before, and the public demo page does not change. The café round (branch `feature/cafe`,
+designed in [the café design](superpowers/specs/2026-10-06-crumb-cafe-theme-design.md)) added
+a third collection theme, Café: 24 coffees and sweets, 16 of them new drawings with Hot Coffee
+as the mascot, whose steam is part of its drawing; the first theme with colours of its own,
+always dark, put on the page before it is first drawn by a small script that remembers the
+team's theme; and a third shop on the public demo. It was released as Crumb 0.4.0 (merge
+commit `c3a0278`), with no change to the server or the database (schema 3), and its fixes as
+0.4.1 (merge commit `288e851`). The themes round (branch `feature/themes`, designed in
 [the themes design](superpowers/specs/2026-10-03-crumb-themes-design.md)) added a collection
 theme chosen per team at setup and fixed at the first treat; a second theme, Bakery, with its
 own mascot, pictures, icons and a few sentences of its own; migration 003; and a switch
@@ -31,21 +41,29 @@ named under "Earlier runs during development" below.
 
 - **Checked on one Windows computer:** every unit, API, concurrency and browser test (in
   Chromium) and the operations drill with real server processes, from a fresh clone of the
-  café branch at `ce41879` (see "Results from a fresh clone (local)").
-- **Checked in CI** (GitHub Actions, Linux), for 0.1, 0.2.0, 0.3.0 and 0.4.0: the same tests
-  with none skipped, and the container drill — the Docker image was built and taken through
-  setup, restart, backup, restore into a new volume, owner recovery and rollback.
+  usage-note branch at `0680fe2` (see "Results from a fresh clone (local)"); and a database
+  made by 0.4.1's own code, upgraded by 0.5.0 and taken back to 0.4.1 by restoring its backup
+  (see "The upgrade and rollback drill"). The café round was checked the same way from a
+  fresh clone of `ce41879`.
+- **Checked in CI** (GitHub Actions, Linux), for 0.1, 0.2.0, 0.3.0 and 0.4.0, and on the pull
+  request of 0.5.0 (`0680fe2`): the same tests with none skipped, and the container drill —
+  the Docker image was built and taken through setup, restart, backup, restore into a new
+  volume, owner recovery and rollback.
 - **Checked for 0.4.1** on one Windows computer: `npm test` and the browser tests (in
   Chromium) on the branch `fix/0.4.1` (see "Version 0.4.1").
 - **Checked by hand on one iPhone,** for 0.1: signing in by QR code with the camera and through
   WeChat, and the home-screen icon (see "Real phone check").
-- **Shown to the maintainer and approved,** for the café round: the 16 new drawings, in two
+- **Shown to the maintainer and approved,** for the usage-note round: its interface sentences,
+  before they were built; then, shown on 2026-10-23 and approved on 2026-11-04, screenshots
+  taken from the branch's code before its documents and version changed, a demo of it served
+  on this computer with a usage note set, the sentence shown when a note is too long, and the
+  new sentences of the README and the guides. For the café round: the 16 new drawings, in two
   batches, before they were final; the new sentences of the README and the guides; and on
   2026-10-17, the café's pages photographed from the fresh clone of `ce41879` and the
   public demo's switch between the three shops, served on this computer from the same commit,
   with every colour and porcelain ground the café design leaves as a choice (see "Pictures
-  from the fresh clone"). For the themes round: the 12 new drawings, and on 2026-10-06 six
-  pictures from the fresh clone of `9849c31` (see its record below).
+  from the fresh clone of `ce41879`"). For the themes round: the 12 new drawings, and on
+  2026-10-06 six pictures from the fresh clone of `9849c31` (see its record below).
 - **Not checked:** HTTPS through Caddy on a real domain (only its Compose configuration was
   validated), arm64, Docker Desktop, Android phones, and browsers other than Chromium apart
   from that one iPhone. For the one-page round: upgrading a real deployment of 0.1 (migration
@@ -54,23 +72,26 @@ named under "Earlier runs during development" below.
   build), and any real phone (the Bakery icon on a home screen included). For the café round:
   upgrading a real deployment of 0.3, any real phone (the dark pages, the café icon on a home
   screen and the browser bar's colour included), and browsers older than the tests' Chromium.
+  For the usage-note round: upgrading a real deployment of 0.4 with real users (a database made
+  by 0.4.1's own code was upgraded and rolled back on this computer, without Docker), any real
+  phone, and browsers other than Chromium.
 - **Reviewed by AI only:** seven review passes up to 0.1 (six by Claude agents, one by
   ChatGPT), the review of the one-page round described under "The review fixes", for the
   themes round a review of each task against the design and for code quality, a review of a
   cleanup pass over the minor findings, and one review of the whole branch from six sides
   with three independent checks of each finding, all by Claude agents; and for the café round
-  a review of each task's code against the design and for code quality, with a fix round and a second review where a review found a problem, all by Claude agents. No human code review and no professional security audit has happened yet, of any
+  a review of each task's code against the design and for code quality, with a fix round and a second review where a review found a problem, all by Claude agents; and for the usage-note round a review of each task against its plan and for code quality, with fix rounds where a review found a problem, then one review of the whole branch, one wave of fixes and a re-review of that wave, all by Claude agents. No human code review and no professional security audit has happened yet, of any
   round.
-- So Crumb 0.4.1 is **not yet validated for managing a real team's benefits.** What is still
+- So Crumb 0.5.0 is **not yet validated for managing a real team's benefits.** What is still
   needed is at the end of the checklist.
 
 ## Environment
 
 | | Local | CI |
 | --- | --- | --- |
-| Commit | The development branch `feature/cafe`, from a fresh clone (see "Results from a fresh clone (local)"). The commit cloned was `ce41879` ("docs: the Café in the guides; version 0.4.0; screenshots retaken"). The 0.3.0 record, a fresh clone of `9849c31`, and the records before it are kept below. | 0.1: `67a174b`, [run 36412250215](https://github.com/bellaaaaxu/crumb/actions/runs/36412250215). 0.2.0: the pull request's last commit `1fb57ee`, [run 36983236954](https://github.com/bellaaaaxu/crumb/actions/runs/36983236954), and the merge commit `bbfda7f` on `main`, [run 36984318360](https://github.com/bellaaaaxu/crumb/actions/runs/36984318360). 0.3.0: the pull request's last commit `057cd38`, [run 37433938374](https://github.com/bellaaaaxu/crumb/actions/runs/37433938374), and the merge commit `5247e73` on `main`, [run 37434828326](https://github.com/bellaaaaxu/crumb/actions/runs/37434828326). 0.4.0: the pull request's last commit `b4c3f62`, [run 39098953289](https://github.com/bellaaaaxu/crumb/actions/runs/39098953289), and the merge commit `c3a0278` on `main`, [run 39108290066](https://github.com/bellaaaaxu/crumb/actions/runs/39108290066). |
-| Date | 2026-10-17 (the fresh clone of `ce41879`); 2026-10-05 (the 0.3.0 record); 2026-10-01 (the 0.2.0 records); 2026-09-30 and 2026-10-01 (the earlier runs during development of 0.2.0) | 2026-09-28 (0.1); 2026-10-02 (0.2.0); 2026-10-06 (0.3.0); 2026-10-18 (0.4.0) |
-| Machine | Windows 11 Pro 10.0.26200 | GitHub Actions `ubuntu-24.04`, x64 (image 20260920.314.1 for 0.1, 20260927.320.1 for 0.2.0 and 0.3.0, 20261012.334.1 for 0.4.0) |
+| Commit | The development branch `feature/usage-note`, from a fresh clone (see "Results from a fresh clone (local)"). The commit cloned was `0680fe2` ("Undo a double-click only on the row it toggled"). The 0.4.0 record, a fresh clone of `ce41879`, the 0.3.0 record, a fresh clone of `9849c31`, and the records before it are kept below. | 0.1: `67a174b`, [run 36412250215](https://github.com/bellaaaaxu/crumb/actions/runs/36412250215). 0.2.0: the pull request's last commit `1fb57ee`, [run 36983236954](https://github.com/bellaaaaxu/crumb/actions/runs/36983236954), and the merge commit `bbfda7f` on `main`, [run 36984318360](https://github.com/bellaaaaxu/crumb/actions/runs/36984318360). 0.3.0: the pull request's last commit `057cd38`, [run 37433938374](https://github.com/bellaaaaxu/crumb/actions/runs/37433938374), and the merge commit `5247e73` on `main`, [run 37434828326](https://github.com/bellaaaaxu/crumb/actions/runs/37434828326). 0.4.0: the pull request's last commit `b4c3f62`, [run 39098953289](https://github.com/bellaaaaxu/crumb/actions/runs/39098953289), and the merge commit `c3a0278` on `main`, [run 39108290066](https://github.com/bellaaaaxu/crumb/actions/runs/39108290066). 0.5.0: the pull request's last commit `0680fe2`, [run 41811979611](https://github.com/bellaaaaxu/crumb/actions/runs/41811979611). |
+| Date | 2026-11-04 (the fresh clone of `0680fe2` and the upgrade and rollback drill); 2026-10-17 (the 0.4.0 record); 2026-10-05 (the 0.3.0 record); 2026-10-01 (the 0.2.0 records); 2026-09-30 and 2026-10-01 (the earlier runs during development of 0.2.0) | 2026-09-28 (0.1); 2026-10-02 (0.2.0); 2026-10-06 (0.3.0); 2026-10-18 (0.4.0); 2026-11-04 (0.5.0) |
+| Machine | Windows 11 Pro 10.0.26200 | GitHub Actions `ubuntu-24.04`, x64 (image 20260920.314.1 for 0.1, 20260927.320.1 for 0.2.0 and 0.3.0, 20261012.334.1 for 0.4.0, 20261025.353.1 for 0.5.0) |
 | Node.js | 24.14.0, npm 11.9.0 | 24.14.0 for the tests; 24.21.0 inside the image (0.1) |
 | SQLite, images | 3.53.4 (better-sqlite3 13.0.3); sharp 0.35.5 with libvips 8.18.7 | the same packages |
 | Browser | Chromium 153.0.8010.12 (Playwright 1.63.0) | Chromium 153.0.8010.12 (Playwright 1.63.0) |
@@ -78,11 +99,104 @@ named under "Earlier runs during development" below.
 
 ## Results from a fresh clone (local)
 
+A new clone of the development branch `feature/usage-note` into an empty temporary folder,
+with no files carried over (deleted afterwards), on 2026-11-04, on the computer and with the
+versions under "Environment". The commit cloned was `0680fe2` ("Undo a double-click only on
+the row it toggled"), the last commit of pull request #6, on top of `main` at `288e851`
+(0.4.1). Its code is the code of 0.5.0: after the run only documents change before it is
+released.
+
+| Step | Command | Result |
+| --- | --- | --- |
+| Install the locked dependencies | `npm ci` | passed — 84 packages, nothing compiled (see `.npmrc`) |
+| Unit, API, concurrency and operations tests | `npm test` | 351 tests: 349 passed, **2 skipped** (file permissions and umask, which Windows does not have; both passed in CI for 0.1, 0.2.0, 0.3.0, 0.4.0 and 0.5.0) |
+| Theme lists | `node scripts/theme-manifest.mjs --check` | current: `default` 39 keys, `bakery` 24 keys, `cafe` 24 keys |
+| The three themes' list files and icons | `git diff --quiet 288e851 HEAD -- themes app/favicon.svg app/icons` | unchanged since 0.4.1, byte for byte |
+| The public demo page and the app's page | `git diff --quiet 288e851 HEAD -- app/index.html index.html` | unchanged since 0.4.1 |
+| The server | `git diff --stat 288e851 HEAD -- server` | two files changed since 0.4.1: `server/migrations/004-usage-note.sql` (new) and `server/org.mjs` |
+| Operations drill with real server processes | `node scripts/ci/process-drill.mjs` | 20 of 20 checks passed |
+| Browser | `npx playwright install chromium` | installed |
+| Browser tests | `npm run test:e2e -- --project=chromium` | 245 of 245 passed (Chromium only) |
+| Whitespace in the change | `git diff --check origin/main..HEAD` (since 0.4.1, `288e851`) | clean |
+| Nothing changed by the runs | `git status --short` | clean, also after the upgrade and rollback drill below, which used this clone |
+| Anything with Docker | | **not run here** (no Docker); in CI, on the pull request — see "Results in CI" |
+
+`npm ci` also printed `2 vulnerabilities (1 moderate, 1 high)`: `npm audit` names body-parser
+2.3.0 (high, GHSA-27r3-jxmh-p828) and qs 6.16.0 (moderate, GHSA-6pq8-jhm2-2vcw), both brought
+in by Express 5. The lock file is 0.4.1's apart from the version, and a clone of 0.4.1 prints
+the same two. Whether either affects Crumb was not checked, and this round does not change
+them.
+
+Each part of the round was in this run:
+
+| Part | Checked by |
+| --- | --- |
+| An optional usage note, written by an owner in Settings, kept with its line breaks and recorded in the activity log | `tests/org.test.mjs`; the Settings tests in `tests/e2e/usage-note.spec.mjs` |
+| At most 200 characters, counted as Unicode code points after trimming, the same way in the Settings field, on the server and in SQLite | `tests/db.test.mjs` and `tests/org.test.mjs` (200 CJK characters, 199 with a line break among them, and 200 emoji are accepted; one more is refused; a note is trimmed before it is counted); `tests/e2e/usage-note.spec.mjs` (200 characters save and 201 are stopped before sending; 200 between spaces and a line break save) |
+| Shown in self-recorded mode as a card under "I grabbed something", after the daily line, as plain text; nothing for an empty note or one of only spaces | `tests/e2e/usage-note.spec.mjs` |
+| Hidden but kept when the team confirms requests; not repeated in the keypad | `tests/org.test.mjs` (switching how people spend keeps it), `tests/e2e/usage-note.spec.mjs` |
+| Migration 004: a 0.4 team gets an empty usage note and keeps everything else; schema 4 | `tests/db.test.mjs`, `tests/backup.test.mjs`; the upgrade and rollback drill below |
+| Treat rows in "Log · Recent" open in place, with a Details button, to who sent the treat and its message | `tests/e2e/treat-rows.spec.mjs` (12 tests); the upgrade and rollback drill below |
+| Pastry shop and Bakery held to 0.3.0's colours; the new elements in the theme's own colours; the café's new text and focus ring at AA | `tests/light-styles.test.mjs`, `tests/e2e/light-unchanged.spec.mjs`, `tests/e2e/cafe-contrast.spec.mjs` |
+| The theme lists, icons and the public demo page unchanged | the rows for them above |
+| Version 0.5.0 | `tests/docs.test.mjs`, `tests/auth.test.mjs`; the footer on the member page in the upgrade drill |
+
+### The upgrade and rollback drill
+
+Earlier rounds ran their migrations only on database files the tests build. For 0.5.0, on
+2026-11-04, on the same computer and without Docker, a database made by 0.4.1's own code was
+upgraded by 0.5.0 and taken back to 0.4.1 by restoring its backup. A second clone, at
+`288e851` (0.4.1) with its own `npm ci`, ran the 0.4.1 side; the 0.5.0 side ran from the fresh
+clone above. Small scripts kept outside both clones made the database and compared every
+table, row by row, before and after; the comparison was first shown to catch a changed ledger
+amount. Both clones and every file the drill made were deleted afterwards.
+
+| Step | With | Result |
+| --- | --- | --- |
+| Make a database | 0.4.1: `openDatabase` on a new file, `createApp` on a local port, and `seedSampleTeam` | the invented sample team, "Corner Café (sample team)", at schema 3: 12 tables, 83 rows (6 people, 11 ledger rows, 7 collectibles, 22 activity rows, 16 sessions, 5 links) |
+| Back it up | 0.4.1: `node scripts/backup.mjs --output … --data-dir …` | printed `schema 3` and its SHA-256; every table equal to the database's |
+| Upgrade | 0.5.0: `openDatabase` on the same file | schema 4. Every table's rows equal to before, apart from the new column `organization.usage_note`, which is `''`, and the row for version 4 in `schema_migrations`; the same 19 indexes and triggers |
+| Use it | 0.5.0: `node server/main.mjs` on that data folder | `GET /api/session` answered 200 with version 0.5.0, signed out (no usage note in the answer) and as the owner (`usageNote` `""`); the owner signed in with the password set under 0.4.1 and listed every person's balance. Mina Park signed in in Chromium at 390 px with a fresh sign-in link from the owner's client: her page showed $106.50 and five rows in "Log · Recent", the three treats each with a button named "Details"; the first opened to "Hide", "From Olive Chen" and its message, and no usage note showed. After the owner saved one, the card "How to use it" showed it after a reload. No console errors |
+| Back up the upgraded file | 0.5.0: `node scripts/backup.mjs` | printed `schema 4` |
+| Go back without a restore | 0.4.1: `node server/main.mjs` on the upgraded data folder | refused, exit code 1: `Crumb cannot start: This database uses schema 4, but this version of Crumb only understands up to 3. Run a newer Crumb, or restore a backup made by this version.` The file still opened in 0.5.0 at schema 4, with its note |
+| Restore the backup from before | 0.4.1: `node scripts/restore.mjs --from … --to …`, into a new folder | printed `(schema 3)`; a second restore onto the same file was refused. Every table equal to the database before the upgrade, apart from sessions, one-time links and sign-in limits, which a restore clears |
+| Use the restored copy | 0.4.1: `node server/main.mjs` on it | opened at schema 3; `GET /api/session` reported 0.4.1; the owner signed in with the same password and saw the same balances as 0.5.0 had listed; Mina Park signed in with a fresh link and read her balance, 5 collectibles and 6 log rows |
+
+The member page check ran twice. The first time, the script's own check read the button's
+chevron, which is hidden from screen readers, as part of its name, and that run saved a usage
+note, which the second run cleared before it began. Read by its accessible name, every check
+of the second run passed. The 0.5.0 server was stopped by ending its process, because Windows
+cannot send it SIGTERM, so a graceful stop was not part of the drill. Not done: the same with
+the Docker images, or with a real team's data and users.
+
+### Version 0.4.1
+
+0.4.1 fixes three things found after 0.4.0 was released:
+
+- A text, number or password field with a mistake in it now has a red border in every
+  theme; before, only a select or a textarea did. A browser test checks it in Pastry shop,
+  Bakery and Café. The café's red is 9.68:1 on its field.
+- The test guards: the check that Pastry shop and Bakery are unchanged now also counts rules
+  written for those two themes; the contrast helper stops on a colour it cannot read
+  instead of leaving it out; and both checks allow the red border, and only it, as a change
+  from 0.3.0.
+- `scripts/screenshots.mjs` closes its server and temporary folder even when the browser
+  fails to start.
+
+The version is 0.4.1 in `package.json` and `package-lock.json`, and the README screenshots
+were retaken for the footer. Checked on 2026-10-19 on the branch `fix/0.4.1`, on the
+computer under "Environment": `npm test` 345 tests, 343 passed and 2 skipped (file
+permissions); the theme lists current; Playwright 221 of 221 in Chromium.
+
+### The 0.4.0 record: the fresh clone of `ce41879`
+
 A new clone of the development branch `feature/cafe` into an empty temporary folder, with no
-files carried over (deleted afterwards), on 2026-10-17, on the computer and with the versions
-under "Environment". The commit cloned was `ce41879` ("docs: the Café in the guides; version 0.4.0; screenshots retaken"). Its code is
-the code of 0.4.0; what 0.4.1 changes is under "Version 0.4.1".
-Merging the branch with a merge commit keeps `ce41879` on `main` as it is.
+files carried over (deleted afterwards), on 2026-10-17, on the same computer with Node.js
+24.14.0, npm 11.9.0, SQLite 3.53.4 (better-sqlite3 13.0.3), sharp 0.35.5 with libvips 8.18.7
+and Chromium 153.0.8010.12 (Playwright 1.63.0). The commit cloned was `ce41879` ("docs: the
+Café in the guides; version 0.4.0; screenshots retaken"). Its code is the code of 0.4.0: after
+the run only this report and the release checklist changed, in `b4c3f62`, which the merge
+commit `c3a0278` brought to `main`. What 0.4.1 changes is under "Version 0.4.1".
 
 | Step | Command | Result |
 | --- | --- | --- |
@@ -96,7 +210,7 @@ Merging the branch with a merge commit keeps `ce41879` on `main` as it is.
 | Browser tests | `npm run test:e2e -- --project=chromium` | 216 of 216 passed (Chromium only) |
 | Whitespace in the change | `git diff --check origin/main..HEAD` (since 0.3.0, `5247e73`) | clean |
 | Nothing changed by the runs | `git status --short` | clean |
-| Anything with Docker | | **not run here** (no Docker), and not in CI either for this round — see below |
+| Anything with Docker | | **not run here** (no Docker); in CI later, on the pull request — see "Results in CI" |
 
 The decisions of [the café design](superpowers/specs/2026-10-06-crumb-cafe-theme-design.md)
 (its §1) were all in this run:
@@ -111,10 +225,10 @@ The decisions of [the café design](superpowers/specs/2026-10-06-crumb-cafe-them
 | No light flash | `tests/e2e/no-flash.spec.mjs`, `tests/e2e/theme-colours.spec.mjs`, `tests/e2e/static-host.spec.mjs` |
 | The steam is the mascot's own pixels; a tap steams instead of spilling crumbs, and Pastry shop and Bakery keep their crumbs | `tests/steam.test.mjs`, `tests/pixels.test.mjs`, `tests/e2e/steam.spec.mjs`; the crumb tests in `tests/e2e/themes.spec.mjs` |
 | The approved sentences: 8 places in the app, 11 in the demo | `tests/i18n.test.mjs` (the 14 sentences, the name and the card line word for word), `tests/e2e/themes.spec.mjs`, `tests/e2e/demo.spec.mjs` |
-| The public demo: Pastry shop, Bakery and Café, the shutter as before, the page recoloured while it is down | `tests/e2e/demo.spec.mjs`, `tests/e2e/canvas-colours.spec.mjs`; how it looks, shown to the maintainer (see "Pictures from the fresh clone") |
-| Three gates, each with the maintainer's yes; pushing, a pull request and merging only on the maintainer's word | "Pictures from the fresh clone" below, and the rows marked "Reviewed by eye" in RELEASE-CHECKLIST.md |
+| The public demo: Pastry shop, Bakery and Café, the shutter as before, the page recoloured while it is down | `tests/e2e/demo.spec.mjs`, `tests/e2e/canvas-colours.spec.mjs`; how it looks, shown to the maintainer (see "Pictures from the fresh clone of `ce41879`") |
+| Three gates, each with the maintainer's yes; pushing, a pull request and merging only on the maintainer's word | "Pictures from the fresh clone of `ce41879`" below, and the rows marked "Reviewed by eye" in RELEASE-CHECKLIST.md |
 
-### Pictures from the fresh clone
+#### Pictures from the fresh clone of `ce41879`
 
 From the same fresh clone, `node scripts/screenshots.mjs --theme cafe --all --out <folder>`,
 with a temporary folder outside the clone, photographed every page of the sample team on
@@ -136,25 +250,6 @@ On 2026-10-17 the maintainer was shown these pictures, taken from the fresh clon
 public demo's switch between the three shops, served on this computer from the same commit
 (§13 of the café design, gate 3, and its assumption 42), and approved them. None of these
 pictures is kept in the repository: the README shows Pastry shop.
-
-### Version 0.4.1
-
-0.4.1 fixes three things found after 0.4.0 was released:
-
-- A text, number or password field with a mistake in it now has a red border in every
-  theme; before, only a select or a textarea did. A browser test checks it in Pastry shop,
-  Bakery and Café. The café's red is 9.68:1 on its field.
-- The test guards: the check that Pastry shop and Bakery are unchanged now also counts rules
-  written for those two themes; the contrast helper stops on a colour it cannot read
-  instead of leaving it out; and both checks allow the red border, and only it, as a change
-  from 0.3.0.
-- `scripts/screenshots.mjs` closes its server and temporary folder even when the browser
-  fails to start.
-
-The version is 0.4.1 in `package.json` and `package-lock.json`, and the README screenshots
-were retaken for the footer. Checked on 2026-10-19 on the branch `fix/0.4.1`, on the
-computer under "Environment": `npm test` 345 tests, 343 passed and 2 skipped (file
-permissions); the theme lists current; Playwright 221 of 221 in Chromium.
 
 ### The 0.3.0 record: the fresh clone of `9849c31`
 
@@ -418,6 +513,12 @@ the published demo was opened in Chromium on 2026-10-18 and switched to Café (m
 "Mascot: hot coffee") with no console errors; for 0.3.0 it was opened on 2026-10-17 and
 switched to Bakery, also with no console errors.
 
+For 0.5.0 both jobs passed on the pull request's last commit, `0680fe2`
+([run 41811979611](https://github.com/bellaaaaxu/crumb/actions/runs/41811979611), image
+20261025.353.1): `npm test` 351 of 351 with none skipped, the three theme lists current, the
+process drill passed, Playwright 245 passed, and the container drill passed. The run on the
+merge commit comes after merging.
+
 ## What the tests cover
 
 | Area | Where | Notes |
@@ -455,6 +556,9 @@ switched to Bakery, also with no console errors.
 | Café's collection, icons and wording | `tests/collections.test.mjs`, `tests/themes.test.mjs`, `tests/icons.test.mjs`, `tests/org.test.mjs`, `tests/i18n.test.mjs` | Café's 24 keys, rotation, card, name and `background`; a café team unlocks from its own 24, in hash order; a change from Pastry shop to Café keeps the icons of the three desserts both have and removes the rest; Café's four icon files drawn on `#160F0A`; its 14 sentences, name and card line word for word, and `THEMED_KEYS` with the intro and the "next item" line. A theme that never ships is `nosuchtheme` in every test. |
 | Upgrading from 0.1 or 0.2 straight to 0.4 | `tests/db.test.mjs` | 0.4 adds no migration, so the existing migration tests are this path: a schema 1 database built from `001-initial.sql` runs 002 and 003 and opens on `default` with its data intact, and a 0.2.0 database runs 003 and opens on `default` with its data unchanged. |
 | The demo's café | `tests/e2e/demo.spec.mjs`, `tests/e2e/canvas-colours.spec.mjs` | Three buttons that fit a phone-width page; after switching to Café, everything the visitor sees is Café's, with no console errors and no visible "oven"; the tour's second line comes from each shop's own words; the colours change behind the shutter and the phone is dark when it rolls up; the sign's letters are the same colour in all three shops; with reduced motion the canvases stay whole and the switch is instant; no frame of the old shop's bite or steam after the shutter; Café remembered on reload, dark from the first paint, with no shutter; "Reset the demo" keeps it; the tour starts again from Sam; the balance, `CRUMB` and chevron in Café's colours after a switch. |
+| The usage note | `tests/org.test.mjs`, `tests/db.test.mjs`, `tests/e2e/usage-note.spec.mjs`, `tests/e2e/cafe-contrast.spec.mjs` | Optional, line breaks kept, at most 200 characters after trimming, counted the same way by the Settings field, the server and SQLite (200 CJK characters, 199 with a line break, or 200 emoji are accepted; one more is refused); each change in the activity log; not sent to signed-out visitors; kept when the spending mode changes. In the browser: saved from Settings in either mode; shown only in self-recorded mode, under the button and the daily line, as plain text with its line breaks; nothing for an empty note or one of only spaces; not in the keypad; fits a 375-pixel phone; a note set while the page is open appears after the next entry; on Café, its title and text at least 4.5:1. |
+| Treat rows that open | `tests/e2e/treat-rows.spec.mjs`, `tests/e2e/cafe-contrast.spec.mjs`, `tests/e2e/light-unchanged.spec.mjs`, `tests/light-styles.test.mjs` | Only treat rows in "Log · Recent" have the button, named by its words, with `aria-expanded` and `aria-controls`, and described by the row's amount and date. It opens by a click, a tap on the row, Enter or Space, and not by selecting words; several rows open at once, stay open after an entry and close on reload; a treat with no message or no sender name opens to what it has; a long message, or one that looks like markup, wraps at 375 px as the same text; in Chinese 展开 and 收起. Nothing that was there moves, apart from the row that opens, or the row whose button drops below the word on a narrow phone. On Café the button, its ring and the detail pass; on Pastry shop and Bakery the new elements take only the theme's colours and everything else equals the 0.3.0 record. |
+| Migration 004 | `tests/db.test.mjs`, `tests/backup.test.mjs` | A schema 3 database opens at schema 4 with an empty usage note, every other row as it was and no broken reference; a 0.4 backup restores and opens with an empty usage note; schema 1 and 0.2.0 databases run every update up to 004. |
 
 ### Tests shown to catch the bug they are for
 
@@ -676,6 +780,14 @@ password screening.
   it differs from the design: the border check leaves out a disabled select, which Chromium
   itself fades to 0.7, so the café's locked currency select is 2.38:1 on paper, under the
   design's 3:1 for input borders; the maintainer was shown this and kept it; the medallions' rounded corners hide a little of the corner cells of some drawings, which the maintainer saw and kept.
+- **The usage-note round:** built as its plan describes (implementation plans are not kept in
+  the repository), with these differences: a treat's button is described by the row's amount
+  and date only, since the row's label holds the button itself; where the button does not fit
+  beside the word on a narrow phone, it drops below it and only that row grows; an entry that
+  finds the team's settings, the member's total or their collection changed redraws the page
+  and closes open treat rows, as it resets "See all"; and the check that Pastry shop and
+  Bakery are unchanged takes the new elements out, after checking their colours against the
+  theme's colours, instead of allowing their lines by pattern.
 - **Incomplete answers:** a success whose body does not arrive whole is treated as no answer
   (`INCOMPLETE_ANSWER`), so the change can be retried safely.
 - **Restore keeps the backup's database version** instead of upgrading it, and refuses copies
@@ -790,6 +902,18 @@ password screening.
   shop team and on a café team, but it was not shown to fail when a café page breaks the
   policy: that needs a temporary change to the app's code, which was blocked on the computer
   that ran the checks, and was not made another way.
+- **Upgrading a real deployment of 0.4:** migration 004 ran on a database made by 0.4.1's own
+  code on one Windows computer, without Docker, and that database went back to 0.4.1 by
+  restoring its backup (see "The upgrade and rollback drill"); it also runs on the files the
+  unit tests build. Pulling 0.5 and rebuilding the image over a running instance of 0.4 with
+  real users, and going back to the 0.4 image, as OPERATIONS.md describes, were not tried;
+  Docker is not installed on that computer. Going from 0.1, 0.2 or 0.3 straight to 0.5 ran
+  only in the unit tests.
+- **The usage-note round on real phones and in other browsers:** the usage note card and the
+  treat rows' button were checked in Chromium only, at phone and laptop sizes; not on a real
+  iPhone or Android phone, not in Firefox or Safari, and not with a real screen reader.
+- **The two advisories `npm audit` reports** (body-parser and qs, through Express 5): whether
+  either reaches Crumb was not checked.
 
 ## Known limits
 

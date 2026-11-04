@@ -7,7 +7,7 @@ This guide covers trying Crumb on your own computer, then running it for real on
 behind HTTPS. Day-to-day care — backups, restores, upgrades, locked-out owners — is in
 [OPERATIONS.md](OPERATIONS.md).
 
-> Crumb is early software (version 0.4). Read [what has and has not been tested](VALIDATION.md)
+> Crumb is early software (version 0.5). Read [what has and has not been tested](VALIDATION.md)
 > before you rely on it for your team's benefits.
 
 ## What you need
@@ -158,15 +158,16 @@ and signing out.
 
 ## Upgrading
 
-Upgrades, and going back, are in [OPERATIONS.md](OPERATIONS.md#upgrading). Coming from 0.3,
-nothing in the database changes: see
-[Upgrading from 0.3 to 0.4](OPERATIONS.md#upgrading-from-03-to-04), which also says how to go
-back. Coming from 0.2 (its database is at schema 2), the first start of 0.4 updates the
-database once (it adds the team's collection theme, and an existing team is on the Pastry
-shop): read [Upgrading from 0.2 to 0.3](OPERATIONS.md#upgrading-from-02-to-03) and back up
-first. Coming from 0.1 (schema 1), that first start also makes the update to 0.2 (it adds how
-people spend and rebuilds the ledger table): read
-[Upgrading from 0.1 to 0.2](OPERATIONS.md#upgrading-from-01-to-02) too.
+Upgrades, and going back, are in [OPERATIONS.md](OPERATIONS.md#upgrading). Coming from 0.4,
+the first start of 0.5 updates the database once (it adds the team's usage note, empty): read
+[Upgrading from 0.4 to 0.5](OPERATIONS.md#upgrading-from-04-to-05), which also says how to go
+back, and back up first. Coming from 0.3, the same update runs and nothing else in the database
+changes: see [Upgrading from 0.3 to 0.4](OPERATIONS.md#upgrading-from-03-to-04) too. Coming
+from 0.2 (its database is at schema 2), that first start also adds the team's collection theme,
+and an existing team is on the Pastry shop: read
+[Upgrading from 0.2 to 0.3](OPERATIONS.md#upgrading-from-02-to-03) too. Coming from 0.1
+(schema 1), it also makes the update to 0.2 (it adds how people spend and rebuilds the ledger
+table): read [Upgrading from 0.1 to 0.2](OPERATIONS.md#upgrading-from-01-to-02) too.
 
 ## Running without Docker
 
