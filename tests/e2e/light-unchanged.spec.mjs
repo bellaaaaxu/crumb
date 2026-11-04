@@ -15,7 +15,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import sharp from 'sharp';
 import { PASSWORD, askFor, keyIn, nameMenu, openPerson, provision, startCrumb } from './fixtures.mjs';
 import { client, orgInput } from '../helpers.mjs';
-import { COLOUR_PROPERTIES, baselineText, differences, packScenes, recordStyles, unpackScenes } from './style-recorder.mjs';
+import { COLOUR_PROPERTIES, baselineText, differences, packScenes, recordStyles, transitionsEndedIn, unpackScenes } from './style-recorder.mjs';
 
 const RECORDING = process.env.CRUMB_RECORD_LIGHT_STYLES;
 const BASELINE = fileURLToPath(new URL('../fixtures/light-styles-0.3.0.json', import.meta.url));
@@ -206,25 +206,24 @@ async function recordMemberPage(page, label, { openers }) {
   expect(found.paper.colour, `${label}: a message sits on --paper`).toBe(found.paper.token);
   // Taken out, and shown to have coloured nothing 0.3.0 had: each treat row and its own elements
   // (diamond, amount, label, date, badge) read the same, once settled, before and after.
-  const { before, after } = await page.evaluate(async properties => {
-    const settle = async () => {
-      for (let round = 0; round < 50; round += 1) {
-        const moving = document.getAnimations().filter(animation => animation instanceof CSSTransition && animation.playState !== 'finished');
-        if (!moving.length) return;
-        await Promise.all(moving.map(animation => animation.finished.catch(() => {})));
-      }
-      throw new Error('transitions still running');
-    };
-    const rows = [...document.querySelectorAll('.can-open')];
-    const colours = () => rows.map(row => [row, ...row.querySelectorAll(':scope > .rec-diamond, :scope > .rec-amt, :scope > .rec-label, :scope > .rec-time, :scope > .badge')]
-      .map(node => [node.classList[0], ...properties.map(property => getComputedStyle(node).getPropertyValue(property))]));
-    await settle();
-    const was = colours();
-    for (const node of document.querySelectorAll('button.rec-more, div.rec-detail')) node.remove();
-    for (const row of rows) row.classList.remove('can-open');
-    await settle();
-    return { before: was, after: colours() };
-  }, COLOUR_PROPERTIES);
+  const transitionsEnded = await transitionsEndedIn(page);
+  let before;
+  let after;
+  try {
+    ({ before, after } = await page.evaluate(async ({ properties, transitionsEnded }) => {
+      const rows = [...document.querySelectorAll('.can-open')];
+      const colours = () => rows.map(row => [row, ...row.querySelectorAll(':scope > .rec-diamond, :scope > .rec-amt, :scope > .rec-label, :scope > .rec-time, :scope > .badge')]
+        .map(node => [node.classList[0], ...properties.map(property => getComputedStyle(node).getPropertyValue(property))]));
+      await transitionsEnded();
+      const was = colours();
+      for (const node of document.querySelectorAll('button.rec-more, div.rec-detail')) node.remove();
+      for (const row of rows) row.classList.remove('can-open');
+      await transitionsEnded();
+      return { before: was, after: colours() };
+    }, { properties: COLOUR_PROPERTIES, transitionsEnded }));
+  } finally {
+    await transitionsEnded.dispose();
+  }
   expect(before.flat().length, `${label}: the treat rows' own elements were read`).toBeGreaterThanOrEqual(openers * 5);
   expect(after, `${label}: taking out the new parts changes no colour of a treat row's own elements`).toEqual(before);
   return recordStyles(page, label);

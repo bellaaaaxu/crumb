@@ -3,6 +3,7 @@
  * the recent view; "See all" is as it was. Every person, team and message here is invented. */
 import { test, expect } from '@playwright/test';
 import { keyIn, nameMenu, provision } from './fixtures.mjs';
+import { settleTransitions } from './style-recorder.mjs';
 
 let requests = 0;
 const key = () => ({ 'idempotency-key': `e2e-treat-rows-${String(++requests).padStart(4, '0')}` });
@@ -199,6 +200,46 @@ test('selecting words in a treat row, by a drag or a double click, neither opens
   }
 });
 
+/* A double click undoes only what its own first click did to its own row. The first click on an
+ * open row's strip, left of its message, closes it and moves the rows below up under the pointer,
+ * so the second click and the double click land on the next row, which the pair never touched. */
+test('a double click that lands on another row, because the first click moved it, leaves that row alone', async ({ browser }) => {
+  const fx = await provision(browser, { mode: 'credit', spending: 'self' });
+  try {
+    await inOrder(fx, [treat(fx, '5.00', 'For the window display'), treat(fx, '7.00', 'For staying late')]);
+    const page = fx.memberPage;
+    await page.reload();
+    const rows = rowsOf(page);
+    await expect(rows).toHaveCount(2);
+    const [upper, lower] = [rows.nth(0), rows.nth(1)];
+    // Both opened from their buttons, so neither row has seen a tap of its own.
+    await openerOf(lower).click();
+    await openerOf(upper).click();
+    const upperDetail = await detailOf(page, upper);
+    const lowerDetail = await detailOf(page, lower);
+    await expect(upperDetail).toBeVisible();
+    await expect(lowerDetail).toBeVisible();
+
+    // Halfway down the upper row's message, in the 21 px strip to its left: the row itself.
+    await upper.scrollIntoViewIfNeeded();
+    const row = await upper.boundingBox();
+    const message = await upperDetail.boundingBox();
+    const at = { x: row.x + 6, y: message.y + message.height / 2 };
+    expect(await upper.evaluate((node, { x, y }) => document.elementFromPoint(x, y) === node, at), 'the point is on the upper row itself').toBe(true);
+
+    await page.mouse.dblclick(at.x, at.y);
+    // The first click closed the upper row, and that moved the lower one under the pointer: the
+    // second click and the double click were its, not the upper row's.
+    await expect(openerOf(upper)).toHaveAttribute('aria-expanded', 'false');
+    expect(await lower.evaluate((node, { x, y }) => node.contains(document.elementFromPoint(x, y)), at), 'the pair ended on the lower row').toBe(true);
+    await expect(openerOf(lower)).toHaveAttribute('aria-expanded', 'true');
+    await expect(lowerDetail).toBeVisible();
+    await expect(upperDetail).toBeHidden();
+  } finally {
+    await fx.close();
+  }
+});
+
 test('from the keyboard: Tab reaches each treat row\'s button, Enter and Space open and close it, focus stays on it', async ({ browser }) => {
   const fx = await provision(browser, { mode: 'credit', spending: 'self' });
   try {
@@ -354,18 +395,6 @@ function eachOpenerOut(log) {
   });
 }
 
-/* Lets every running transition end. With less motion asked for, every change of a property is
- * a 0.01 ms transition (app.css), which lasts until the next frame: a box read before that frame
- * is where the element is coming from, such as the page's column at its first, wider width. */
-const settled = page => page.evaluate(async () => {
-  for (let round = 0; round < 50; round += 1) {
-    const moving = document.getAnimations().filter(animation => animation instanceof CSSTransition && animation.playState !== 'finished');
-    if (!moving.length) return;
-    await Promise.all(moving.map(animation => animation.finished.catch(() => {})));
-  }
-  throw new Error('transitions still running');
-});
-
 /* Whether the opener sits below its label's word rather than beside it. */
 const isBelow = one => one.opener.y >= one.word.y + one.word.height - 1;
 
@@ -373,7 +402,7 @@ const isBelow = one => one.opener.y >= one.word.y + one.word.height - 1;
  * opener taken out, and adds each to `tally`: the rows checked, and those whose opener sits below
  * the word, the first of them pictured. Returns the measurements. */
 async function closedRowsHold(page, where, tally) {
-  await settled(page);
+  await settleTransitions(page);
   const measured = await theLog(page).evaluate(eachOpenerOut);
   for (const one of measured) {
     const what = `${where}, ${one.amount}`;
@@ -415,12 +444,12 @@ async function closedRowsHold(page, where, tally) {
  * own first line, nor the button, which keeps one width whichever word it shows. */
 async function openingPushesOnlyBelow(page, where, index) {
   const target = rowsOf(page).nth(index);
-  await settled(page);
+  await settleTransitions(page);
   const before = await theLog(page).evaluate(logLayout);
   await openerOf(target).click();
   await expect(await detailOf(page, target)).toBeVisible();
-  await settled(page);
-  const grown =await target.evaluate(row => row.lastElementChild.getBoundingClientRect().height + parseFloat(getComputedStyle(row).rowGap));
+  await settleTransitions(page);
+  const grown = await target.evaluate(row => row.lastElementChild.getBoundingClientRect().height + parseFloat(getComputedStyle(row).rowGap));
   const after = await theLog(page).evaluate(logLayout);
   close(after.head, before.head, `${where}: the log's header`);
   after.rows.forEach((now, at) => {

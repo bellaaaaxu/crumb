@@ -29,11 +29,40 @@ const DISABLEABLE = ['button', 'input', 'select', 'textarea'];
 /* An id uid() made: see above. */
 export const MADE_ID = /-\d+(?:-hint|-error)?$/;
 
+/* Runs in the page (Playwright sends its source, so it uses nothing from this module) and
+ * returns the function that waits there until no CSS transition is left running. Under reduced
+ * motion every property change is a 0.01 ms transition (app.css, style.css), so a read straight
+ * after a change sees the old value, and a box read before the next frame is where the element is
+ * coming from. document.getAnimations() brings style up to date first, so a transition the last
+ * change started is already in the list. Gives up with an error after 50 rounds. */
+const makeTransitionsEnded = () => async () => {
+  for (let round = 0; ; round += 1) {
+    const moving = document.getAnimations().filter(animation => animation instanceof CSSTransition && animation.playState !== 'finished');
+    if (!moving.length) return;
+    if (round === 50) throw new Error(`transitions still running: ${moving.map(animation => animation.transitionProperty).join(', ')}`);
+    await Promise.all(moving.map(animation => animation.finished.catch(() => {})));
+  }
+};
+
+/* That waiting function as a handle on it in the page, for code that runs there: it is passed in
+ * the argument of page.evaluate, where it arrives as the function itself (`await transitionsEnded()`). */
+export const transitionsEndedIn = page => page.evaluateHandle(makeTransitionsEnded);
+
+/* Waits, from the test, until the page has no transition left running (see above). */
+export async function settleTransitions(page) {
+  const wait = await transitionsEndedIn(page);
+  try {
+    await wait.evaluate(run => run());
+  } finally {
+    await wait.dispose();
+  }
+}
+
 /* Runs in the page (Playwright sends its source, so it uses nothing from this module). Leaves
  * window.__crumbStyleRecorder behind: `changes()` settles the page, reads it again and returns
  * what differs from the reading taken here, as { key: values } with null for an element that
  * is no longer rendered. */
-async function installRecorder({ properties, within, madeId }) {
+async function installRecorder({ properties, within, madeId, transitionsEnded }) {
   const MADE = new RegExp(madeId);
   const LANDMARK_TAGS = ['header', 'footer', 'main', 'nav', 'aside'];
   const LANDMARK_ROLES = ['banner', 'contentinfo', 'main', 'navigation', 'complementary', 'region', 'search'];
@@ -54,19 +83,11 @@ async function installRecorder({ properties, within, madeId }) {
   };
   const valuesOf = style => properties.map(name => style.getPropertyValue(name));
 
-  /* Until no CSS transition is left running, then two frames. Under reduced motion every
-   * property change is a 0.01 ms transition (app.css, style.css), so a read straight after a
-   * change sees the old value. document.getAnimations() brings style up to date first, so a
-   * transition the last change started is already in the list. The frames are the document
-   * timeline's, not requestAnimationFrame's: Playwright's clock, which holds a toast or the
-   * intro on the page, holds requestAnimationFrame as well. */
+  /* Until no CSS transition is left running (see makeTransitionsEnded), then two frames. The
+   * frames are the document timeline's, not requestAnimationFrame's: Playwright's clock, which
+   * holds a toast or the intro on the page, holds requestAnimationFrame as well. */
   async function settle() {
-    for (let round = 0; ; round += 1) {
-      const moving = document.getAnimations().filter(animation => animation instanceof CSSTransition && animation.playState !== 'finished');
-      if (!moving.length) break;
-      if (round === 50) throw new Error(`transitions still running: ${moving.map(animation => animation.transitionProperty).join(', ')}`);
-      await Promise.all(moving.map(animation => animation.finished.catch(() => {})));
-    }
+    await transitionsEnded();
     for (let frame = 0; frame < 2; frame += 1) await document.documentElement.animate(null, { duration: 1 }).finished;
   }
 
@@ -132,7 +153,15 @@ export async function recordStyles(page, label, { within = null } = {}) {
     await cdp.send('DOM.enable');
     await cdp.send('CSS.enable');
     await cdp.send('DOM.getDocument', { depth: 0 });
-    const { elements, controls } = await page.evaluate(installRecorder, { properties: COLOUR_PROPERTIES, within, madeId: MADE_ID.source });
+    const transitionsEnded = await transitionsEndedIn(page);
+    let installed;
+    try {
+      installed = await page.evaluate(installRecorder, { properties: COLOUR_PROPERTIES, within, madeId: MADE_ID.source, transitionsEnded });
+    } finally {
+      // The recorder in the page keeps the function itself; only this end's handle on it goes.
+      await transitionsEnded.dispose();
+    }
+    const { elements, controls } = installed;
     const states = [];
     for (const [index, { key, tag }] of controls.entries()) {
       const { result } = await cdp.send('Runtime.evaluate', { expression: `window.__crumbStyleRecorder.controls[${index}]` });

@@ -5,6 +5,7 @@
  * person, team and note here is invented. */
 import { test, expect } from '@playwright/test';
 import { keyIn, provision } from './fixtures.mjs';
+import { settleTransitions } from './style-recorder.mjs';
 
 const TOO_LONG = 'Keep it to 200 characters or fewer.';
 
@@ -343,14 +344,7 @@ test('the note takes space only below the daily line', async ({ browser }) => {
       // With less motion asked for, every property change is a 0.01 ms transition that lasts
       // until the next frame; the page's column narrowing to the member page is one. Read the
       // boxes once those have ended, not the column's first, wider width.
-      await page.evaluate(async () => {
-        for (let round = 0; round < 50; round += 1) {
-          const moving = document.getAnimations().filter(animation => animation instanceof CSSTransition && animation.playState !== 'finished');
-          if (!moving.length) return;
-          await Promise.all(moving.map(animation => animation.finished.catch(() => {})));
-        }
-        throw new Error('transitions still running');
-      });
+      await settleTransitions(page);
       return { button: await jotButton(page).boundingBox(), hint: await page.locator('.actions-hint').boundingBox() };
     };
     const same = (now, before) => {

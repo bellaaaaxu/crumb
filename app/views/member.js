@@ -362,6 +362,21 @@ function rowBadge(item) {
  * opens to its message, and one with neither has nothing to open. */
 const opensInPlace = item => item.kind === 'grant' && Boolean(item.actorName || item.reason);
 
+/* Which run of clicks the page is in. A click that does not repeat the one before it starts a new
+ * run, wherever on the page it is (its `detail` is 1, or 0 for a click a script or the keyboard
+ * made); the second click of a double click, and the double click itself, belong to the run of the
+ * first. A row remembers the run in which its own click toggled it. */
+let clickRun = 0;
+let watchingClicks = false;
+function watchClickRuns() {
+  if (watchingClicks) return;
+  watchingClicks = true;
+  // In the capture phase, so the run has moved on before any row hears the click.
+  document.addEventListener('click', event => {
+    if (event.detail < 2) clickRun += 1;
+  }, true);
+}
+
 /* The expanded log says who sent a treat in its label and puts the message under it. The recent
  * view keeps each row four things long: a treat gets a button at the end of its label that opens,
  * under the row and in place, who sent it and the message. A tap anywhere else on the row does
@@ -417,19 +432,24 @@ function logRow(item, money, { expanded, open = false, onToggle = () => {} }) {
   // The button toggles itself (a click, Enter or Space); the row toggles from a click anywhere
   // else on it, but not in the detail, where someone may be reading or selecting the message, nor
   // when the click selected words: at the end of a drag across them, or in a double click, which
-  // selects a word and puts the row back as it was before its first click.
+  // selects a word and puts the row back as it was before its first click. Only if this row's own
+  // first click, in this double click, is what changed it: that click can close a row and move
+  // the rows below up, leaving the second click and the double click on another row.
   const inside = event => opener.contains(event.target) || detail.contains(event.target);
-  let openBeforeClicks = open;
+  let toggledInRun = -1;
+  watchClickRuns();
   opener.addEventListener('click', toggle);
   row.addEventListener('click', event => {
     if (inside(event) || event.detail > 1) return;
-    openBeforeClicks = open;
     const selection = window.getSelection();
     if (!selection.isCollapsed && row.contains(selection.anchorNode)) return;
+    toggledInRun = clickRun;
     toggle();
   });
   row.addEventListener('dblclick', event => {
-    if (!inside(event) && open !== openBeforeClicks) toggle();
+    if (inside(event) || toggledInRun !== clickRun) return;
+    toggledInRun = -1;
+    toggle();
   });
   label.append(opener);
   row.classList.add('can-open');
