@@ -104,7 +104,23 @@ give it its own wording and its own colours.
 Why "Crumb"? Eat the bread and the crumbs stay. Spend the credit and the shelf keeps what it
 earned.
 
-## What is in version 0.4
+## What is in version 0.5
+
+New in 0.5:
+
+- **A usage note**: in Settings, under *How people spend*, an owner can write a few lines on
+  how the balance works: what it covers, how to get it, any limits. When people jot down what
+  they take, the note sits under their *I grabbed something* button. Without one, the page is
+  as before.
+- **Treats that open in place**: in a member's recent log, each treat has a *Details* button.
+  Tapping it, or the row, shows who sent the treat and the few words they wrote, without
+  opening the whole log.
+
+Upgrading from 0.4 updates the database once, on the first start of 0.5: back up first and
+read [Upgrading from 0.4 to 0.5](docs/OPERATIONS.md#upgrading-from-04-to-05), which also says
+how to go back. From 0.3 or older, read the sections for the versions in between too, starting
+with [Upgrading from 0.3 to 0.4](docs/OPERATIONS.md#upgrading-from-03-to-04). The first start
+of 0.5 makes all their updates at once.
 
 New in 0.4:
 
@@ -225,7 +241,7 @@ stand in for each other.
 
 ## Status and limits
 
-Crumb is **early — version 0.4**. The money rules, permissions, concurrency and recovery
+Crumb is **early — version 0.5**. The money rules, permissions, concurrency and recovery
 are covered by automated tests, and [docs/VALIDATION.md](docs/VALIDATION.md) records exactly
 what was tested, where, and what has not been verified yet. It has not had an independent
 security audit.
