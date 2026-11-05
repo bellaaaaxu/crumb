@@ -13,7 +13,7 @@ export const SPENDING = ['self', 'confirm'];
 const OWNER = ['owner'];
 
 const ORG_COLUMNS = `name, mode, currency, unit_label, threshold_units, locale, welcome, spending, theme,
-  admin_contact, feedback_url, (logo_png IS NOT NULL) AS has_logo,
+  usage_note, admin_contact, feedback_url, (logo_png IS NOT NULL) AS has_logo,
   EXISTS (SELECT 1 FROM ledger) AS has_ledger, EXISTS (SELECT 1 FROM rewards) AS has_rewards`;
 
 export const readOrgRow = db => db.prepare(`SELECT ${ORG_COLUMNS} FROM organization WHERE id = 1`).get();
@@ -32,6 +32,7 @@ export function orgView(row, { signedIn }) {
     welcome: row.welcome,
     spending: row.spending,
     theme: row.theme,
+    usageNote: row.usage_note,
     adminContact: row.admin_contact,
     feedbackUrl: row.feedback_url,
     hasLogo: row.has_logo === 1,
@@ -133,12 +134,13 @@ const ORG_PATCH = {
   threshold: amount({ optional: true }),
   spending: oneOf(SPENDING, { optional: true }),
   theme: oneOf(THEME_IDS, { optional: true }),
+  usageNote: text({ max: 200, optional: true, multiline: true }),
 };
 
 const COLUMN = {
   name: 'name', welcome: 'welcome', locale: 'locale', unitLabel: 'unit_label', adminContact: 'admin_contact',
   feedbackUrl: 'feedback_url', mode: 'mode', currency: 'currency', thresholdUnits: 'threshold_units',
-  spending: 'spending', theme: 'theme',
+  spending: 'spending', theme: 'theme', usageNote: 'usage_note',
 };
 
 /* After a theme change a benefit keeps its icon only if the new theme draws it; shared keys
@@ -153,8 +155,8 @@ function removeIconsOutside(db, keys, at) {
 }
 
 /**
- * Owner-only settings. Names, welcome text, language, links and the spending
- * mode can always change. The reward rules — credit or points, currency,
+ * Owner-only settings. Names, welcome text, the usage note, language, links and
+ * the spending mode can always change. The reward rules — credit or points, currency,
  * unlock threshold, collection theme — are fixed once the ledger has an entry,
  * and the unit is also fixed once a benefit has a price in it, so nothing
  * already recorded changes meaning. Before the first entry nobody has
@@ -201,6 +203,7 @@ export function updateOrg(db, actor, patch, clock = () => Date.now()) {
       thresholdUnits,
       spending: fields.spending ?? row.spending,
       theme,
+      usageNote: fields.usageNote ?? row.usage_note,
     };
     const changed = Object.keys(next).filter(key => next[key] !== row[COLUMN[key]]);
     let iconsRemoved = 0;
@@ -208,7 +211,8 @@ export function updateOrg(db, actor, patch, clock = () => Date.now()) {
       const at = new Date(clock()).toISOString();
       db.prepare(`UPDATE organization SET name = @name, welcome = @welcome, locale = @locale, unit_label = @unitLabel,
                     admin_contact = @adminContact, feedback_url = @feedbackUrl, mode = @mode, currency = @currency,
-                    threshold_units = @thresholdUnits, spending = @spending, theme = @theme, updated_at = @at
+                    threshold_units = @thresholdUnits, spending = @spending, theme = @theme,
+                    usage_note = @usageNote, updated_at = @at
                   WHERE id = 1`).run({ ...next, at });
       if (themeChanged) iconsRemoved = removeIconsOutside(db, themeById(theme).keys, at);
       const detail = themeChanged ? { changed, theme: { from: row.theme, to: theme }, iconsRemoved } : { changed };

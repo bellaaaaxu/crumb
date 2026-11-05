@@ -229,6 +229,34 @@ Going back from 0.4 to 0.3:
   back by restoring the backup made before the upgrade, with every step of
   [Rolling back](#rolling-back): everything recorded since that backup is lost.
 
+### Upgrading from 0.4 to 0.5
+
+Crumb 0.5 keeps its database at schema version 4. The footer of the signed-in pages says which
+version is running (Crumb 0.4.1 or Crumb 0.5.0). The backup command prints `schema 3` before
+the update and `schema 4` after it. The first start of 0.5 runs migration 004 on a schema 3
+database once, before the port opens:
+
+- The organization gets an empty usage note (`organization.usage_note`). Nothing shows anywhere
+  until an owner writes one in Settings.
+- Nothing else is changed.
+
+It runs in one transaction, and every reference between tables is checked before it commits,
+as in the earlier updates. If one points at a missing row, nothing is changed and Crumb does
+not start: `docker compose logs crumb` shows "Crumb cannot start: Updating the database to
+schema 4 was stopped and nothing was changed" and names the first rows. Crumb 0.4 never
+writes such a reference, so this points at a damaged or hand-edited file. The database is
+untouched, so the previous image still opens it. Put it back with steps 1, 2 and 4 of
+[Rolling back](#rolling-back) (no restore needed), and look into the file or restore a good
+backup before trying again.
+
+Crumb 0.1, 0.2 and 0.3 can be upgraded straight to 0.5. The first start then runs, in one
+transaction, every update the database is missing, as described in the sections above. A
+failure message then names schema 4.
+
+Back up first, as for any upgrade. Once the update has run, 0.4 refuses the database (its
+schema is newer). Going back means restoring the backup made before it, with every step of
+[Rolling back](#rolling-back): everything recorded since that backup is lost.
+
 ### Unknown theme
 
 Each version of Crumb includes a fixed set of collection themes. A database whose team uses a
@@ -319,6 +347,12 @@ to self-recorded are finished as usual: they stay under the member's "Your reque
 admins' "Waiting on you" until they are confirmed, declined or cancelled. A team switching to
 confirmed starts with the benefits already on its list, none if it never had any: add them on
 the Team page.
+
+When people jot down what they take, an owner can add a usage note in Settings, under
+*How people spend*: a few lines on what the balance covers, how to get it and any limits, at
+most 200 characters. It shows under everyone's *I grabbed something* button. A team that
+confirms what people spend does not show it, because each benefit has its own description.
+The note is kept, though, and shows again after switching back.
 
 ## Changing the collection theme
 

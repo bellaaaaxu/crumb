@@ -55,6 +55,12 @@ function settingsForm(ctx, org) {
   });
   // The heading above the choice says the same words: the legend stays for screen readers only.
   spending.fieldset.querySelector('legend').classList.add('sr-only');
+  // Counted on Save as the server counts it (code points of the trimmed text), so no maxlength:
+  // that counts UTF-16 units and would stop 200 emoji at 100.
+  const usageNote = field({
+    label: t('settings.usageNote'), name: 'usageNote', value: org.usageNote, multiline: true,
+    hint: t('settings.usageNoteHint'), attrs: { rows: 4, placeholder: t('settings.usageNotePlaceholder') },
+  });
   const adminContact = field({ label: t('settings.contact'), name: 'adminContact', value: org.adminContact, hint: t('settings.contactHint'), attrs: { maxlength: 300, inputmode: 'url' } });
   const feedbackUrl = field({ label: t('settings.feedback'), name: 'feedbackUrl', value: org.feedbackUrl, hint: t('settings.feedbackHint'), attrs: { maxlength: 300, inputmode: 'url' } });
 
@@ -81,7 +87,7 @@ function settingsForm(ctx, org) {
 
   const error = formError();
   const save = button(t('settings.save'), { kind: 'primary', type: 'submit' });
-  const checked = [name, unitLabel, threshold, adminContact, feedbackUrl];
+  const checked = [name, unitLabel, threshold, usageNote, adminContact, feedbackUrl];
   const form = el('form', {
     attrs: { class: 'stack', novalidate: true },
     on: {
@@ -97,6 +103,7 @@ function settingsForm(ctx, org) {
         if (!org.locks.threshold)
           check(amountToUnits(threshold.control.value.trim(), chosenMode) !== null, threshold,
             t(chosenMode === 'credit' ? 'amount.creditError' : 'amount.pointsError'));
+        check([...usageNote.control.value.trim()].length <= 200, usageNote, t('settings.usageNoteTooLong'));
         check(looksLikeContact(adminContact.control.value.trim()), adminContact, t('settings.contactHint'));
         check(looksLikeHttps(feedbackUrl.control.value.trim()), feedbackUrl, t('settings.feedbackHint'));
         if (problems.length) {
@@ -106,7 +113,7 @@ function settingsForm(ctx, org) {
         const body = {
           name: name.control.value, welcome: welcome.control.value, locale: locale.control.value, unitLabel: unitLabel.control.value,
           adminContact: adminContact.control.value.trim(), feedbackUrl: feedbackUrl.control.value.trim(),
-          spending: spending.value,
+          spending: spending.value, usageNote: usageNote.control.value,
         };
         if (!org.locks.mode) {
           body.mode = chosenMode;
@@ -143,6 +150,7 @@ function settingsForm(ctx, org) {
     el('h2', { text: t('settings.spendingTitle'), attrs: { class: 'tile-title' } }),
     spending.fieldset,
     el('p', { text: t('settings.spendingNote'), attrs: { class: 'muted small' } }),
+    usageNote.wrapper,
     el('h2', { text: t('settings.linksTitle'), attrs: { class: 'tile-title' } }),
     adminContact.wrapper, feedbackUrl.wrapper,
     error.node,

@@ -275,7 +275,7 @@ function olderBackup(path, version) {
   raw.pragma('foreign_keys = OFF');
   raw.exec('CREATE TABLE schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL)');
   const at = new Date().toISOString();
-  ['001-initial.sql', '002-spending.sql'].slice(0, version).forEach((file, index) => {
+  ['001-initial.sql', '002-spending.sql', '003-theme.sql'].slice(0, version).forEach((file, index) => {
     raw.exec(readFileSync(new URL(`../server/migrations/${file}`, import.meta.url), 'utf8'));
     raw.prepare('INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)').run(index + 1, at);
   });
@@ -314,4 +314,21 @@ test('backups from before schema 3, and from before setup, restore as usual', as
   const destination = join(dir, 'from-before-setup', 'crumb.sqlite');
   assert.deepEqual(await restoreDatabase({ sourcePath: beforeSetup, destinationPath: destination }),
     { path: destination, schemaVersion: SCHEMA_VERSION });
+});
+
+test('a 0.4 backup restores and opens with an empty usage note', async t => {
+  const { dir } = fixture(t);
+  const destination = join(dir, 'from-schema-3', 'crumb.sqlite');
+  const source = olderBackup(join(dir, 'schema-3.sqlite'), 3);
+  assert.deepEqual(await restoreDatabase({ sourcePath: source, destinationPath: destination }),
+    { path: destination, schemaVersion: 3 });
+  // Restored as it is, at schema 3; opening it brings the team up to date with no note.
+  const upgraded = openDatabase(destination);
+  try {
+    assert.equal(schemaVersionOf(upgraded), SCHEMA_VERSION);
+    assert.deepEqual(upgraded.prepare('SELECT name, theme, usage_note FROM organization').get(),
+      { name: 'Old Team', theme: 'default', usage_note: '' });
+  } finally {
+    upgraded.close();
+  }
 });

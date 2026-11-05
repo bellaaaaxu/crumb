@@ -299,6 +299,20 @@ function version2Database(path) {
   raw.close();
 }
 
+/* A schema 3 database like one Crumb 0.3 and 0.4 leave behind: the schema 2 database above
+ * with 003-theme.sql applied the way server/db.mjs applies it (foreign keys off) and recorded
+ * as version 3, its team on a non-default theme and with a welcome line, so the columns
+ * 003 added and the ones before it carry data. */
+function version3Database(path) {
+  version2Database(path);
+  const raw = new Database(path);
+  raw.pragma('foreign_keys = OFF');
+  raw.exec(readFileSync(new URL('../server/migrations/003-theme.sql', import.meta.url), 'utf8'));
+  raw.prepare('INSERT INTO schema_migrations (version, applied_at) VALUES (3, ?)').run(now());
+  raw.prepare(`UPDATE organization SET theme = 'cafe', welcome = 'Thanks for everything.' WHERE id = 1`).run();
+  raw.close();
+}
+
 /* Every row a team owns, in a fixed order, for before-and-after comparisons. */
 const teamRows = db => ({
   organization: db.prepare('SELECT * FROM organization').all(),
@@ -321,11 +335,49 @@ test('migration 003 puts a 0.2 team on the default theme and leaves its data as 
     assert.deepEqual(db.pragma('foreign_key_check'), []);
     const after = teamRows(db);
     assert.deepEqual(after.organization.map(row => row.theme), ['default']);
-    assert.deepEqual(after.organization.map(({ theme: _theme, ...row }) => row), before.organization);
+    // The same update goes on to 004, whose column is not what this test is about.
+    assert.deepEqual(after.organization.map(({ theme: _theme, usage_note: _usageNote, ...row }) => row), before.organization);
     assert.deepEqual({ ...after, organization: [] }, { ...before, organization: [] });
   } finally {
     db.close();
   }
+});
+
+test('migration 004 gives a 0.4 team an empty usage note and leaves its data as it was', t => {
+  const path = tempDatabasePath(t);
+  version3Database(path);
+  const raw = new Database(path);
+  assert.equal(schemaVersionOf(raw), 3);
+  const before = teamRows(raw);
+  raw.close();
+
+  const db = openDatabase(path);
+  try {
+    assert.equal(schemaVersionOf(db), SCHEMA_VERSION);
+    assert.equal(SCHEMA_VERSION, 4);
+    assert.deepEqual(db.pragma('foreign_key_check'), []);
+    const after = teamRows(db);
+    assert.equal(after.organization.length, 1);
+    assert.deepEqual(after.organization.map(row => row.usage_note), ['']);
+    assert.deepEqual(after.organization.map(({ usage_note: _usageNote, ...row }) => row), before.organization);
+    assert.deepEqual({ ...after, organization: [] }, { ...before, organization: [] });
+  } finally {
+    db.close();
+  }
+});
+
+test('a usage note is at most 200 characters, counted as the server counts', t => {
+  const { db } = fixture(t);
+  assert.equal(db.prepare('SELECT usage_note FROM organization').get().usage_note, '', 'a team set up without one has none');
+  const set = note => db.prepare('UPDATE organization SET usage_note = ? WHERE id = 1').run(note);
+  // Characters, not bytes and not UTF-16 units: a CJK character and a line break count 1, so does an emoji.
+  for (const note of ['字'.repeat(200), '字'.repeat(100) + '\n' + '字'.repeat(99), '😀'.repeat(200), '']) {
+    set(note);
+    assert.equal(db.prepare('SELECT usage_note FROM organization').get().usage_note, note);
+  }
+  assert.throws(() => set('字'.repeat(201)), /CHECK/);
+  assert.throws(() => set('😀'.repeat(201)), /CHECK/);
+  assert.throws(() => set(null), /NOT NULL/);
 });
 
 test('a team theme is 2 to 32 characters; which themes exist is up to the theme list files', t => {

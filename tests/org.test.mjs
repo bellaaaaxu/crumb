@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import sharp from 'sharp';
-import { normalizeLogo, updateOrg } from '../server/org.mjs';
+import { normalizeLogo, orgView, readOrgRow, updateOrg } from '../server/org.mjs';
 import { grant } from '../server/ledger.mjs';
 import { updateMember } from '../server/members.mjs';
 import { listRewards, saveReward } from '../server/rewards.mjs';
@@ -186,6 +186,45 @@ test('the spending mode defaults to self, and only an owner changes it, at any t
   assert.throws(() => updateOrg(db, { id: admin.id, role: 'admin' }, { spending: 'confirm' }), code('FORBIDDEN'));
   const audit = db.prepare(`SELECT detail_json FROM audit WHERE action = 'org.update' ORDER BY created_at DESC, rowid DESC LIMIT 1`).get();
   assert.deepEqual(JSON.parse(audit.detail_json).changed, ['spending']);
+});
+
+const lastOrgAudit = db => JSON.parse(db.prepare(
+  `SELECT detail_json FROM audit WHERE action = 'org.update' ORDER BY created_at DESC, rowid DESC LIMIT 1`).get().detail_json);
+
+test('the usage note is optional, keeps its line breaks, is at most 200 characters and is audited', t => {
+  const { db, owner, member } = fixture(t);
+  assert.equal(updateOrg(db, owner, {}).usageNote, '', 'a team starts without one');
+  assert.equal(Object.hasOwn(orgView(readOrgRow(db), { signedIn: false }), 'usageNote'), false, 'signed-out visitors do not see it');
+
+  assert.equal(updateOrg(db, owner, { usageNote: 'Line one\nLine two' }).usageNote, 'Line one\nLine two');
+  assert.deepEqual(lastOrgAudit(db).changed, ['usageNote']);
+  assert.equal(updateOrg(db, owner, {}).usageNote, 'Line one\nLine two', 'a patch without it leaves it alone');
+  assert.equal(Object.hasOwn(orgView(readOrgRow(db), { signedIn: false }), 'usageNote'), false);
+
+  // One counting rule, the server's: characters after trimming, a CJK character, a line break and an emoji each 1.
+  for (const note of ['字'.repeat(200), '字'.repeat(100) + '\n' + '字'.repeat(99), '😀'.repeat(200)])
+    assert.equal(updateOrg(db, owner, { usageNote: note }).usageNote, note, `${[...note].length} characters`);
+  for (const note of ['字'.repeat(201), '😀'.repeat(201), '字'.repeat(100) + '\n' + '字'.repeat(100)])
+    assert.throws(() => updateOrg(db, owner, { usageNote: note }), code('INVALID_INPUT'), `${[...note].length} characters`);
+  assert.equal(updateOrg(db, owner, { usageNote: '  ' + '字'.repeat(200) + '\n\n' }).usageNote, '字'.repeat(200), 'trimmed before it is counted');
+
+  assert.throws(() => updateOrg(db, owner, { usageNote: 'a\u0007b' }), code('INVALID_INPUT'));
+  assert.equal(updateOrg(db, owner, { usageNote: '  \n  ' }).usageNote, '', 'only spaces and blank lines is no note');
+  assert.deepEqual(lastOrgAudit(db).changed, ['usageNote']);
+
+  const admin = updateMember(db, owner, member.id, { role: 'admin' });
+  assert.throws(() => updateOrg(db, { id: admin.id, role: 'admin' }, { usageNote: 'Admin was here' }), code('FORBIDDEN'));
+  assert.equal(readOrgRow(db).usage_note, '');
+});
+
+test('switching how people spend keeps the usage note', t => {
+  const { db, owner } = fixture(t);
+  updateOrg(db, owner, { usageNote: 'Any drink from the counter.\nOnce a day.' });
+  for (const spending of ['confirm', 'self']) {
+    const org = updateOrg(db, owner, { spending });
+    assert.equal(org.spending, spending);
+    assert.equal(org.usageNote, 'Any drink from the counter.\nOnce a day.', spending);
+  }
 });
 
 test('setup accepts a spending mode and the session reports it', async t => {

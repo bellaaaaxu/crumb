@@ -15,7 +15,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import sharp from 'sharp';
 import { PASSWORD, askFor, keyIn, nameMenu, openPerson, provision, startCrumb } from './fixtures.mjs';
 import { client, orgInput } from '../helpers.mjs';
-import { baselineText, differences, packScenes, recordStyles, unpackScenes } from './style-recorder.mjs';
+import { COLOUR_PROPERTIES, baselineText, differences, packScenes, recordStyles, transitionsEndedIn, unpackScenes } from './style-recorder.mjs';
 
 const RECORDING = process.env.CRUMB_RECORD_LIGHT_STYLES;
 const BASELINE = fileURLToPath(new URL('../fixtures/light-styles-0.3.0.json', import.meta.url));
@@ -134,13 +134,109 @@ async function memberWithCredit(browser, theme, { viewport } = {}) {
   return { fx, page };
 }
 
+/* The Settings page has one field the 0.3.0 page did not: the usage note, in the middle of the
+ * form, so every element after it sits one place further on and takes another key. It is built
+ * like the welcome message (a label, a hint, a textarea and a hidden error under one .field),
+ * so it is first shown to compute the same colours as that field, then taken out, and the
+ * record names the same elements as 0.3.0's. Recording the baseline runs in 0.3.0, which has
+ * no such field. */
+async function recordSettings(page, label) {
+  if (RECORDING) return recordStyles(page, label);
+  const { note, welcome } = await page.evaluate(properties => {
+    const parts = name => {
+      const wrapper = document.querySelector(`textarea[name="${name}"]`).closest('.field');
+      return { wrapper, nodes: [wrapper, ...wrapper.querySelectorAll('label, p.field-hint, textarea, p.field-error')] };
+    };
+    const colours = nodes => nodes.map(node => properties.map(property => getComputedStyle(node).getPropertyValue(property)));
+    const usage = parts('usageNote');
+    const result = { note: colours(usage.nodes), welcome: colours(parts('welcome').nodes) };
+    usage.wrapper.remove();
+    return result;
+  }, COLOUR_PROPERTIES);
+  expect(welcome).toHaveLength(5);
+  expect(note, 'the usage note looks like the welcome message').toEqual(welcome);
+  return recordStyles(page, label);
+}
+
+/* On the member page, each treat row in "Log · Recent" has three things the 0.3.0 page did not:
+ * an opener (button.rec-more, the last child of its span.rec-label), the detail it opens
+ * (div.rec-detail, the last child of the li, hidden while closed), and the class can-open on the
+ * li. Their light colours at rest are first checked against the theme's tokens: the opener's
+ * text is --accent, and, with a row opened to show it, a message sits on --paper. Then exactly
+ * those are taken out, which puts the log back in 0.3.0's shape. Taking them out is shown to
+ * change no colour of a treat row or its own elements, so it hides nothing, and every element
+ * left is held to 0.3.0's colours as strictly as anywhere else. `openers` is how many treat rows
+ * the scene's recent log shows: one fewer or one more fails. Recording the baseline runs in
+ * 0.3.0, which has none of them. */
+async function recordMemberPage(page, label, { openers }) {
+  if (RECORDING) return recordStyles(page, label);
+  const found = await page.evaluate(() => {
+    /* What a token gives here: a probe beside `node`, coloured through its style object. */
+    const token = (node, property, name) => {
+      if (getComputedStyle(node).getPropertyValue(name).trim() === '') return `${name} is not set`;
+      const probe = document.createElement('span');
+      probe.style[property] = `var(${name})`;
+      node.after(probe);
+      const value = getComputedStyle(probe)[property];
+      probe.remove();
+      return value;
+    };
+    const rows = [...document.querySelectorAll('.can-open')];
+    const shown = [...document.querySelectorAll('button.rec-more')];
+    const counts = { rows: rows.length, openers: shown.length, details: document.querySelectorAll('div.rec-detail').length };
+    const placed = rows.map(row => row.matches('li.rec.log-grant')
+      && Boolean(row.querySelector(':scope > span.rec-label')?.lastElementChild?.matches('button.rec-more'))
+      && row.lastElementChild.matches('div.rec-detail'));
+    const accent = shown.map(opener => ({ colour: getComputedStyle(opener).color, token: token(opener, 'color', '--accent') }));
+    // Opened as the button opens it, by taking off the detail's hidden: a click would also reach
+    // the page, where it closes an open name menu, and the keypad makes the page inert to it.
+    const message = rows.map(row => row.querySelector('.rec-msg')).find(Boolean);
+    if (message) message.closest('.rec-detail').hidden = false;
+    const paper = message
+      ? { shown: message.checkVisibility(), colour: getComputedStyle(message).backgroundColor, token: token(message, 'backgroundColor', '--paper') }
+      : null;
+    return { counts, placed, accent, paper };
+  });
+  expect(found.counts, `${label}: one opener, one detail and can-open for each treat row in Log · Recent`)
+    .toEqual({ rows: openers, openers, details: openers });
+  expect(found.placed, `${label}: the opener last in the label, the detail last in the row`).toEqual(Array(openers).fill(true));
+  for (const { colour, token } of found.accent) expect(colour, `${label}: the opener's text is --accent`).toBe(token);
+  expect(found.paper, `${label}: a treat row with a message`).not.toBeNull();
+  expect(found.paper.shown, `${label}: the opened message is shown`).toBe(true);
+  expect(found.paper.colour, `${label}: a message sits on --paper`).toBe(found.paper.token);
+  // Taken out, and shown to have coloured nothing 0.3.0 had: each treat row and its own elements
+  // (diamond, amount, label, date, badge) read the same, once settled, before and after.
+  const transitionsEnded = await transitionsEndedIn(page);
+  let before;
+  let after;
+  try {
+    ({ before, after } = await page.evaluate(async ({ properties, transitionsEnded }) => {
+      const rows = [...document.querySelectorAll('.can-open')];
+      const colours = () => rows.map(row => [row, ...row.querySelectorAll(':scope > .rec-diamond, :scope > .rec-amt, :scope > .rec-label, :scope > .rec-time, :scope > .badge')]
+        .map(node => [node.classList[0], ...properties.map(property => getComputedStyle(node).getPropertyValue(property))]));
+      await transitionsEnded();
+      const was = colours();
+      for (const node of document.querySelectorAll('button.rec-more, div.rec-detail')) node.remove();
+      for (const row of rows) row.classList.remove('can-open');
+      await transitionsEnded();
+      return { before: was, after: colours() };
+    }, { properties: COLOUR_PROPERTIES, transitionsEnded }));
+  } finally {
+    await transitionsEnded.dispose();
+  }
+  expect(before.flat().length, `${label}: the treat rows' own elements were read`).toBeGreaterThanOrEqual(openers * 5);
+  expect(after, `${label}: taking out the new parts changes no colour of a treat row's own elements`).toEqual(before);
+  return recordStyles(page, label);
+}
+
 async function keypad(browser, theme, label, digits, viewport) {
   const { fx, page } = await memberWithCredit(browser, theme, { viewport });
   try {
     await page.getByRole('button', { name: 'I grabbed something', exact: true }).click();
     await expect(page.getByRole('group', { name: 'Amount keypad' })).toBeVisible();
     if (digits) await keyIn(page, digits);
-    return await recordStyles(page, label);
+    // Behind the keypad, the treat the member was given is the one row of "Log · Recent".
+    return await recordMemberPage(page, label, { openers: 1 });
   } finally {
     await fx.close();
   }
@@ -195,7 +291,8 @@ const SCENES = [
         await expect(page.locator('.benefit .price').first()).toHaveText('45 points');
         await nameMenu(page).click();
         await expect(page.locator('.topbar .menu')).toBeVisible();
-        return await recordStyles(page, label);
+        // The Sunday-shift treat is the second of the five rows in "Log · Recent".
+        return await recordMemberPage(page, label, { openers: 1 });
       } finally {
         await fx.close();
       }
@@ -237,7 +334,7 @@ const SCENES = [
         await forgetSeen(page);
         await page.reload();
         await expect(page.locator('.oven-caption.complete')).toBeVisible();
-        return await recordStyles(page, label);
+        return await recordMemberPage(page, label, { openers: 1 });
       } finally {
         await fx.close();
       }
@@ -344,7 +441,7 @@ const SCENES = [
         await page.getByRole('button', { name: 'Save settings', exact: true }).click();
         await expect(page.getByLabel('Organization name')).toHaveAttribute('aria-invalid', 'true');
         await expect(page.getByLabel('Feedback link for Crumb')).toHaveAttribute('aria-invalid', 'true');
-        return await recordStyles(page, label);
+        return await recordSettings(page, label);
       } finally {
         await fx.close();
       }
@@ -366,7 +463,7 @@ const SCENES = [
         await expect(page.locator('input[name="theme"]:not(:disabled)')).toHaveCount(0);
         await expect(page.locator('.logo-preview')).toBeVisible();
         await expect(page.locator('.topbar .brand-logo')).toBeVisible();
-        return await recordStyles(page, label);
+        return await recordSettings(page, label);
       } finally {
         await fx.close();
       }

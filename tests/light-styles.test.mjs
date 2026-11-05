@@ -8,6 +8,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { normalise, parseCss, splitSelectors, substitute, variablesOf } from './css.mjs';
+import { COLOUR_PROPERTIES } from './e2e/style-recorder.mjs';
 
 const read = path => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
 
@@ -120,6 +121,89 @@ const APP_ADDITIONS = [
     declarations: { color: '#fff3dc' },
     why: 'an error toast is also a .toast, whose text is this same colour',
   },
+  {
+    selectors: ['.usage-note'],
+    declarations: {
+      background: '#fbf3e0', 'border-radius': '14px', padding: '12px 16px 14px', 'box-shadow': 'inset 0 0 0 2px #e4d2ae',
+    },
+    why: 'only elements 0.3.0 did not have; a team without a usage note renders none of them',
+  },
+  {
+    selectors: ['.usage-title'],
+    declarations: {
+      'font-size': '0.75rem', 'letter-spacing': '0.14em', 'font-weight': '800', color: '#7a4a26', 'margin-bottom': '6px',
+    },
+    why: 'only elements 0.3.0 did not have; a team without a usage note renders none of them',
+  },
+  {
+    selectors: ['.usage-text'],
+    declarations: {
+      'font-size': '0.9rem', 'line-height': '1.6', 'white-space': 'pre-line', 'overflow-wrap': 'anywhere', color: '#4a2f1b',
+    },
+    why: 'only elements 0.3.0 did not have; a team without a usage note renders none of them',
+  },
+  {
+    selectors: ['.rec.can-open'],
+    declarations: { cursor: 'pointer' },
+    why: 'only elements 0.3.0 did not have: the opener and the detail of a treat row',
+  },
+  {
+    selectors: ['.rec-more'],
+    declarations: {
+      display: 'inline-flex', 'align-items': 'center', gap: '3px', 'margin-left': '6px', padding: '1px 6px 1px 7px', border: '0',
+      'border-radius': '999px', background: 'none', font: 'inherit', 'font-size': '0.72rem', 'font-weight': '700', color: '#7a4a26',
+      'box-shadow': 'inset 0 0 0 1.5px currentColor', 'white-space': 'nowrap', cursor: 'pointer',
+    },
+    why: 'only elements 0.3.0 did not have: the opener and the detail of a treat row',
+  },
+  {
+    selectors: ['.rec-more .words'],
+    declarations: { display: 'grid', 'justify-items': 'center' },
+    why: 'only elements 0.3.0 did not have: the opener and the detail of a treat row',
+  },
+  {
+    selectors: ['.rec-more .words > span'],
+    declarations: { 'grid-area': '1 / 1' },
+    why: 'only elements 0.3.0 did not have: the opener and the detail of a treat row',
+  },
+  {
+    selectors: [".rec-more[aria-expanded='true'] .when-closed", ".rec-more[aria-expanded='false'] .when-open"],
+    declarations: { visibility: 'hidden' },
+    why: 'only elements 0.3.0 did not have: the opener and the detail of a treat row',
+  },
+  {
+    selectors: ['.rec-more .chev'],
+    declarations: { display: 'inline-block', transition: 'transform 0.3s' },
+    why: 'only elements 0.3.0 did not have: the opener and the detail of a treat row',
+  },
+  {
+    selectors: [".rec-more[aria-expanded='true'] .chev"],
+    declarations: { transform: 'rotate(180deg)' },
+    why: 'only elements 0.3.0 did not have: the opener and the detail of a treat row',
+  },
+  {
+    selectors: ['.rec-detail'],
+    declarations: { 'flex-basis': '100%', 'margin-left': '21px', display: 'flex', 'flex-direction': 'column', gap: '6px' },
+    why: 'only elements 0.3.0 did not have: the opener and the detail of a treat row',
+  },
+  {
+    selectors: ['.rec-from'],
+    declarations: { 'font-size': '0.8rem', color: '#7a5c40' },
+    why: 'only elements 0.3.0 did not have: the opener and the detail of a treat row',
+  },
+  {
+    selectors: ['.rec-from b'],
+    declarations: { color: '#4a2f1b' },
+    why: 'only elements 0.3.0 did not have: the opener and the detail of a treat row',
+  },
+  {
+    selectors: ['.rec-msg'],
+    declarations: {
+      'font-size': '0.875rem', 'line-height': '1.6', 'white-space': 'pre-line', 'overflow-wrap': 'anywhere', background: '#fbf3e0',
+      'border-radius': '10px', padding: '8px 12px', 'box-shadow': 'inset 0 0 0 1px #e4d2ae',
+    },
+    why: 'only elements 0.3.0 did not have: the opener and the detail of a treat row',
+  },
 ];
 
 /* The one change made to light on purpose since 0.3.0, kept apart from the list above because
@@ -184,6 +268,44 @@ const SHEETS = [
     additions: DEMO_ADDITIONS,
   },
 ];
+
+/* tests/e2e/light-unchanged.spec.mjs compares the member page with 0.3.0 only after taking out
+ * what a treat row in "Log · Recent" has that 0.3.0's did not: the opener, the detail, and the
+ * class can-open on the li. A rule hung on those that coloured an element 0.3.0 had would go
+ * with them, unseen. So every listed rule that names them must style one of the new elements:
+ * its subject is, or sits inside, the opener or the detail (no sibling combinator, and not
+ * named only inside a pseudo-class such as :has()). The one rule on an element 0.3.0 had,
+ * .rec.can-open, the li, may set nothing the browser check reads as colour. */
+const NEW_ELEMENT = /\.(?:rec-more|rec-detail|rec-from|rec-msg)(?![\w-])/;
+const TREAT_ROW_PART = /\.(?:can-open|rec-more|rec-detail|rec-from|rec-msg)(?![\w-])/;
+const setsColour = property => property === 'all' || COLOUR_PROPERTIES.some(name => name === property || name.startsWith(`${property}-`));
+
+function stylesANewElement(selector) {
+  const bare = selector.replace(/\[[^\]]*\]/g, '').replace(/\([^()]*\)/g, '');
+  return !/[+~]/.test(bare) && bare.split(/\s*>\s*|\s+/).some(compound => NEW_ELEMENT.test(compound));
+}
+
+test('a treat row\'s new rules style only its new elements, and the li no colour', () => {
+  const rules = APP_ADDITIONS.flatMap(({ selectors, declarations }) => selectors.map(selector => ({ selector, declarations })))
+    .filter(({ selector }) => TREAT_ROW_PART.test(selector));
+  assert.ok(rules.some(({ selector }) => selector === '.rec.can-open'), 'the li\'s rule is among them');
+  assert.ok(rules.filter(({ selector }) => stylesANewElement(selector)).length >= 11, 'the new elements\' rules are among them');
+  for (const { selector, declarations } of rules) {
+    if (stylesANewElement(selector)) continue;
+    assert.equal(selector, '.rec.can-open', `${selector} styles an element 0.3.0 had`);
+    assert.deepEqual(Object.keys(declarations).filter(setsColour), [], `${selector} sets a colour`);
+  }
+  // The reader of selectors itself: what it lets through and what it stops.
+  assert.equal(stylesANewElement(".rec-more[aria-expanded='true'] .chev"), true);
+  assert.equal(stylesANewElement('.rec-detail > .rec-msg'), true);
+  assert.equal(stylesANewElement('.rec.can-open .rec-amt'), false);
+  assert.equal(stylesANewElement('.rec:has(.rec-more) .rec-time'), false);
+  assert.equal(stylesANewElement('.rec-detail ~ .rec-time'), false);
+  assert.equal(setsColour('cursor'), false);
+  assert.equal(setsColour('border'), true);
+  assert.equal(setsColour('background'), true);
+  assert.equal(setsColour('color'), true);
+});
 
 test('only rules for a theme with colours of its own are left out', () => {
   assert.deepEqual(OWN_COLOURS, ['cafe']);
