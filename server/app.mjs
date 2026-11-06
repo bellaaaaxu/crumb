@@ -91,7 +91,9 @@ export function createApp({ db, config, clock = () => Date.now(), log = console.
   });
 
   const api = express.Router();
-  api.use(express.json({ limit: '32kb' }));
+  // Crumb's pages never compress what they send. A compressed body is refused (415) before
+  // anything decompresses it, so no decoder runs on a request nobody has checked yet.
+  api.use(express.json({ limit: '32kb', inflate: false }));
   api.use(sessionMiddleware({ db, config, clock }));
   api.use(csrfMiddleware({ config }));
   api.use(authRoutes({ db, config, clock }));

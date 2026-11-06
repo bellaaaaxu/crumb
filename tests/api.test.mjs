@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
+import { request as httpRequest } from 'node:http';
+import { brotliCompressSync, deflateSync, gzipSync } from 'node:zlib';
 import Database from 'better-sqlite3';
 import { authenticatedClient, joinTeam, setupOrganization, startServer } from './helpers.mjs';
 
@@ -699,4 +701,41 @@ test('a retried add gets its stored answer after a theme change; a new add is ch
   const fixed = await owner.request('POST', '/api/admin/rewards', { ...body, iconKey: 'croissant' }, freshKey);
   assert.deepEqual([fixed.status, fixed.body.iconKey], [201, 'croissant']);
   assert.equal(count('rewards'), 2);
+});
+
+/* Crumb's own pages never compress what they send, so a compressed request body is refused
+ * before anything decompresses it (body-parser's inflate: false), on every route that reads a
+ * body: JSON under /api and the logo upload. The same request uncompressed still works. */
+test('compressed request bodies are refused before they are read, and the server keeps answering', async t => {
+  const server = await startServer(t);
+  const { api: owner } = await setupOrganization(server);
+  const json = Buffer.from(JSON.stringify({ welcome: 'Compressed hello' }));
+  for (const [encoding, body] of [['gzip', gzipSync(json)], ['deflate', deflateSync(json)], ['br', brotliCompressSync(json)]]) {
+    const refused = await owner.request('PATCH', '/api/org', new Uint8Array(body), { 'content-encoding': encoding });
+    assert.deepEqual([refused.status, refused.body.error.code], [415, 'BAD_REQUEST'], encoding);
+  }
+  assert.equal((await owner.request('GET', '/api/session')).body.org.welcome, '');
+  const plain = await owner.request('PATCH', '/api/org', { welcome: 'Plain hello' });
+  assert.deepEqual([plain.status, plain.body.welcome], [200, 'Plain hello']);
+
+  const logo = await owner.request('PUT', '/api/org/logo', new Uint8Array(gzipSync(Buffer.from('not a picture'))),
+    { 'content-type': 'image/png', 'content-encoding': 'gzip' });
+  assert.equal(logo.status, 415);
+
+  // Signed out, with bytes left over after the compressed body (GHSA-27r3-jxmh-p828): refused,
+  // and the server still answers afterwards.
+  const { hostname, port } = new URL(server.base);
+  const status = await new Promise((resolve, reject) => {
+    const req = httpRequest({ hostname, port, method: 'POST', path: '/api/login',
+      headers: { 'content-type': 'application/json', 'content-encoding': 'gzip', 'transfer-encoding': 'chunked' } }, res => {
+      res.resume();
+      res.on('end', () => resolve(res.statusCode));
+    });
+    req.on('error', reject);
+    req.write(gzipSync(Buffer.from('{"username":"a","password":"b"}')));
+    setTimeout(() => { req.write('trailing bytes'); req.end(); }, 200);
+  });
+  assert.equal(status, 415);
+  await new Promise(resolve => { setTimeout(resolve, 300); });
+  assert.equal((await owner.request('GET', '/api/session')).status, 200);
 });
