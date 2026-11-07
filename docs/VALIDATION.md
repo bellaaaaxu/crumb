@@ -1,6 +1,6 @@
 # Validation report
 
-What has been checked for Crumb 0.5.0, how, where — and what has **not** been checked.
+What has been checked for Crumb 0.5.1, how, where — and what has **not** been checked.
 Nothing here is marked as passing unless it was actually run. The per-requirement view is in
 [RELEASE-CHECKLIST.md](RELEASE-CHECKLIST.md).
 
@@ -51,6 +51,9 @@ named under "Earlier runs during development" below.
   volume, owner recovery and rollback.
 - **Checked for 0.4.1** on one Windows computer: `npm test` and the browser tests (in
   Chromium) on the branch `fix/0.4.1` (see "Version 0.4.1").
+- **Checked for 0.5.1** on one Windows computer: `npm test` and the browser tests (in
+  Chromium) on the branch `fix/dependency-advisories`, and in CI on its pull request (see
+  "Version 0.5.1").
 - **Checked by hand on one iPhone,** for 0.1: signing in by QR code with the camera and through
   WeChat, and the home-screen icon (see "Real phone check").
 - **Shown to the maintainer and approved,** for the usage-note round: its interface sentences,
@@ -82,15 +85,15 @@ named under "Earlier runs during development" below.
   with three independent checks of each finding, all by Claude agents; and for the café round
   a review of each task's code against the design and for code quality, with a fix round and a second review where a review found a problem, all by Claude agents; and for the usage-note round a review of each task against its plan and for code quality, with fix rounds where a review found a problem, then one review of the whole branch, one wave of fixes and a re-review of that wave, all by Claude agents. No human code review and no professional security audit has happened yet, of any
   round.
-- So Crumb 0.5.0 is **not yet validated for managing a real team's benefits.** What is still
+- So Crumb 0.5.1 is **not yet validated for managing a real team's benefits.** What is still
   needed is at the end of the checklist.
 
 ## Environment
 
 | | Local | CI |
 | --- | --- | --- |
-| Commit | The development branch `feature/usage-note`, from a fresh clone (see "Results from a fresh clone (local)"). The commit cloned was `0680fe2` ("Undo a double-click only on the row it toggled"). The 0.4.0 record, a fresh clone of `ce41879`, the 0.3.0 record, a fresh clone of `9849c31`, and the records before it are kept below. | 0.1: `67a174b`, [run 36412250215](https://github.com/bellaaaaxu/crumb/actions/runs/36412250215). 0.2.0: the pull request's last commit `1fb57ee`, [run 36983236954](https://github.com/bellaaaaxu/crumb/actions/runs/36983236954), and the merge commit `bbfda7f` on `main`, [run 36984318360](https://github.com/bellaaaaxu/crumb/actions/runs/36984318360). 0.3.0: the pull request's last commit `057cd38`, [run 37433938374](https://github.com/bellaaaaxu/crumb/actions/runs/37433938374), and the merge commit `5247e73` on `main`, [run 37434828326](https://github.com/bellaaaaxu/crumb/actions/runs/37434828326). 0.4.0: the pull request's last commit `b4c3f62`, [run 39098953289](https://github.com/bellaaaaxu/crumb/actions/runs/39098953289), and the merge commit `c3a0278` on `main`, [run 39108290066](https://github.com/bellaaaaxu/crumb/actions/runs/39108290066). 0.5.0: the pull request's last commit `0680fe2`, [run 41811979611](https://github.com/bellaaaaxu/crumb/actions/runs/41811979611). |
-| Date | 2026-11-04 (the fresh clone of `0680fe2` and the upgrade and rollback drill); 2026-10-17 (the 0.4.0 record); 2026-10-05 (the 0.3.0 record); 2026-10-01 (the 0.2.0 records); 2026-09-30 and 2026-10-01 (the earlier runs during development of 0.2.0) | 2026-09-28 (0.1); 2026-10-02 (0.2.0); 2026-10-06 (0.3.0); 2026-10-18 (0.4.0); 2026-11-04 (0.5.0) |
+| Commit | The development branch `feature/usage-note`, from a fresh clone (see "Results from a fresh clone (local)"). The commit cloned was `0680fe2` ("Undo a double-click only on the row it toggled"). The 0.4.0 record, a fresh clone of `ce41879`, the 0.3.0 record, a fresh clone of `9849c31`, and the records before it are kept below. | 0.1: `67a174b`, [run 36412250215](https://github.com/bellaaaaxu/crumb/actions/runs/36412250215). 0.2.0: the pull request's last commit `1fb57ee`, [run 36983236954](https://github.com/bellaaaaxu/crumb/actions/runs/36983236954), and the merge commit `bbfda7f` on `main`, [run 36984318360](https://github.com/bellaaaaxu/crumb/actions/runs/36984318360). 0.3.0: the pull request's last commit `057cd38`, [run 37433938374](https://github.com/bellaaaaxu/crumb/actions/runs/37433938374), and the merge commit `5247e73` on `main`, [run 37434828326](https://github.com/bellaaaaxu/crumb/actions/runs/37434828326). 0.4.0: the pull request's last commit `b4c3f62`, [run 39098953289](https://github.com/bellaaaaxu/crumb/actions/runs/39098953289), and the merge commit `c3a0278` on `main`, [run 39108290066](https://github.com/bellaaaaxu/crumb/actions/runs/39108290066). 0.5.0: the pull request's last commit `0680fe2`, [run 41811979611](https://github.com/bellaaaaxu/crumb/actions/runs/41811979611), and the merge commit `3853bb4` on `main`, [run 41946272116](https://github.com/bellaaaaxu/crumb/actions/runs/41946272116). 0.5.1: the pull request's last code commit `bbfb136`, [run 42188754242](https://github.com/bellaaaaxu/crumb/actions/runs/42188754242). |
+| Date | 2026-11-04 (the fresh clone of `0680fe2` and the upgrade and rollback drill); 2026-10-17 (the 0.4.0 record); 2026-10-05 (the 0.3.0 record); 2026-10-01 (the 0.2.0 records); 2026-09-30 and 2026-10-01 (the earlier runs during development of 0.2.0) | 2026-09-28 (0.1); 2026-10-02 (0.2.0); 2026-10-06 (0.3.0); 2026-10-18 (0.4.0); 2026-11-04 and 2026-11-05 (0.5.0); 2026-11-06 (0.5.1) |
 | Machine | Windows 11 Pro 10.0.26200 | GitHub Actions `ubuntu-24.04`, x64 (image 20260920.314.1 for 0.1, 20260927.320.1 for 0.2.0 and 0.3.0, 20261012.334.1 for 0.4.0, 20261025.353.1 for 0.5.0) |
 | Node.js | 24.14.0, npm 11.9.0 | 24.14.0 for the tests; 24.21.0 inside the image (0.1) |
 | SQLite, images | 3.53.4 (better-sqlite3 13.0.3); sharp 0.35.5 with libvips 8.18.7 | the same packages |
@@ -168,6 +171,32 @@ note, which the second run cleared before it began. Read by its accessible name,
 of the second run passed. The 0.5.0 server was stopped by ending its process, because Windows
 cannot send it SIGTERM, so a graceful stop was not part of the drill. Not done: the same with
 the Docker images, or with a real team's data and users.
+
+### Version 0.5.1
+
+0.5.1 answers the two advisories `npm audit` reported for 0.5.0:
+
+- body-parser 2.3.0 is now 2.4.0 (GHSA-27r3-jxmh-p828, high). A compressed request body
+  followed by trailing bytes could crash the process. Crumb parses JSON bodies with the
+  default options, before any session or route check, so it counted as affected. On the
+  computer under "Environment", seven such requests (gzip, deflate and br bodies, with the
+  trailing bytes in the same write or 600 ms later, and a second gzip member) did not crash
+  0.5.0. That does not show the image, which runs another Node.js on Linux, to be safe, so the
+  dependency was updated.
+- qs 6.16.0 is now 6.17.1 (GHSA-6pq8-jhm2-2vcw, moderate). The flaw is in `qs.stringify`
+  with the comma array format, which neither Crumb nor Express 5 calls: Express parses
+  queries with its simple parser, and Crumb reads no URL-encoded bodies. It came with
+  body-parser's range.
+- Compressed request bodies are refused (415, the existing generic error) before anything
+  decompresses them, by the JSON parser and by the logo upload: Crumb's pages never
+  compress what they send.
+
+Only `package-lock.json` changes for the two packages, within the ranges Express 5.2.1 asks
+for, and `npm audit` reports no vulnerabilities. The version is 0.5.1 in `package.json` and
+`package-lock.json`, and the README screenshots were retaken for the footer. Checked on
+2026-11-06 on the branch `fix/dependency-advisories`, on the computer under "Environment":
+`npm test` 352 tests, 350 passed and 2 skipped (file permissions); Playwright 245 of 245 in
+Chromium. Both CI jobs passed on the pull request's last code commit `bbfb136`.
 
 ### Version 0.4.1
 
@@ -517,7 +546,9 @@ For 0.5.0 both jobs passed on the pull request's last commit, `0680fe2`
 ([run 41811979611](https://github.com/bellaaaaxu/crumb/actions/runs/41811979611), image
 20261025.353.1): `npm test` 351 of 351 with none skipped, the three theme lists current, the
 process drill passed, Playwright 245 passed, and the container drill passed. The run on the
-merge commit comes after merging.
+merge commit `3853bb4` on `main` passed too ([run 41946272116](https://github.com/bellaaaaxu/crumb/actions/runs/41946272116)).
+
+For 0.5.1 both jobs passed on the pull request's last code commit, `bbfb136` ([run 42188754242](https://github.com/bellaaaaxu/crumb/actions/runs/42188754242)): the tests on Linux with none skipped, the three theme lists current, the process drill, Playwright, and the container drill. That was the run's second attempt. In its first, one browser test, `tests/e2e/theme-colours.spec.mjs` ("the browser reads the page no further than early-theme.js until it has run…"), timed out: once the script it holds back was released, five of the module files the page asked for at the same moment never got an answer, so the page stayed on "Loading Crumb…". Those files are served unchanged in this version, the test passed when the job ran again, and it had passed in every earlier run; what makes it stall was not found.
 
 ## What the tests cover
 
@@ -912,8 +943,9 @@ password screening.
 - **The usage-note round on real phones and in other browsers:** the usage note card and the
   treat rows' button were checked in Chromium only, at phone and laptop sizes; not on a real
   iPhone or Android phone, not in Firefox or Safari, and not with a real screen reader.
-- **The two advisories `npm audit` reports** (body-parser and qs, through Express 5): whether
-  either reaches Crumb was not checked.
+- **The advisory fixed in 0.5.1 on the image:** the crash GHSA-27r3-jxmh-p828 describes was
+  not reproduced with 0.5.0 on one Windows computer, and the image was not tried, so whether
+  0.5.0 could be crashed that way was not shown either way (see "Version 0.5.1").
 
 ## Known limits
 
