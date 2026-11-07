@@ -1,4 +1,4 @@
-# Release checklist — Crumb 0.5.0
+# Release checklist — Crumb 0.5.1
 
 One row for each requirement of
 [the design behind 0.1](superpowers/specs/2026-09-27-crumb-self-hosted-design.md) and each
@@ -232,7 +232,21 @@ container drill (VALIDATION.md, "Results in CI").
 | How the note and the treat rows look | Reviewed by eye | Screenshots taken from the branch's code before its documents and version changed, and a demo of it served on this computer with a usage note set, shown to the maintainer on 2026-10-23 and approved on 2026-11-04, together with the sentence shown when a note is too long |
 | Version 0.5.0 | Passed | `tests/docs.test.mjs` (the lock file and both READMEs follow `package.json`, and both READMEs link the upgrade section of every release), `tests/auth.test.mjs` (the session reports it), in the run above. The footer reads "Crumb 0.5.0 is open-source software (MIT)." in the README's member screenshot and on the member page in the upgrade drill |
 | Documents | Partly | Automated: `tests/docs.test.mjs` (local links resolve, every README image exists and has an alt text) and `tests/source.test.mjs` (no invisible characters). Not automated: what README (EN/ZH) and OPERATIONS.md say; their new sentences were shown to the maintainer and approved before they were committed |
-| CI and the container drill for this round | Passed | Both jobs passed on the pull request's last commit `0680fe2`: the tests on Linux with none skipped, and the container drill (VALIDATION.md, "Results in CI"). On the merge commit: after merging |
+| CI and the container drill for this round | Passed | Both jobs passed on the pull request's last commit `0680fe2`: the tests on Linux with none skipped, and the container drill (VALIDATION.md, "Results in CI"). Both passed again on the merge commit `3853bb4` on `main` |
+
+## Version 0.5.1
+
+Checked on 2026-11-06 on the branch `fix/dependency-advisories`, on one Windows computer, in
+Chromium only (`npm test` 350 passed and 2 skipped of 352, browser tests 245 of 245), and in
+CI on its pull request (`bbfb136`).
+
+| Requirement | Status | Evidence |
+| --- | --- | --- |
+| body-parser and qs past GHSA-27r3-jxmh-p828 and GHSA-6pq8-jhm2-2vcw | Passed | `npm ls` shows body-parser 2.4.0 and qs 6.17.1; `npm audit` reports no vulnerabilities; only `package-lock.json` changed for them |
+| Compressed request bodies refused before they are read | Passed | `tests/api.test.mjs` (gzip, deflate and br bodies refused with 415 and nothing changed; the same request uncompressed works; the logo upload refuses a compressed body; a gzip body with trailing bytes, signed out, is refused and the server keeps answering) |
+| The crash of GHSA-27r3-jxmh-p828 on 0.5.0 | **Not verified** | Seven crafted requests did not crash 0.5.0 on one Windows computer (VALIDATION.md, "Version 0.5.1"); the image was not tried |
+| Version 0.5.1 | Passed | `tests/docs.test.mjs`, `tests/auth.test.mjs`. The footer in the README screenshots retaken by `scripts/screenshots.mjs` reads "Crumb 0.5.1 is open-source software (MIT)." |
+| CI for this version | Passed | Both jobs passed on the pull request's last code commit `bbfb136`, on the run's second attempt: the tests on Linux with none skipped, and the container drill. In the first attempt one browser test timed out with files the page asked for never answered (VALIDATION.md, "Results in CI") |
 
 ## Before calling this version ready for real benefits
 
@@ -283,7 +297,7 @@ container drill (VALIDATION.md, "Results in CI").
       unchanged, then go back to the 0.3 image with a Pastry shop or Bakery team.
 - [x] The usage-note round: push the branch, open a pull request, get both CI jobs green (the
       tests on Linux and the container drill), and record that run in VALIDATION.md (green on
-      `0680fe2`; the run on the merge commit comes after merging).
+      `0680fe2` and on the merge commit `3853bb4`).
 - [ ] Upgrade a copy of a real instance of 0.4 (invented data) with the 0.5 image, as
       OPERATIONS.md describes, check that its team, balances, collections and settings are
       unchanged and its usage note empty, then go back to the 0.4 image by restoring the

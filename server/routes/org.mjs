@@ -19,7 +19,8 @@ export function orgRoutes({ db, clock }) {
     res.json(updateOrg(db, req.actor, req.body, clock));
   });
 
-  router.put('/org/logo', ownerOnly, express.raw({ type: IMAGE_TYPES, limit: '1mb' }), async (req, res) => {
+  // Uncompressed only, as for every body (see the JSON parser in server/app.mjs).
+  router.put('/org/logo', ownerOnly, express.raw({ type: IMAGE_TYPES, limit: '1mb', inflate: false }), async (req, res) => {
     if (!Buffer.isBuffer(req.body))
       throw new AppError(415, 'UNSUPPORTED_MEDIA_TYPE', 'Upload the logo as image/png, image/jpeg or image/webp.');
     const png = await normalizeLogo(req.body);
